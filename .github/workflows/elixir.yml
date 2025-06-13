@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <#@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
 name: Elixir tests
 on:
@@ -24,7 +26,7 @@ env:
 jobs:
   deps:
     name: Fetch deps
-    runs-on: u22-arm-runner
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +48,7 @@ jobs:
 
   format:
     name: Formatting checks
-    runs-on: u22-arm-runner
+    runs-on: ubuntu-latest
     needs: [deps]
 
     steps:
@@ -67,7 +69,7 @@ jobs:
 
   credo:
     name: Code style
-    runs-on: u22-arm-runner
+    runs-on: ubuntu-latest
     needs: [deps]
 
     steps:
@@ -95,7 +97,7 @@ jobs:
 
   tests:
     name: Run tests
-    runs-on: u22-arm-runner
+    runs-on: ubuntu-latest
     needs: [deps]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -146,7 +148,7 @@ jobs:
 
   integration:
     name: Run integration tests
-    runs-on: u22-arm-runner
+    runs-on: ubuntu-latest
     needs: [deps]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -214,7 +216,7 @@ jobs:
 
   dialyzer:
     name: Dialyze
-    runs-on: u22-arm-runner
+    runs-on: ubuntu-latest
     needs: [deps]
 
     steps:
