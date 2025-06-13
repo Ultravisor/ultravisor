@@ -245,15 +245,3 @@ end
 
 config :logger,
   backends: [:console]
-
-if System.get_env("LOGS_ENGINE") == "logflare" do
-  if !System.get_env("LOGFLARE_API_KEY") or !System.get_env("LOGFLARE_SOURCE_ID") do
-    raise """
-    Environment variable LOGFLARE_API_KEY or LOGFLARE_SOURCE_ID is missing.
-    Check those variables or choose another LOGS_ENGINE.
-    """
-  end
-
-  config :logger,
-    backends: [LogflareLogger.HttpBackend]
-end

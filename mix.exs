@@ -67,7 +67,6 @@ defmodule Ultravisor.MixProject do
       {:prom_ex, "~> 1.10"},
       {:open_api_spex, "~> 3.16"},
       {:libcluster, "~> 3.5"},
-      {:logflare_logger_backend, github: "Logflare/logflare_logger_backend", tag: "v0.11.4"},
       {:distillery, "~> 2.1"},
       {:cachex, "~> 3.6"},
       {:inet_cidr, "~> 1.0.0"},
