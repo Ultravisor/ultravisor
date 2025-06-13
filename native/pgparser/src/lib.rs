@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #[rustler::nif]
 fn statement_types(query: &str) -> Result<Vec<String>, String> {
     let result = pg_query::parse(query).map_err(|_| "Error parsing query")?;

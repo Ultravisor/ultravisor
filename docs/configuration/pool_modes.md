@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 Configure the `mode_type` on the `user` to set how Supavisor connection pools
 will behave.
 

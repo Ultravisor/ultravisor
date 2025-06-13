@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 defmodule Supavisor.Monitoring.PromEx do
   @moduledoc """
   This module configures the PromEx application for Supavisor. It defines

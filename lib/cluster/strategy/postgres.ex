@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 defmodule Cluster.Strategy.Postgres do
   @moduledoc """
   A libcluster strategy that uses Postgres LISTEN/NOTIFY to determine the cluster topology.

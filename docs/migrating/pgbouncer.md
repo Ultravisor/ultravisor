@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 Migrating from PgBouncer is straight forward once a Supavisor cluster is setup
 and a database has been added as a `tenant`.
 

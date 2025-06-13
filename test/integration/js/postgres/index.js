@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { t, nt, ot } from './test.js' // eslint-disable-line
 import net from 'node:net'
 import fs from 'node:fs'

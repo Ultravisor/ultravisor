@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 help:
 	@make -qpRr | egrep -e '^[a-z].*:$$' | sed -e 's~:~~g' | sort
 

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import Config
 
 # For production, don't forget to configure the url host

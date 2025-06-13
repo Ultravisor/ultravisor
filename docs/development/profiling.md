@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 Profiling of the Supabase can be done using [eFlambé][eflambe] project.
 
 Example profiling session looks like:

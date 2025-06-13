@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 {:ok, _} = Node.start(:"primary@127.0.0.1", :longnames)
 
 Cachex.start_link(name: Supavisor.Cache)

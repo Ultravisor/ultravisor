@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 alias Supavisor.Tenants
 alias Supavisor.Repo
 import Ecto.Adapters.SQL, only: [query: 3]

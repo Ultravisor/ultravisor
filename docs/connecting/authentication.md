@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 When a client connection is established Supavisor needs to verify the
 credentials of the connection.
 

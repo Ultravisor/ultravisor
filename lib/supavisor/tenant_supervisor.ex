@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 defmodule Supavisor.TenantSupervisor do
   @moduledoc false
   use Supervisor

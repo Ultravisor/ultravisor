@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 defmodule Supavisor.PromEx.Plugins.Tenant do
   @moduledoc "This module defines the PromEx plugin for Supavisor tenants."
 

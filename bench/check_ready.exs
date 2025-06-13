@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 alias Supavisor.DbHandler, as: Db
 
 long = <<51, 0, 0, 0, 4, 90, 0, 0, 0, 5, 84>>

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 defmodule Supavisor.ClientHandler do
   @moduledoc """
   This module is responsible for handling incoming connections to the Supavisor server. It is

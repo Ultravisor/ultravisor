@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 The `toml.yaml` file should be in the `deploy/fly` directory of Supavisor.
 
 Type the following command in your terminal:

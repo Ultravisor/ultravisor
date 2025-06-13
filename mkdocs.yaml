@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 site_name: supavisor
 site_url: https://supabase.github.io/supavisor
 site_description: A cloud native multi-tenant connection pooler for Postgres

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Script for populating the database. You can run it as:
 #
 #     mix run priv/repo/seeds.exs

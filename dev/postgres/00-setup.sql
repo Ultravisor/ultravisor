@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+--
+-- SPDX-License-Identifier: Apache-2.0
+
 create role anon          nologin noinherit;
 create role authenticated nologin noinherit;
 create role service_role  nologin noinherit bypassrls;

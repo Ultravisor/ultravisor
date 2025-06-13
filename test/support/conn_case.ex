@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 defmodule SupavisorWeb.ConnCase do
   @moduledoc """
   This module defines the test case to be used by

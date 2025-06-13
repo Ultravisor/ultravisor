@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 /* eslint no-console: 0 */
 
 import util from 'node:util'
