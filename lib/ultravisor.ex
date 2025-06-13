@@ -8,6 +8,7 @@ defmodule Ultravisor do
   @moduledoc false
 
   require Logger
+  require Record
 
   alias Ultravisor.{
     Helpers,
@@ -21,11 +22,67 @@ defmodule Ultravisor do
   @type workers :: %{manager: pid, pool: pid}
   @type secrets :: {:password | :auth_query, fun()}
   @type mode :: :transaction | :session | :native | :proxy
-  @type id :: {{:single | :cluster, String.t()}, String.t(), mode, String.t(), String.t() | nil}
   @type subscribe_opts :: %{workers: workers, ps: list, idle_timeout: integer}
 
   @registry Ultravisor.Registry.Tenants
   @max_pools Application.compile_env(:ultravisor, :max_pools, 20)
+
+  Record.defrecord(:conn_id,
+    type: :single,
+    tenant: nil,
+    user: nil,
+    mode: :transaction,
+    db_name: nil,
+    search_path: nil
+  )
+
+  @type id ::
+          record(:conn_id,
+            type: :single | :cluster,
+            tenant: String.t(),
+            user: String.t(),
+            mode: mode(),
+            db_name: String.t(),
+            search_path: String.t() | nil
+          )
+
+  def conn_id_to_map(
+        conn_id(
+          type: type,
+          tenant: tenant,
+          user: user,
+          mode: mode,
+          db_name: db_name,
+          search_path: search_path
+        )
+      ) do
+    %{
+      type: type,
+      tenant: tenant,
+      user: user,
+      mode: mode,
+      db_name: db_name,
+      search_path: search_path
+    }
+  end
+
+  def map_to_conn_id(%{
+        type: type,
+        tenant: tenant,
+        user: user,
+        mode: mode,
+        db_name: db_name,
+        search_path: search_path
+      }) do
+    conn_id(
+      type: type,
+      tenant: tenant,
+      user: user,
+      mode: mode,
+      db_name: db_name,
+      search_path: search_path
+    )
+  end
 
   @spec start_dist(id, secrets, keyword()) :: {:ok, pid()} | {:error, any()}
   def start_dist(id, secrets, options \\ []) do
@@ -228,28 +285,14 @@ defmodule Ultravisor do
     end
   end
 
-  @spec id({:single | :cluster, String.t()}, String.t(), mode, mode, String.t(), String.t() | nil) ::
-          id
-  def id(tenant, user, port_mode, user_mode, db_name, search_path) do
-    # temporary hack
-    mode =
-      if port_mode == :transaction do
-        user_mode
-      else
-        port_mode
-      end
-
-    {tenant, user, mode, db_name, search_path}
-  end
-
   @spec tenant(id) :: String.t()
-  def tenant({{_, tenant}, _, _, _, _}), do: tenant
+  def tenant(conn_id(tenant: tenant)), do: tenant
 
-  @spec mode(id) :: atom()
-  def mode({_, _, mode, _, _}), do: mode
+  @spec mode(id()) :: atom()
+  def mode(conn_id(mode: mode)), do: mode
 
   @spec search_path(id) :: String.t() | nil
-  def search_path({_, _, _, _, search_path}), do: search_path
+  def search_path(conn_id(search_path: path)), do: path
 
   @spec determine_node(id, String.t() | nil) :: Node.t()
   def determine_node(id, availability_zone) do
@@ -283,11 +326,9 @@ defmodule Ultravisor do
   end
 
   @spec start_local_pool(id, secrets, atom()) :: {:ok, pid} | {:error, any}
-  def start_local_pool(
-        {{type, tenant}, _user, _mode, _db_name, _search_path} = id,
-        secrets,
-        log_level \\ nil
-      ) do
+  def start_local_pool(id, secrets, log_level \\ nil)
+
+  def start_local_pool(conn_id(tenant: tenant, type: type) = id, secrets, log_level) do
     Logger.info("Starting pool(s) for #{inspect(id)}")
 
     user = elem(secrets, 1).().alias
@@ -330,7 +371,7 @@ defmodule Ultravisor do
 
   defp supervisor_args(
          tenant_record,
-         {tenant, user, mode, db_name, _search_path} = id,
+         conn_id(type: type, tenant: tenant, user: user, mode: mode, db_name: db_name) = id,
          {method, secrets},
          log_level
        ) do
@@ -386,7 +427,7 @@ defmodule Ultravisor do
 
     %{
       id: id,
-      tenant: tenant,
+      tenant: {type, tenant},
       replica_type: replica_type,
       user: user,
       auth: auth,

@@ -9,10 +9,12 @@ defmodule Ultravisor.SynHandlerTest do
 
   require Logger
 
+  import Ultravisor, only: [conn_id: 1]
+
   alias Ecto.Adapters.SQL.Sandbox
   alias Ultravisor.Support.Cluster
 
-  @id {{:single, "syn_tenant"}, "postgres", :session, "postgres", nil}
+  @id conn_id(tenant: "syn_tenant", user: "postgres", mode: :session, db_name: "postgres")
 
   @tag cluster: true
   test "resolving conflict" do

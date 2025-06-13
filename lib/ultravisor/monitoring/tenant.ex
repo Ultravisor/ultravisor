@@ -10,8 +10,6 @@ defmodule Ultravisor.PromEx.Plugins.Tenant do
   use PromEx.Plugin
   require Logger
 
-  alias Ultravisor, as: S
-
   @tags [:tenant, :user, :mode, :type, :db_name, :search_path]
 
   @impl true
@@ -212,19 +210,12 @@ defmodule Ultravisor.PromEx.Plugins.Tenant do
     |> Enum.each(&emit_telemetry_for_tenant/1)
   end
 
-  @spec emit_telemetry_for_tenant({S.id(), non_neg_integer()}) :: :ok
-  def emit_telemetry_for_tenant({{{type, tenant}, user, mode, db_name, search_path}, count}) do
+  @spec emit_telemetry_for_tenant({Ultravisor.id(), non_neg_integer()}) :: :ok
+  def emit_telemetry_for_tenant({id, count}) do
     :telemetry.execute(
       [:ultravisor, :connections],
       %{active: count},
-      %{
-        tenant: tenant,
-        user: user,
-        mode: mode,
-        type: type,
-        db_name: db_name,
-        search_path: search_path
-      }
+      Ultravisor.conn_id_to_map(id)
     )
   end
 
@@ -251,19 +242,12 @@ defmodule Ultravisor.PromEx.Plugins.Tenant do
     |> Enum.each(&emit_proxy_telemetry_for_tenant/1)
   end
 
-  @spec emit_proxy_telemetry_for_tenant({S.id(), non_neg_integer()}) :: :ok
-  def emit_proxy_telemetry_for_tenant({{{type, tenant}, user, mode, db_name, search_path}, count}) do
+  @spec emit_proxy_telemetry_for_tenant({Ultravisor.id(), non_neg_integer()}) :: :ok
+  def emit_proxy_telemetry_for_tenant({id, count}) do
     :telemetry.execute(
       [:ultravisor, :proxy, :connections],
       %{active: count},
-      %{
-        tenant: tenant,
-        user: user,
-        mode: mode,
-        type: type,
-        db_name: db_name,
-        search_path: search_path
-      }
+      Ultravisor.conn_id_to_map(id)
     )
   end
 

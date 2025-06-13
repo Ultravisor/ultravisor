@@ -11,6 +11,8 @@ defmodule Ultravisor.E2ECase do
 
   use ExUnit.CaseTemplate
 
+  import Ultravisor, only: [conn_id: 1]
+
   @repo Ultravisor.Repo
 
   using do
@@ -65,8 +67,15 @@ defmodule Ultravisor.E2ECase do
              })
 
     on_exit(fn ->
-      _ = Ultravisor.stop({{:single, external_id}, "postgres", :session, external_id, nil})
-      _ = Ultravisor.stop({{:single, external_id}, "postgres", :transaction, external_id, nil})
+      _ =
+        Ultravisor.stop(
+          conn_id(tenant: external_id, user: "postgres", mode: :session, db_name: external_id)
+        )
+
+      _ =
+        Ultravisor.stop(
+          conn_id(tenant: external_id, user: "postgres", mode: :transaction, db_name: external_id)
+        )
 
       unboxed(fn ->
         assert {:ok, _} = @repo.query("DROP DATABASE #{external_id}")

@@ -9,6 +9,9 @@ defmodule Ultravisor.TenantSupervisor do
   use Supervisor
 
   require Logger
+
+  import Ultravisor, only: [conn_id: 1]
+
   alias Ultravisor.Manager
   alias Ultravisor.SecretChecker
 
@@ -42,7 +45,15 @@ defmodule Ultravisor.TenantSupervisor do
 
     children = [{Manager, args}, {SecretChecker, args} | pools]
 
-    {{type, tenant}, user, mode, db_name, search_path} = args.id
+    conn_id(
+      type: type,
+      tenant: tenant,
+      user: user,
+      mode: mode,
+      db_name: db_name,
+      search_path: search_path
+    ) = args.id
+
     map_id = %{user: user, mode: mode, type: type, db_name: db_name, search_path: search_path}
     Registry.register(Ultravisor.Registry.TenantSups, tenant, map_id)
 

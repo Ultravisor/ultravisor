@@ -7,10 +7,11 @@
 defmodule Ultravisor.DbHandlerTest do
   use ExUnit.Case, async: true
 
+  import Ultravisor, only: [conn_id: 1]
+
   alias Ultravisor.DbHandler, as: Db
 
-  # import Mock
-  @id {{:single, "tenant"}, "user", :transaction, "postgres", nil}
+  @id conn_id(tenant: "tenant", user: "user", db_name: "postgres")
 
   defp sockpair do
     {:ok, listen} = :gen_tcp.listen(0, mode: :binary, active: false)

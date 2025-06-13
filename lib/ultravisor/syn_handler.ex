@@ -13,10 +13,12 @@ defmodule Ultravisor.SynHandler do
 
   require Logger
 
+  import Ultravisor, only: [conn_id: 1]
+
   @impl true
   def on_process_unregistered(
         :tenants,
-        {{type, tenant}, user, mode, db_name, _search_path} = id,
+        conn_id(type: type, tenant: tenant, user: user, mode: mode, db_name: db_name) = id,
         _pid,
         meta,
         reason

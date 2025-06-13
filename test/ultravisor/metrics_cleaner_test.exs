@@ -7,6 +7,8 @@
 defmodule Ultravisor.MetricsCleanerTest do
   use ExUnit.Case, async: false
 
+  import Ultravisor, only: [conn_id: 1]
+
   alias Ultravisor.Monitoring.PromEx
   alias Ultravisor.PromEx.Plugins.Tenant, as: Metrics
 
@@ -27,10 +29,10 @@ defmodule Ultravisor.MetricsCleanerTest do
   end
 
   test "metrics for unknown tenant are removed" do
+    id = conn_id(tenant: "non-existent", user: "foo", db_name: "bar")
+
     :ok =
-      Metrics.emit_telemetry_for_tenant(
-        {{{:single, "non-existent"}, "foo", :transaction, "bar", nil}, 2137}
-      )
+      Metrics.emit_telemetry_for_tenant({id, 2137})
 
     metrics = PromEx.get_metrics()
 
