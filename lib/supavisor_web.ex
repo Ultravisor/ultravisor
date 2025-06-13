@@ -1,16 +1,18 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb do
+defmodule UltravisorWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
   as controllers, views, channels and so on.
 
   This can be used in your application as:
 
-      use SupavisorWeb, :controller
-      use SupavisorWeb, :view
+      use UltravisorWeb, :controller
+      use UltravisorWeb, :view
 
   The definitions below will be executed for every view,
   controller, etc, so keep them short and clean, focused
@@ -23,23 +25,23 @@ defmodule SupavisorWeb do
 
   def controller do
     quote do
-      use Phoenix.Controller, namespace: SupavisorWeb
+      use Phoenix.Controller, namespace: UltravisorWeb
 
       import Plug.Conn
-      alias SupavisorWeb.Router.Helpers, as: Routes
+      alias UltravisorWeb.Router.Helpers, as: Routes
     end
   end
 
   def view do
     quote do
       use Phoenix.View,
-        root: "lib/supavisor_web/templates",
-        namespace: SupavisorWeb
+        root: "lib/ultravisor_web/templates",
+        namespace: UltravisorWeb
 
       # Import basic rendering functionality (render, render_layout, etc)
       import Phoenix.View
 
-      import SupavisorWeb.ErrorHelpers
+      import UltravisorWeb.ErrorHelpers
     end
   end
 

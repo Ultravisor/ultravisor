@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
 version: "3"
 
 services:
   db:
     image: supabase/postgres:14.1.0.106
-    container_name: supavisor-db
+    container_name: ultravisor-db
     ports:
       - "6432:5432"
     volumes:

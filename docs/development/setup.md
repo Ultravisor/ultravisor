@@ -1,16 +1,18 @@
 <!--
 SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 
 SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: EUPL-1.2
 -->
 
-Launch the Supavisor application:
+Launch the Ultravisor application:
 
 ```
 make dev
 ```
 
-Start the Supavisor database to store tenant information:
+Start the Ultravisor database to store tenant information:
 
 ```
 make db_start && make db_migrate
@@ -48,7 +50,7 @@ curl  -X PUT \
 }'
 ```
 
-Now, it's possible to connect through the proxy. By default, Supavisor uses port
+Now, it's possible to connect through the proxy. By default, Ultravisor uses port
 `6543` for transaction mode and `5432` for session mode:
 
 ```

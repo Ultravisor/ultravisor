@@ -1,18 +1,20 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.MetricsCleanerTest do
+defmodule Ultravisor.MetricsCleanerTest do
   use ExUnit.Case, async: false
 
-  alias Supavisor.PromEx.Plugins.Tenant, as: Metrics
+  alias Ultravisor.PromEx.Plugins.Tenant, as: Metrics
 
-  @subject Supavisor.MetricsCleaner
+  @subject Ultravisor.MetricsCleaner
 
   doctest @subject
 
   setup ctx do
-    :telemetry.attach(ctx, [:supavisor, :metrics_cleaner, :stop], &__MODULE__.handler/4, %{
+    :telemetry.attach(ctx, [:ultravisor, :metrics_cleaner, :stop], &__MODULE__.handler/4, %{
       parent: self()
     })
 
@@ -29,7 +31,7 @@ defmodule Supavisor.MetricsCleanerTest do
         {{{:single, "non-existent"}, "foo", :transaction, "bar", nil}, 2137}
       )
 
-    metrics = Supavisor.Monitoring.PromEx.get_metrics()
+    metrics = Ultravisor.Monitoring.PromEx.get_metrics()
 
     assert IO.iodata_to_binary(metrics) =~ ~r/non-existent/
 
@@ -37,7 +39,7 @@ defmodule Supavisor.MetricsCleanerTest do
 
     assert_receive {:metrics, _}
 
-    metrics = Supavisor.Monitoring.PromEx.get_metrics()
+    metrics = Ultravisor.Monitoring.PromEx.get_metrics()
 
     refute IO.iodata_to_binary(metrics) =~ ~r/non-existent/
   end

@@ -1,14 +1,16 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Logger.Filters do
+defmodule Ultravisor.Logger.Filters do
   @moduledoc """
   Useful logger filters.
   """
 
   @doc """
-  Log events that are fired by `Supavisor.ClientHandler` only when the module
+  Log events that are fired by `Ultravisor.ClientHandler` only when the module
   state is equal to `state`.
   """
   @spec filter_client_handler(:logger.log_event(), atom()) :: :logger.filter_return()
@@ -16,7 +18,7 @@ defmodule Supavisor.Logger.Filters do
     %{meta: meta} = log_event
 
     case meta do
-      %{mfa: {Supavisor.ClientHandler, _, _}, state: ^state} ->
+      %{mfa: {Ultravisor.ClientHandler, _, _}, state: ^state} ->
         log_event
 
       _ ->

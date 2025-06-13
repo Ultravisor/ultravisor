@@ -1,18 +1,20 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.DbHandler do
+defmodule Ultravisor.DbHandler do
   @moduledoc """
   This module contains functions to start a link with the database, send requests to the database, and handle incoming messages from clients.
-  It uses the Supavisor.Protocol.Server module to decode messages from the database and sends messages to clients Supavisor.ClientHandler.
+  It uses the Ultravisor.Protocol.Server module to decode messages from the database and sends messages to clients Ultravisor.ClientHandler.
   """
 
   require Logger
 
   @behaviour :gen_statem
 
-  alias Supavisor.{
+  alias Ultravisor.{
     ClientHandler,
     HandlerHelpers,
     Helpers,
@@ -26,8 +28,8 @@ defmodule Supavisor.DbHandler do
   @reconnect_timeout_proxy 500
   @sock_closed [:tcp_closed, :ssl_closed]
   @proto [:tcp, :ssl]
-  @switch_active_count Application.compile_env(:supavisor, :switch_active_count)
-  @reconnect_retries Application.compile_env(:supavisor, :reconnect_retries)
+  @switch_active_count Application.compile_env(:ultravisor, :switch_active_count)
+  @reconnect_retries Application.compile_env(:ultravisor, :reconnect_retries)
 
   def start_link(config),
     do: :gen_statem.start_link(__MODULE__, config, hibernate_after: 5_000)
@@ -38,7 +40,7 @@ defmodule Supavisor.DbHandler do
   @spec checkin(pid()) :: :ok
   def checkin(pid), do: :gen_statem.cast(pid, :checkin)
 
-  @spec get_state_and_mode(pid()) :: {:ok, {state, Supavisor.mode()}} | {:error, term()}
+  @spec get_state_and_mode(pid()) :: {:ok, {state, Ultravisor.mode()}} | {:error, term()}
   def get_state_and_mode(pid) do
     {:ok, :gen_statem.call(pid, :get_state_and_mode, 5_000)}
   catch
@@ -127,8 +129,8 @@ defmodule Supavisor.DbHandler do
 
         case try_ssl_handshake({:gen_tcp, sock}, auth) do
           {:ok, sock} ->
-            tenant = if data.proxy, do: Supavisor.tenant(data.id)
-            search_path = Supavisor.search_path(data.id)
+            tenant = if data.proxy, do: Ultravisor.tenant(data.id)
+            search_path = Ultravisor.search_path(data.id)
 
             case send_startup(sock, auth, tenant, search_path) do
               :ok ->
@@ -206,7 +208,7 @@ defmodule Supavisor.DbHandler do
           bin_ps = Server.encode_parameter_status(ps)
           send(data.caller, {:parameter_status, bin_ps})
         else
-          Supavisor.set_parameter_status(data.id, ps)
+          Ultravisor.set_parameter_status(data.id, ps)
         end
 
         {:next_state, :idle, %{data | parameter_status: ps, reconnect_retries: 0},
@@ -362,7 +364,7 @@ defmodule Supavisor.DbHandler do
   def handle_event(_, {closed, _}, state, data) when closed in @sock_closed do
     Logger.error("DbHandler: Connection closed when state was #{state}")
 
-    if Application.get_env(:supavisor, :reconnect_on_db_close),
+    if Application.get_env(:ultravisor, :reconnect_on_db_close),
       do: {:next_state, :connect, data, {:state_timeout, reconnect_timeout(data), :connect}},
       else: {:stop, {:shutdown, :db_termination}, data}
   end
@@ -425,7 +427,7 @@ defmodule Supavisor.DbHandler do
     )
   end
 
-  @spec try_ssl_handshake(Supavisor.tcp_sock(), map) :: {:ok, Supavisor.sock()} | {:error, term()}
+  @spec try_ssl_handshake(Ultravisor.tcp_sock(), map) :: {:ok, Ultravisor.sock()} | {:error, term()}
   defp try_ssl_handshake(sock, %{upstream_ssl: true} = auth) do
     case sock_send(sock, Server.ssl_request()) do
       :ok -> ssl_recv(sock, auth)
@@ -435,7 +437,7 @@ defmodule Supavisor.DbHandler do
 
   defp try_ssl_handshake(sock, _), do: {:ok, sock}
 
-  @spec ssl_recv(Supavisor.tcp_sock(), map) :: {:ok, Supavisor.ssl_sock()} | {:error, term}
+  @spec ssl_recv(Ultravisor.tcp_sock(), map) :: {:ok, Ultravisor.ssl_sock()} | {:error, term}
   defp ssl_recv({:gen_tcp, sock} = s, auth) do
     case :gen_tcp.recv(sock, 1, 15_000) do
       {:ok, <<?S>>} -> ssl_connect(s, auth)
@@ -444,8 +446,8 @@ defmodule Supavisor.DbHandler do
     end
   end
 
-  @spec ssl_connect(Supavisor.tcp_sock(), map, pos_integer) ::
-          {:ok, Supavisor.ssl_sock()} | {:error, term}
+  @spec ssl_connect(Ultravisor.tcp_sock(), map, pos_integer) ::
+          {:ok, Ultravisor.ssl_sock()} | {:error, term}
   defp ssl_connect({:gen_tcp, sock}, auth, timeout \\ 5000) do
     opts =
       case auth.upstream_verify do
@@ -471,7 +473,7 @@ defmodule Supavisor.DbHandler do
     end
   end
 
-  @spec send_startup(Supavisor.sock(), map(), String.t() | nil, String.t() | nil) ::
+  @spec send_startup(Ultravisor.sock(), map(), String.t() | nil, String.t() | nil) ::
           :ok | {:error, term}
   def send_startup(sock, auth, tenant, search_path) do
     user =
@@ -489,12 +491,12 @@ defmodule Supavisor.DbHandler do
     sock_send(sock, msg)
   end
 
-  @spec sock_send(Supavisor.sock(), iodata) :: :ok | {:error, term}
+  @spec sock_send(Ultravisor.sock(), iodata) :: :ok | {:error, term}
   defp sock_send({mod, sock}, data) do
     mod.send(sock, data)
   end
 
-  @spec activate(Supavisor.sock()) :: :ok | {:error, term}
+  @spec activate(Ultravisor.sock()) :: :ok | {:error, term}
   defp activate({:gen_tcp, sock}) do
     :inet.setopts(sock, active: true)
   end
@@ -557,7 +559,7 @@ defmodule Supavisor.DbHandler do
   defp handle_auth_pkts(%{tag: :backend_key_data, payload: payload}, acc, data) do
     key = self()
     conn = %{host: data.auth.host, port: data.auth.port, ip_ver: data.auth.ip_version}
-    Registry.register(Supavisor.Registry.PoolPids, key, Map.merge(payload, conn))
+    Registry.register(Ultravisor.Registry.PoolPids, key, Map.merge(payload, conn))
     Logger.debug("DbHandler: Backend #{inspect(key)} data: #{inspect(payload)}")
     Map.put(acc, :backend_key_data, payload)
   end
@@ -675,19 +677,19 @@ defmodule Supavisor.DbHandler do
 
   @spec handle_authentication_error(map(), String.t()) :: any()
   defp handle_authentication_error(%{proxy: false} = data, reason) do
-    tenant = Supavisor.tenant(data.id)
+    tenant = Ultravisor.tenant(data.id)
 
     :erpc.multicast([node() | Node.list()], fn ->
-      Cachex.del(Supavisor.Cache, {:secrets, tenant, data.user})
-      Cachex.del(Supavisor.Cache, {:secrets_check, tenant, data.user})
+      Cachex.del(Ultravisor.Cache, {:secrets, tenant, data.user})
+      Cachex.del(Ultravisor.Cache, {:secrets_check, tenant, data.user})
 
-      Registry.dispatch(Supavisor.Registry.TenantClients, data.id, fn entries ->
+      Registry.dispatch(Ultravisor.Registry.TenantClients, data.id, fn entries ->
         for {client_handler, _meta} <- entries,
             do: send(client_handler, {:disconnect, reason})
       end)
     end)
 
-    Supavisor.stop(data.id)
+    Ultravisor.stop(data.id)
   end
 
   defp handle_authentication_error(%{proxy: true}, _reason), do: :ok

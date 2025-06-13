@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.ChangesetJSON do
+defmodule UltravisorWeb.ChangesetJSON do
   @doc """
   Renders changeset errors.
   """
@@ -17,9 +19,9 @@ defmodule SupavisorWeb.ChangesetJSON do
     # uncommenting and adjusting the following code:
 
     # if count = opts[:count] do
-    #   Gettext.dngettext(SupavisorWeb.Gettext, "errors", msg, msg, count, opts)
+    #   Gettext.dngettext(UltravisorWeb.Gettext, "errors", msg, msg, count, opts)
     # else
-    #   Gettext.dgettext(SupavisorWeb.Gettext, "errors", msg, opts)
+    #   Gettext.dgettext(UltravisorWeb.Gettext, "errors", msg, opts)
     # end
 
     Enum.reduce(opts, msg, fn {key, value}, acc ->

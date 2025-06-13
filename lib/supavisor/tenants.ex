@@ -1,19 +1,21 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Tenants do
+defmodule Ultravisor.Tenants do
   @moduledoc """
   The Tenants context.
   """
 
   import Ecto.Query, warn: false
-  alias Supavisor.Repo
+  alias Ultravisor.Repo
 
-  alias Supavisor.Tenants.Cluster
-  alias Supavisor.Tenants.ClusterTenants
-  alias Supavisor.Tenants.Tenant
-  alias Supavisor.Tenants.User
+  alias Ultravisor.Tenants.Cluster
+  alias Ultravisor.Tenants.ClusterTenants
+  alias Ultravisor.Tenants.Tenant
+  alias Ultravisor.Tenants.User
 
   @doc """
   Returns the list of tenants.
@@ -58,7 +60,7 @@ defmodule Supavisor.Tenants do
   def get_tenant_cache(external_id, sni_hostname) do
     cache_key = {:tenant_cache, external_id, sni_hostname}
 
-    case Cachex.fetch(Supavisor.Cache, cache_key, fn _key ->
+    case Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
            {:commit, {:cached, get_tenant(external_id, sni_hostname)}, ttl: :timer.hours(24)}
          end) do
       {_, {:cached, value}} -> value
@@ -82,7 +84,7 @@ defmodule Supavisor.Tenants do
   def get_user_cache(type, user, external_id, sni_hostname) do
     cache_key = {:user_cache, type, user, external_id, sni_hostname}
 
-    case Cachex.fetch(Supavisor.Cache, cache_key, fn _key ->
+    case Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
            {:commit, {:cached, get_user(type, user, external_id, sni_hostname)},
             ttl: :timer.hours(24)}
          end) do
@@ -149,7 +151,7 @@ defmodule Supavisor.Tenants do
     ttl = if is_nil(ttl), do: :timer.hours(24), else: ttl
     cache_key = {:pool_config_cache, external_id, user}
 
-    case Cachex.fetch(Supavisor.Cache, cache_key, fn _key ->
+    case Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
            {:commit, {:cached, get_pool_config(external_id, user)}, ttl: ttl}
          end) do
       {_, {:cached, value}} -> value
@@ -284,7 +286,7 @@ defmodule Supavisor.Tenants do
     Tenant.changeset(tenant, attrs)
   end
 
-  alias Supavisor.Tenants.User
+  alias Ultravisor.Tenants.User
 
   @doc """
   Returns the list of users.
@@ -386,7 +388,7 @@ defmodule Supavisor.Tenants do
     dynamic([_, t], t.external_id == ^external_id)
   end
 
-  alias Supavisor.Tenants.Cluster
+  alias Ultravisor.Tenants.Cluster
 
   @doc """
   Returns the list of clusters.
@@ -493,7 +495,7 @@ defmodule Supavisor.Tenants do
     Cluster.changeset(cluster, attrs)
   end
 
-  alias Supavisor.Tenants.ClusterTenants
+  alias Ultravisor.Tenants.ClusterTenants
 
   @doc """
   Returns the list of cluster_tenants.

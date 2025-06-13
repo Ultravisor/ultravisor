@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.DataCase do
+defmodule Ultravisor.DataCase do
   @moduledoc """
   This module defines the setup for tests requiring
   access to the application's data layer.
@@ -14,7 +16,7 @@ defmodule Supavisor.DataCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use Supavisor.DataCase, async: true`, although
+  by setting `use Ultravisor.DataCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -24,17 +26,17 @@ defmodule Supavisor.DataCase do
 
   using do
     quote do
-      alias Supavisor.Repo
+      alias Ultravisor.Repo
 
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-      import Supavisor.DataCase
+      import Ultravisor.DataCase
     end
   end
 
   setup tags do
-    Supavisor.DataCase.setup_sandbox(tags)
+    Ultravisor.DataCase.setup_sandbox(tags)
     :ok
   end
 
@@ -42,7 +44,7 @@ defmodule Supavisor.DataCase do
   Sets up the sandbox based on the test tags.
   """
   def setup_sandbox(tags) do
-    pid = Sandbox.start_owner!(Supavisor.Repo, shared: not tags[:async])
+    pid = Sandbox.start_owner!(Ultravisor.Repo, shared: not tags[:async])
     on_exit(fn -> Sandbox.stop_owner(pid) end)
   end
 

@@ -1,17 +1,19 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.ClusterController do
-  use SupavisorWeb, :controller
+defmodule UltravisorWeb.ClusterController do
+  use UltravisorWeb, :controller
 
   require Logger
 
-  alias Supavisor.Repo
-  alias Supavisor.Tenants
-  alias Supavisor.Tenants.Cluster, as: ClusterModel
+  alias Ultravisor.Repo
+  alias Ultravisor.Tenants
+  alias Ultravisor.Tenants.Cluster, as: ClusterModel
 
-  action_fallback(SupavisorWeb.FallbackController)
+  action_fallback(UltravisorWeb.FallbackController)
 
   # def index(conn, _params) do
   #   clusters = Tenants.list_clusters()
@@ -58,7 +60,7 @@ defmodule SupavisorWeb.ClusterController do
 
         with {:ok, %ClusterModel{} = cluster} <-
                Tenants.update_cluster(cluster, params) do
-          result = Supavisor.terminate_global("cluster.#{cluster.alias}")
+          result = Ultravisor.terminate_global("cluster.#{cluster.alias}")
           Logger.warning("Stop #{cluster.alias}: #{inspect(result)}")
           render(conn, "show.json", cluster: cluster)
         end

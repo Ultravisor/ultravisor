@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Monitoring.Telem do
+defmodule Ultravisor.Monitoring.Telem do
   @moduledoc false
 
   require Logger
 
-  @disabled Application.compile_env(:supavisor, :metrics_disabled, false)
+  @disabled Application.compile_env(:ultravisor, :metrics_disabled, false)
 
   if @disabled do
     defp telemetry_execute(_name, _measurements, _meta), do: :ok
@@ -17,7 +19,7 @@ defmodule Supavisor.Monitoring.Telem do
     end
   end
 
-  @spec network_usage(:client | :db, Supavisor.sock(), Supavisor.id(), map()) ::
+  @spec network_usage(:client | :db, Ultravisor.sock(), Ultravisor.id(), map()) ::
           {:ok | :error, map()}
   if @disabled do
     def network_usage(_type, _sock, _id, _stats), do: {:ok, %{recv_oct: 0, send_oct: 0}}
@@ -35,7 +37,7 @@ defmodule Supavisor.Monitoring.Telem do
           {{ptype, tenant}, user, mode, db_name, search_path} = id
 
           :telemetry.execute(
-            [:supavisor, type, :network, :stat],
+            [:ultravisor, type, :network, :stat],
             stats,
             %{
               tenant: tenant,
@@ -56,10 +58,10 @@ defmodule Supavisor.Monitoring.Telem do
     end
   end
 
-  @spec pool_checkout_time(integer(), Supavisor.id(), :local | :remote) :: :ok | nil
+  @spec pool_checkout_time(integer(), Ultravisor.id(), :local | :remote) :: :ok | nil
   def pool_checkout_time(time, {{type, tenant}, user, mode, db_name, search_path}, same_box) do
     telemetry_execute(
-      [:supavisor, :pool, :checkout, :stop, same_box],
+      [:ultravisor, :pool, :checkout, :stop, same_box],
       %{duration: time},
       %{
         tenant: tenant,
@@ -72,10 +74,10 @@ defmodule Supavisor.Monitoring.Telem do
     )
   end
 
-  @spec client_query_time(integer(), Supavisor.id()) :: :ok | nil
+  @spec client_query_time(integer(), Ultravisor.id()) :: :ok | nil
   def client_query_time(start, {{type, tenant}, user, mode, db_name, search_path}) do
     telemetry_execute(
-      [:supavisor, :client, :query, :stop],
+      [:ultravisor, :client, :query, :stop],
       %{duration: System.monotonic_time() - start},
       %{
         tenant: tenant,
@@ -88,10 +90,10 @@ defmodule Supavisor.Monitoring.Telem do
     )
   end
 
-  @spec client_connection_time(integer(), Supavisor.id()) :: :ok | nil
+  @spec client_connection_time(integer(), Ultravisor.id()) :: :ok | nil
   def client_connection_time(start, {{type, tenant}, user, mode, db_name, search_path}) do
     telemetry_execute(
-      [:supavisor, :client, :connection, :stop],
+      [:ultravisor, :client, :connection, :stop],
       %{duration: System.monotonic_time() - start},
       %{
         tenant: tenant,
@@ -104,10 +106,10 @@ defmodule Supavisor.Monitoring.Telem do
     )
   end
 
-  @spec client_join(:ok | :fail, Supavisor.id() | any()) :: :ok | nil
+  @spec client_join(:ok | :fail, Ultravisor.id() | any()) :: :ok | nil
   def client_join(status, {{type, tenant}, user, mode, db_name, search_path}) do
     telemetry_execute(
-      [:supavisor, :client, :joins, status],
+      [:ultravisor, :client, :joins, status],
       %{},
       %{
         tenant: tenant,
@@ -127,11 +129,11 @@ defmodule Supavisor.Monitoring.Telem do
   @spec handler_action(
           :client_handler | :db_handler,
           :started | :stopped | :db_connection,
-          Supavisor.id()
+          Ultravisor.id()
         ) :: :ok | nil
   def handler_action(handler, action, {{type, tenant}, user, mode, db_name, search_path}) do
     telemetry_execute(
-      [:supavisor, handler, action, :all],
+      [:ultravisor, handler, action, :all],
       %{},
       %{
         tenant: tenant,

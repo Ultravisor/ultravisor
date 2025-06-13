@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
 # This file is responsible for configuring your application
 # and its dependencies with the aid of the Config module.
@@ -11,8 +13,8 @@
 # General application configuration
 import Config
 
-config :supavisor,
-  ecto_repos: [Supavisor.Repo],
+config :ultravisor,
+  ecto_repos: [Ultravisor.Repo],
   version: Mix.Project.config()[:version],
   env: Mix.env(),
   metrics_disabled: System.get_env("METRICS_DISABLED") == "true",
@@ -20,14 +22,14 @@ config :supavisor,
   reconnect_retries: System.get_env("RECONNECT_RETRIES", "5") |> String.to_integer(),
   subscribe_retries: System.get_env("SUBSCRIBE_RETRIES", "20") |> String.to_integer()
 
-config :prom_ex, storage_adapter: Supavisor.Monitoring.PromEx.Store
+config :prom_ex, storage_adapter: Ultravisor.Monitoring.PromEx.Store
 
 # Configures the endpoint
-config :supavisor, SupavisorWeb.Endpoint,
+config :ultravisor, UltravisorWeb.Endpoint,
   url: [host: "localhost"],
   secret_key_base: "ktyW57usZxrivYdvLo9os7UGcUUZYKchOMHT3tzndmnHuxD09k+fQnPUmxlPMUI3",
-  render_errors: [view: SupavisorWeb.ErrorView, accepts: ~w(html json), layout: false],
-  pubsub_server: Supavisor.PubSub,
+  render_errors: [view: UltravisorWeb.ErrorView, accepts: ~w(html json), layout: false],
+  pubsub_server: Ultravisor.PubSub,
   live_view: [signing_salt: "qf3AEZ7n"]
 
 metadata = [

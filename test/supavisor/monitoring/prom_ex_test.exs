@@ -1,12 +1,14 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Monitoring.PromExTest do
-  use Supavisor.DataCase, async: true
+defmodule Ultravisor.Monitoring.PromExTest do
+  use Ultravisor.DataCase, async: true
   use ExUnitProperties
 
-  @subject Supavisor.Monitoring.PromEx
+  @subject Ultravisor.Monitoring.PromEx
 
   describe "get_metrics/1" do
     @sources %{
@@ -21,7 +23,7 @@ defmodule Supavisor.Monitoring.PromExTest do
     }
 
     setup do
-      {:ok, prom2json: Supavisor.Downloader.ensure("prom2json", @sources)}
+      {:ok, prom2json: Ultravisor.Downloader.ensure("prom2json", @sources)}
     end
 
     @tag :tmp_dir
@@ -39,7 +41,7 @@ defmodule Supavisor.Monitoring.PromExTest do
       user = "user"
 
       check all db_name <- string(:printable, min_length: 1, max_length: 63) do
-        Supavisor.Monitoring.Telem.client_join(
+        Ultravisor.Monitoring.Telem.client_join(
           :ok,
           {{:single, tenant}, user, :session, db_name, nil}
         )
@@ -52,7 +54,7 @@ defmodule Supavisor.Monitoring.PromExTest do
         assert {:ok, measurements} = JSON.decode(out)
 
         assert %{"metrics" => metrics} =
-                 Enum.find(measurements, &(&1["name"] == "supavisor_client_joins_ok"))
+                 Enum.find(measurements, &(&1["name"] == "ultravisor_client_joins_ok"))
 
         assert Enum.find(metrics, &(&1["labels"]["db_name"] == db_name))
       end
@@ -67,7 +69,7 @@ defmodule Supavisor.Monitoring.PromExTest do
       db_name = "db_name"
 
       check all user <- string(:printable, min_length: 1, max_length: 63) do
-        Supavisor.Monitoring.Telem.client_join(
+        Ultravisor.Monitoring.Telem.client_join(
           :ok,
           {{:single, tenant}, user, :session, db_name, nil}
         )
@@ -80,7 +82,7 @@ defmodule Supavisor.Monitoring.PromExTest do
         assert {:ok, measurements} = JSON.decode(out)
 
         assert %{"metrics" => metrics} =
-                 Enum.find(measurements, &(&1["name"] == "supavisor_client_joins_ok"))
+                 Enum.find(measurements, &(&1["name"] == "ultravisor_client_joins_ok"))
 
         assert Enum.find(metrics, &(&1["labels"]["db_name"] == db_name))
       end
@@ -95,7 +97,7 @@ defmodule Supavisor.Monitoring.PromExTest do
       user = "user"
 
       check all tenant <- string(:printable, min_length: 1) do
-        Supavisor.Monitoring.Telem.client_join(
+        Ultravisor.Monitoring.Telem.client_join(
           :ok,
           {{:single, tenant}, user, :session, db_name, nil}
         )
@@ -108,7 +110,7 @@ defmodule Supavisor.Monitoring.PromExTest do
         assert {:ok, measurements} = JSON.decode(out)
 
         assert %{"metrics" => metrics} =
-                 Enum.find(measurements, &(&1["name"] == "supavisor_client_joins_ok"))
+                 Enum.find(measurements, &(&1["name"] == "ultravisor_client_joins_ok"))
 
         assert Enum.find(metrics, &(&1["labels"]["db_name"] == db_name))
       end

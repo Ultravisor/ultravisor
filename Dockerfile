@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
 # Find eligible builder and runner images on Docker Hub. We use Ubuntu/Debian instead of
 # Alpine to avoid DNS resolution issues in production.
@@ -63,7 +65,7 @@ RUN mix compile
 COPY config/runtime.exs config/
 
 COPY rel rel
-RUN mix release supavisor
+RUN mix release ultravisor
 
 # Start a new build stage for the final image
 FROM ${RUNNER_IMAGE}
@@ -85,7 +87,7 @@ RUN chown nobody /app
 ENV MIX_ENV="prod"
 
 # Only copy the final release from the build stage
-COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/supavisor ./
+COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/ultravisor ./
 
 ENV RLIMIT_NOFILE 100000
 COPY limits.sh /app/limits.sh

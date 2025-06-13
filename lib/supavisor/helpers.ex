@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Helpers do
+defmodule Ultravisor.Helpers do
   @moduledoc false
   require Logger
 
@@ -152,13 +154,13 @@ defmodule Supavisor.Helpers do
 
   ## Examples
 
-      iex> Supavisor.Helpers.parse_pg_version("PostgreSQL 14.6 (Debian 14.6-1.pgdg110+1) some string")
+      iex> Ultravisor.Helpers.parse_pg_version("PostgreSQL 14.6 (Debian 14.6-1.pgdg110+1) some string")
       {:ok, "14.6 (Debian 14.6-1.pgdg110+1)"}
 
-      iex> Supavisor.Helpers.parse_pg_version("PostgreSQL 15.1 on aarch64-unknown-linux-gnu, compiled by gcc (Ubuntu 10.3.0-1ubuntu1~20.04) 10.3.0, 64-bit")
+      iex> Ultravisor.Helpers.parse_pg_version("PostgreSQL 15.1 on aarch64-unknown-linux-gnu, compiled by gcc (Ubuntu 10.3.0-1ubuntu1~20.04) 10.3.0, 64-bit")
       {:ok, "15.1"}
 
-      iex> Supavisor.Helpers.parse_pg_version("PostgreSQL on x86_64-pc-linux-gnu")
+      iex> Ultravisor.Helpers.parse_pg_version("PostgreSQL on x86_64-pc-linux-gnu")
       {:error, "Can't parse version in PostgreSQL on x86_64-pc-linux-gnu"}
   """
   def parse_pg_version(version) do
@@ -179,11 +181,11 @@ defmodule Supavisor.Helpers do
 
   ## Examples
 
-      iex> Supavisor.Helpers.ip_version(:v4, "example.com")
+      iex> Ultravisor.Helpers.ip_version(:v4, "example.com")
       :inet
-      iex> Supavisor.Helpers.ip_version(:v6, "example.com")
+      iex> Ultravisor.Helpers.ip_version(:v6, "example.com")
       :inet6
-      iex> Supavisor.Helpers.ip_version(nil, "example.com")
+      iex> Ultravisor.Helpers.ip_version(nil, "example.com")
       :inet
   """
   @spec ip_version(any(), String.t()) :: :inet | :inet6
@@ -199,9 +201,9 @@ defmodule Supavisor.Helpers do
 
   ## Examples
 
-      iex> Supavisor.Helpers.detect_ip_version("example.com")
+      iex> Ultravisor.Helpers.detect_ip_version("example.com")
       :inet
-      iex> Supavisor.Helpers.detect_ip_version("ipv6.example.com")
+      iex> Ultravisor.Helpers.detect_ip_version("ipv6.example.com")
       :inet6
   """
   @spec detect_ip_version(String.t()) :: :inet | :inet6
@@ -233,17 +235,17 @@ defmodule Supavisor.Helpers do
 
   @spec upstream_cert(binary() | nil) :: binary() | nil
   def upstream_cert(default) do
-    Application.get_env(:supavisor, :global_upstream_ca) || default
+    Application.get_env(:ultravisor, :global_upstream_ca) || default
   end
 
   @spec downstream_cert() :: Path.t() | nil
   def downstream_cert do
-    Application.get_env(:supavisor, :global_downstream_cert)
+    Application.get_env(:ultravisor, :global_downstream_cert)
   end
 
   @spec downstream_key() :: Path.t() | nil
   def downstream_key do
-    Application.get_env(:supavisor, :global_downstream_key)
+    Application.get_env(:ultravisor, :global_downstream_key)
   end
 
   @spec get_client_final(:password | :auth_query, map(), map(), binary(), binary(), binary()) ::
@@ -370,13 +372,13 @@ defmodule Supavisor.Helpers do
     end
   end
 
-  @spec controlling_process(Supavisor.sock(), pid) :: :ok | {:error, any()}
+  @spec controlling_process(Ultravisor.sock(), pid) :: :ok | {:error, any()}
   def controlling_process({mod, socket}, pid),
     do: mod.controlling_process(socket, pid)
 
   # This is the value of `NAMEDATALEN` set when compiling PostgreSQL. By default
   # we use default Postgres value of `64`
-  @max_length Application.compile_env(:supabase, :namedatalen, 64) - 1
+  @max_length Application.compile_env(:ultravisor, :namedatalen, 64) - 1
 
   @spec validate_name(String.t()) :: boolean()
   def validate_name(name) do

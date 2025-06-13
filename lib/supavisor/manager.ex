@@ -1,20 +1,22 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Manager do
+defmodule Ultravisor.Manager do
   @moduledoc false
   use GenServer, restart: :transient
   require Logger
 
-  alias Supavisor.Protocol.Server
-  alias Supavisor.Tenants
-  alias Supavisor.Helpers
+  alias Ultravisor.Protocol.Server
+  alias Ultravisor.Tenants
+  alias Ultravisor.Helpers
 
   @check_timeout 120_000
 
   def start_link(args) do
-    name = {:via, Registry, {Supavisor.Registry.Tenants, {:manager, args.id}}}
+    name = {:via, Registry, {Ultravisor.Registry.Tenants, {:manager, args.id}}}
 
     GenServer.start_link(__MODULE__, args, name: name)
   end
@@ -58,7 +60,7 @@ defmodule Supavisor.Manager do
     }
 
     Logger.metadata(project: tenant, user: user, type: type, db_name: db_name)
-    Registry.register(Supavisor.Registry.ManagerTables, args.id, tid)
+    Registry.register(Ultravisor.Registry.ManagerTables, args.id, tid)
 
     {:ok, state}
   end
@@ -69,7 +71,7 @@ defmodule Supavisor.Manager do
 
     # don't limit if max_clients is null
     {reply, new_state} =
-      if :ets.info(state.tid, :size) < state.max_clients or Supavisor.mode(state.id) == :session do
+      if :ets.info(state.tid, :size) < state.max_clients or Ultravisor.mode(state.id) == :session do
         :ets.insert(state.tid, {Process.monitor(pid), pid, now()})
 
         case state.parameter_status do
@@ -125,7 +127,7 @@ defmodule Supavisor.Manager do
 
     if :ets.info(state.tid, :size) == 0 do
       Logger.info("No subscribers for pool #{inspect(state.id)}, shutting down")
-      Supavisor.stop(state.id)
+      Ultravisor.stop(state.id)
       {:stop, :normal}
     else
       {:noreply, %{state | check_ref: check_subscribers()}}

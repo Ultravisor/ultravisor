@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
 import Config
 
-config :supavisor,
+config :ultravisor,
   region: "eu",
   fly_alloc_id: "123e4567-e89b-12d3-a456-426614174000",
   api_jwt_secret: "dev",
@@ -27,22 +29,22 @@ config :supavisor,
   subscribe_retries: System.get_env("SUBSCRIBE_RETRIES", "5") |> String.to_integer(),
   local_proxy_multiplier: System.get_env("LOCAL_PROXY_MULTIPLIER", "20") |> String.to_integer()
 
-config :supavisor, Supavisor.Repo,
+config :ultravisor, Ultravisor.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
-  database: "supavisor_test#{System.get_env("MIX_TEST_PARTITION")}",
+  database: "ultravisor_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 10,
   port: 6432
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
-config :supavisor, SupavisorWeb.Endpoint,
+config :ultravisor, UltravisorWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   server: false
 
-config :supavisor, Supavisor.Vault,
+config :ultravisor, Ultravisor.Vault,
   ciphers: [
     default: {
       Cloak.Ciphers.AES.GCM,

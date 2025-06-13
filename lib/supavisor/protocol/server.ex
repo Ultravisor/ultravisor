@@ -1,16 +1,18 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Protocol.Server do
+defmodule Ultravisor.Protocol.Server do
   @moduledoc """
-  The Supavisor.Protocol.Server module is responsible for decoding data received from the PostgreSQL server. It provides several functions to decode payloads from different types of messages.
+  The Ultravisor.Protocol.Server module is responsible for decoding data received from the PostgreSQL server. It provides several functions to decode payloads from different types of messages.
 
   Message Formats: https://www.postgresql.org/docs/current/protocol-message-formats.html
   Error codes https://www.postgresql.org/docs/current/errcodes-appendix.html
   """
   require Logger
-  alias Supavisor.Protocol.PgType
+  alias Ultravisor.Protocol.PgType
 
   @pkt_header_size 5
   @authentication_ok <<?R, 8::32, 0::32>>
@@ -18,7 +20,7 @@ defmodule Supavisor.Protocol.Server do
   @ssl_request <<8::32, 1234::16, 5679::16>>
   @scram_request <<?R, 23::32, 10::32, "SCRAM-SHA-256", 0, 0>>
   @msg_cancel_header <<16::32, 1234::16, 5678::16>>
-  @application_name <<?S, 31::32, "application_name", 0, "Supavisor", 0>>
+  @application_name <<?S, 31::32, "application_name", 0, "Ultravisor", 0>>
   @terminate_message <<?X, 4::32>>
 
   defmodule Pkt do
@@ -457,7 +459,7 @@ defmodule Supavisor.Protocol.Server do
           acc
 
         {"application_name" = k, v}, acc ->
-          <<k::binary, 0, v::binary, " via Supavisor", 0>> <> acc
+          <<k::binary, 0, v::binary, " via Ultravisor", 0>> <> acc
 
         {k, v}, acc ->
           <<k::binary, 0, v::binary, 0>> <> acc

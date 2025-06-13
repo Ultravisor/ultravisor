@@ -1,12 +1,14 @@
 <!--
 SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 
 SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: EUPL-1.2
 -->
 
-![Supavisor](/docs/images/supavisor-banner.png)
+![Ultravisor](/docs/images/ultravisor-banner.png)
 
-# Supavisor - Postgres connection pooler
+# Ultravisor - Postgres connection pooler
 
 - [Overview](#overview)
 - [Motivation](#motivation)
@@ -20,17 +22,17 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Overview
 
-Supavisor is a scalable, cloud-native Postgres connection pooler. A Supavisor
+Ultravisor is a scalable, cloud-native Postgres connection pooler. A Ultravisor
 cluster is capable of proxying millions of Postgres end-client connections into
 a stateful pool of native Postgres database connections.
 
-For database managers, Supavisor simplifies the task of managing Postgres
+For database managers, Ultravisor simplifies the task of managing Postgres
 clusters by providing easy configuration of highly available Postgres clusters
 ([todo](#future-work)).
 
 ## Motivation
 
-We have several goals with Supavisor:
+We have several goals with Ultravisor:
 
 - **Zero-downtime scaling**: we want to scale Postgres server compute with
   zero-downtime. To do this, we need an external Pooler that can buffer and
@@ -47,12 +49,12 @@ We have several goals with Supavisor:
 
 ## Architecture
 
-Supavisor was designed to work in a cloud computing environment as a highly
+Ultravisor was designed to work in a cloud computing environment as a highly
 available cluster of nodes. Tenant configuration is stored in a highly available
-Postgres database. Configuration is loaded from the Supavisor database when a
+Postgres database. Configuration is loaded from the Ultravisor database when a
 tenant connection pool is initiated.
 
-Connection pools are dynamic. When a tenant client connects to the Supavisor
+Connection pools are dynamic. When a tenant client connects to the Ultravisor
 cluster the tenant pool is started and all connections to the tenant database
 are established. The process ID of the new tenant pool is then distributed to
 all nodes of the cluster and stored in an in-memory key-value store. Subsequent
@@ -60,7 +62,7 @@ tenant client connections live on the inbound node but connection data is
 proxied from the pool node to the client connection node as needed.
 
 Because the count of Postgres connections is constrained only one tenant
-connection pool should be alive in a Supavisor cluster. In the case of two
+connection pool should be alive in a Ultravisor cluster. In the case of two
 simultaneous client connections starting a pool, as the pool process IDs are
 distributed across the cluster, eventually one of those pools is gracefully
 shutdown.
@@ -82,8 +84,8 @@ supported ([todo](#future-work)).
 
 ## Docs
 
-- [Installation and usage](https://supabase.github.io/supavisor/development/installation/)
-- [Metrics](https://supabase.github.io/supavisor/monitoring/metrics/)
+- [Installation and usage](https://ultravisor.github.io/ultravisor/development/installation/)
+- [Metrics](https://ultravisor.github.io/ultravisor/monitoring/metrics/)
 
 ## Features
 
@@ -112,7 +114,7 @@ supported ([todo](#future-work)).
   - OpenAPI spec at `/api/openapi`
   - SwaggerUI at `/swaggerui`
 - Highly available
-  - When deployed as a Supavisor cluster and a node dies connection pools should
+  - When deployed as a Ultravisor cluster and a node dies connection pools should
     be quickly spun up or already available on other nodes when clients reconnect
 - Connection buffering
   - Brief connection buffering for transparent database restarts or failovers
@@ -137,7 +139,7 @@ supported ([todo](#future-work)).
   - Health checks
   - Push button read-replica configuration
 - Config as code
-  - Not only for the Supavisor cluster but tenant databases and tenant database
+  - Not only for the Ultravisor cluster but tenant databases and tenant database
     clusters as well
   - Pulumi / Terraform support
 
@@ -165,7 +167,7 @@ initial connection time = 31.388 ms
 tps = 195.959361 (without initial connection time)
 ```
 
-- Running `pgbench` on `Supavisor` (pool size 60, no logs)
+- Running `pgbench` on `Ultravisor` (pool size 60, no logs)
 
 ```
 PGPASSWORD=postgres pgbench -M extended --transactions 100 --jobs 10 --client 100 -h localhost -p 7654 -U postgres.localhost postgres
@@ -187,11 +189,11 @@ tps = 189.228103 (without initial connection time)
 
 ### Load Test
 
-![Supavisor load test virtual users chart](./docs/images/load-test-vus.png)
+![Ultravisor load test virtual users chart](./docs/images/load-test-vus.png)
 
-![Supavisor load test qps chart](./docs/images/load-test-qps.png)
+![Ultravisor load test qps chart](./docs/images/load-test-qps.png)
 
-- Supavisor two node cluster
+- Ultravisor two node cluster
   - 64vCPU / 246RAM
   - Ubuntu 22.04.2 aarch64
 - 1 003 200 concurrent client connection
@@ -204,7 +206,7 @@ tps = 189.228103 (without initial connection time)
 ## Acknowledgements
 
 [José Valim](https://github.com/josevalim) and the [Dashbit](https://dashbit.co/) team were incredibly helpful in informing
-the design decisions for Supavisor.
+the design decisions for Ultravisor.
 
 ## Inspiration
 

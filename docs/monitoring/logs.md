@@ -1,12 +1,14 @@
 <!--
 SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 
 SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: EUPL-1.2
 -->
 
-Supavisor will emit various logs during operation.
+Ultravisor will emit various logs during operation.
 
-Use these error codes to debug a running Supavisor cluster.
+Use these error codes to debug a running Ultravisor cluster.
 
 ## Error Codes
 

@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.PgParser do
+defmodule Ultravisor.PgParser do
   @moduledoc false
 
-  use Rustler, otp_app: :supavisor, crate: "pgparser"
+  use Rustler, otp_app: :ultravisor, crate: "pgparser"
 
   # When your NIF is loaded, it will override this function.
   @doc """
@@ -13,10 +15,10 @@ defmodule Supavisor.PgParser do
 
   ## Examples
 
-      iex> Supavisor.PgParser.statement_types("select 1; insert into table1 values ('a', 'b')")
+      iex> Ultravisor.PgParser.statement_types("select 1; insert into table1 values ('a', 'b')")
       {:ok, ["SelectStmt", "InsertStmt"]}
 
-      iex> Supavisor.PgParser.statement_types("not a valid sql")
+      iex> Ultravisor.PgParser.statement_types("not a valid sql")
       {:error, "Error parsing query"}
   """
   @spec statement_types(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}

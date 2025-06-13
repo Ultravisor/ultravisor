@@ -1,10 +1,12 @@
 <!--
 SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 
 SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: EUPL-1.2
 -->
 
-Configure the `mode_type` on the `user` to set how Supavisor connection pools
+Configure the `mode_type` on the `user` to set how Ultravisor connection pools
 will behave.
 
 The `mode_type` can be one of:

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
 help:
 	@make -qpRr | egrep -e '^[a-z].*:$$' | sed -e 's~:~~g' | sort
@@ -53,7 +55,7 @@ dev.node3:
 	iex --name node3@127.0.0.1 --cookie cookie -S mix phx.server
 
 db_migrate:
-	mix ecto.migrate --prefix _supavisor --log-migrator-sql
+	mix ecto.migrate --prefix _ultravisor --log-migrator-sql
 
 db_start:
 	docker-compose -f ./docker-compose.db.yml up
@@ -93,12 +95,12 @@ clean:
 	rm -rf _build && rm -rf deps
 
 dev_release:
-	mix deps.get && mix compile && mix release supavisor
+	mix deps.get && mix compile && mix release ultravisor
 
 dev_up:
-	rm -rf _build/dev/lib/supavisor && \
+	rm -rf _build/dev/lib/ultravisor && \
 	MIX_ENV=dev mix compile && \
-	mix release supavisor
+	mix release ultravisor
 
 dev_start_rel:
 	MIX_ENV=dev \
@@ -110,11 +112,11 @@ dev_start_rel:
 	SECRET_KEY_BASE="dev" \
 	CLUSTER_POSTGRES="true" \
 	DB_POOL_SIZE="5" \
-	_build/prod/rel/supavisor/bin/supavisor start_iex
+	_build/prod/rel/ultravisor/bin/ultravisor start_iex
 
 prod_rel:
 	MIX_ENV=prod METRICS_DISABLED=true mix compile && \
-	MIX_ENV=prod METRICS_DISABLED=true mix release supavisor
+	MIX_ENV=prod METRICS_DISABLED=true mix release ultravisor
 
 prod_start_rel:
 	MIX_ENV=prod \
@@ -127,7 +129,7 @@ prod_start_rel:
 	SECRET_KEY_BASE="dev" \
 	CLUSTER_POSTGRES="true" \
 	DB_POOL_SIZE="5" \
-	_build/prod/rel/supavisor/bin/supavisor start_iex
+	_build/prod/rel/ultravisor/bin/ultravisor start_iex
 
 prod_start_rel2:
 	MIX_ENV=prod \
@@ -142,4 +144,4 @@ prod_start_rel2:
 	PROXY_PORT_SESSION="5442" \
 	PROXY_PORT_TRANSACTION="6553" \
 	NODE_IP=localhost \
-	_build/prod/rel/supavisor/bin/supavisor start_iex
+	_build/prod/rel/ultravisor/bin/ultravisor start_iex

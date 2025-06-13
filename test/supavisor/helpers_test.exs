@@ -1,14 +1,16 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.HelpersTest do
+defmodule Ultravisor.HelpersTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias Supavisor.Helpers
+  alias Ultravisor.Helpers
 
-  @subject Supavisor.Helpers
+  @subject Ultravisor.Helpers
 
   describe "parse_secret/2" do
     test "parses SCRAM-SHA-256 secrets correctly" do

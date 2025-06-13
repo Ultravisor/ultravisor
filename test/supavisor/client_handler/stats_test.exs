@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.ClientHandler.StatsTest do
-  use Supavisor.E2ECase, async: false
+defmodule Ultravisor.ClientHandler.StatsTest do
+  use Ultravisor.E2ECase, async: false
 
   @moduletag telemetry: true
 
@@ -13,14 +15,14 @@ defmodule Supavisor.ClientHandler.StatsTest do
 
     :telemetry.attach(
       {ctx.test, :client},
-      [:supavisor, :client, :network, :stat],
+      [:ultravisor, :client, :network, :stat],
       &__MODULE__.handle_event/4,
       {self(), ref}
     )
 
     :telemetry.attach(
       {ctx.test, :db},
-      [:supavisor, :db, :network, :stat],
+      [:ultravisor, :db, :network, :stat],
       &__MODULE__.handle_event/4,
       {self(), ref}
     )
@@ -33,7 +35,7 @@ defmodule Supavisor.ClientHandler.StatsTest do
     {:ok, telemetry: ref}
   end
 
-  def handle_event([:supavisor, name, :network, :stat], measurement, meta, {pid, ref}) do
+  def handle_event([:ultravisor, name, :network, :stat], measurement, meta, {pid, ref}) do
     send(pid, {ref, {name, measurement, meta}, Node.self()})
   end
 
@@ -51,7 +53,7 @@ defmodule Supavisor.ClientHandler.StatsTest do
       start_supervised!(
         {SingleConnection,
          hostname: "localhost",
-         port: Application.fetch_env!(:supavisor, :proxy_port_transaction),
+         port: Application.fetch_env!(:ultravisor, :proxy_port_transaction),
          database: ctx.db,
          username: ctx.user,
          password: "postgres"}
@@ -92,7 +94,7 @@ defmodule Supavisor.ClientHandler.StatsTest do
         start_supervised!(
           {SingleConnection,
            hostname: "localhost",
-           port: Application.fetch_env!(:supavisor, :proxy_port_transaction),
+           port: Application.fetch_env!(:ultravisor, :proxy_port_transaction),
            database: other.db,
            username: other.user,
            password: "postgres"},
@@ -106,11 +108,11 @@ defmodule Supavisor.ClientHandler.StatsTest do
 
     @tag external_id: "metrics_tenant"
     test "another instance do not send events here", %{telemetry: telemetry} = ctx do
-      assert {:ok, _pid, node} = Supavisor.Support.Cluster.start_node()
+      assert {:ok, _pid, node} = Ultravisor.Support.Cluster.start_node()
 
       :erpc.call(node, :telemetry, :attach, [
         {ctx.test, :client},
-        [:supavisor, :client, :network, :stat],
+        [:ultravisor, :client, :network, :stat],
         &__MODULE__.handle_event/4,
         self()
       ])
@@ -120,7 +122,7 @@ defmodule Supavisor.ClientHandler.StatsTest do
         start_supervised!(
           {SingleConnection,
            hostname: "localhost",
-           port: Application.fetch_env!(:supavisor, :proxy_port_transaction),
+           port: Application.fetch_env!(:ultravisor, :proxy_port_transaction),
            database: ctx.db,
            username: ctx.user,
            password: "postgres"},
@@ -134,7 +136,7 @@ defmodule Supavisor.ClientHandler.StatsTest do
         start_supervised!(
           {SingleConnection,
            hostname: "localhost",
-           port: Application.fetch_env!(:supavisor, :secondary_proxy_port),
+           port: Application.fetch_env!(:ultravisor, :secondary_proxy_port),
            database: ctx.db,
            username: ctx.user,
            password: "postgres"},
@@ -187,7 +189,7 @@ defmodule Supavisor.ClientHandler.StatsTest do
         start_supervised!(
           {SingleConnection,
            hostname: "localhost",
-           port: Application.fetch_env!(:supavisor, :proxy_port_transaction),
+           port: Application.fetch_env!(:ultravisor, :proxy_port_transaction),
            database: other.db,
            username: other.user,
            password: "postgres"},

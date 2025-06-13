@@ -1,19 +1,21 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.ProtocolTest do
+defmodule Ultravisor.ProtocolTest do
   use ExUnit.Case, async: true
 
-  @subject Supavisor.Protocol.Server
+  @subject Ultravisor.Protocol.Server
 
-  require Supavisor.Protocol.Server
+  require Ultravisor.Protocol.Server
 
   @initial_data %{
     "DateStyle" => "ISO, MDY",
     "IntervalStyle" => "postgres",
     "TimeZone" => "UTC",
-    "application_name" => "supavisor",
+    "application_name" => "ultravisor",
     "client_encoding" => "UTF8",
     "default_transaction_read_only" => "off",
     "in_hot_standby" => "off",
@@ -71,7 +73,7 @@ defmodule Supavisor.ProtocolTest do
 
   test "decode_payload for error_response" do
     assert @subject.decode(@auth_bin_error) == [
-             %Supavisor.Protocol.Server.Pkt{
+             %Ultravisor.Protocol.Server.Pkt{
                tag: :error_response,
                len: 112,
                payload: [

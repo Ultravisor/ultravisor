@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Jwt do
+defmodule Ultravisor.Jwt do
   @moduledoc """
   Parse JWT and verify claims
   """
@@ -28,7 +30,7 @@ defmodule Supavisor.Jwt do
 
     @impl true
     def token_config do
-      Application.fetch_env!(:supavisor, :jwt_claim_validators)
+      Application.fetch_env!(:ultravisor, :jwt_claim_validators)
       |> Enum.reduce(%{}, fn {claim_key, expected_val}, claims ->
         add_claim_validator(claims, claim_key, expected_val)
       end)

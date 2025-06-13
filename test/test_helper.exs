@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
 {:ok, _} = Node.start(:"primary@127.0.0.1", :longnames)
 
-Cachex.start_link(name: Supavisor.Cache)
+Cachex.start_link(name: Ultravisor.Cache)
 
 logs =
   case System.get_env("TEST_LOGS", "all") do
@@ -29,4 +31,4 @@ ExUnit.start(
   ]
 )
 
-Ecto.Adapters.SQL.Sandbox.mode(Supavisor.Repo, :auto)
+Ecto.Adapters.SQL.Sandbox.mode(Ultravisor.Repo, :auto)

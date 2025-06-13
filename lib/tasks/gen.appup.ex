@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Mix.Tasks.Supavisor.Gen.Appup do
+defmodule Mix.Tasks.Ultravisor.Gen.Appup do
   @moduledoc """
   Generates an appup file for a given release.
 
@@ -10,7 +12,7 @@ defmodule Mix.Tasks.Supavisor.Gen.Appup do
 
       # Generate an appup from 0.0.1 to 0.0.2 versions
 
-      mix supavisor.gen.appup --from=0.0.1 --to=0.0.2
+      mix ultravisor.gen.appup --from=0.0.1 --to=0.0.2
   """
 
   use Mix.Task
@@ -22,7 +24,7 @@ defmodule Mix.Tasks.Supavisor.Gen.Appup do
 
     {from_vsn, to_vsn} =
       if !parsed[:from] || !parsed[:to] do
-        Mix.Task.run("help", ["supavisor.gen.appup"])
+        Mix.Task.run("help", ["ultravisor.gen.appup"])
         System.halt(1)
       else
         {parsed[:from], parsed[:to]}
@@ -30,15 +32,15 @@ defmodule Mix.Tasks.Supavisor.Gen.Appup do
 
     Mix.shell().info("Generating appup from #{from_vsn} to #{to_vsn}...\n")
 
-    rel_dir = Path.join([File.cwd!(), "_build", "#{Mix.env()}", "rel", "supavisor"])
+    rel_dir = Path.join([File.cwd!(), "_build", "#{Mix.env()}", "rel", "ultravisor"])
     lib_path = Path.join(rel_dir, "lib")
-    path_from = Path.join(lib_path, "supavisor-#{from_vsn}")
-    path_to = Path.join(lib_path, "supavisor-#{to_vsn}")
-    appup_path = Path.join([path_to, "ebin", "supavisor.appup"])
+    path_from = Path.join(lib_path, "ultravisor-#{from_vsn}")
+    path_to = Path.join(lib_path, "ultravisor-#{to_vsn}")
+    appup_path = Path.join([path_to, "ebin", "ultravisor.appup"])
 
-    transforms = [Supavisor.HotUpgrade]
+    transforms = [Ultravisor.HotUpgrade]
 
-    case Appup.make(:supavisor, from_vsn, to_vsn, path_from, path_to, transforms) do
+    case Appup.make(:ultravisor, from_vsn, to_vsn, path_from, path_to, transforms) do
       {:ok, appup} ->
         Mix.shell().info("Writing appup to #{appup_path}")
 

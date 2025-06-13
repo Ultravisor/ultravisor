@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.MetricsControllerTest do
-  use SupavisorWeb.ConnCase
-  alias Supavisor.Support.Cluster
+defmodule UltravisorWeb.MetricsControllerTest do
+  use UltravisorWeb.ConnCase
+  alias Ultravisor.Support.Cluster
 
   @tag cluster: true
   test "exporting metrics", %{conn: conn} do
@@ -37,7 +39,7 @@ defmodule SupavisorWeb.MetricsControllerTest do
     put_req_header(conn, "authorization", "Bearer " <> bearer)
   end
 
-  defp gen_token(secret \\ Application.fetch_env!(:supavisor, :metrics_jwt_secret)) do
-    Supavisor.Jwt.Token.gen!(secret)
+  defp gen_token(secret \\ Application.fetch_env!(:ultravisor, :metrics_jwt_secret)) do
+    Ultravisor.Jwt.Token.gen!(secret)
   end
 end

@@ -1,16 +1,18 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.TenantsTest do
-  use Supavisor.DataCase
+defmodule Ultravisor.TenantsTest do
+  use Ultravisor.DataCase
 
-  alias Supavisor.Tenants
+  alias Ultravisor.Tenants
 
   describe "tenants" do
-    alias Supavisor.Tenants.{Tenant, User}
+    alias Ultravisor.Tenants.{Tenant, User}
 
-    import Supavisor.TenantsFixtures
+    import Ultravisor.TenantsFixtures
 
     @invalid_attrs %{
       db_database: nil,
@@ -87,9 +89,9 @@ defmodule Supavisor.TenantsTest do
   end
 
   describe "clusters" do
-    alias Supavisor.Tenants.Cluster
+    alias Ultravisor.Tenants.Cluster
 
-    import Supavisor.TenantsFixtures
+    import Ultravisor.TenantsFixtures
 
     @invalid_attrs %{active: nil, alias: nil}
     @valid_attrs %{active: true, alias: "some_alias"}

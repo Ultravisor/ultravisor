@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.ClientHandler do
+defmodule Ultravisor.ClientHandler do
   @moduledoc """
-  This module is responsible for handling incoming connections to the Supavisor server. It is
+  This module is responsible for handling incoming connections to the Ultravisor server. It is
   implemented as a Ranch protocol behavior and a gen_statem behavior. It handles SSL negotiation,
   user authentication, tenant subscription, and dispatching of messages to the appropriate tenant
   supervisor. Each client connection is assigned to a specific tenant supervisor.
@@ -15,13 +17,13 @@ defmodule Supavisor.ClientHandler do
   @behaviour :ranch_protocol
   @behaviour :gen_statem
   @proto [:tcp, :ssl]
-  @switch_active_count Application.compile_env(:supavisor, :switch_active_count)
-  @subscribe_retries Application.compile_env(:supavisor, :subscribe_retries)
+  @switch_active_count Application.compile_env(:ultravisor, :switch_active_count)
+  @subscribe_retries Application.compile_env(:ultravisor, :subscribe_retries)
   @timeout_subscribe 500
-  @clients_registry Supavisor.Registry.TenantClients
-  @proxy_clients_registry Supavisor.Registry.TenantProxyClients
+  @clients_registry Ultravisor.Registry.TenantClients
+  @proxy_clients_registry Ultravisor.Registry.TenantProxyClients
 
-  alias Supavisor.{
+  alias Ultravisor.{
     DbHandler,
     HandlerHelpers,
     Helpers,
@@ -30,7 +32,7 @@ defmodule Supavisor.ClientHandler do
     Tenants
   }
 
-  require Supavisor.Protocol.Server, as: Server
+  require Ultravisor.Protocol.Server, as: Server
 
   @impl true
   def start_link(ref, transport, opts) do
@@ -119,7 +121,7 @@ defmodule Supavisor.ClientHandler do
 
     HandlerHelpers.sock_send(
       data.sock,
-      "HTTP/1.1 204 OK\r\nx-app-version: #{Application.spec(:supavisor, :vsn)}\r\n\r\n"
+      "HTTP/1.1 204 OK\r\nx-app-version: #{Application.spec(:ultravisor, :vsn)}\r\n\r\n"
     )
 
     {:stop, {:shutdown, :http_request}}
@@ -252,7 +254,7 @@ defmodule Supavisor.ClientHandler do
         db_name = db_name || info.tenant.db_database
 
         id =
-          Supavisor.id(
+          Ultravisor.id(
             {type, tenant_or_alias},
             user,
             data.mode,
@@ -261,7 +263,7 @@ defmodule Supavisor.ClientHandler do
             search_path
           )
 
-        mode = Supavisor.mode(id)
+        mode = Ultravisor.mode(id)
 
         Logger.metadata(
           project: tenant_or_alias,
@@ -354,19 +356,19 @@ defmodule Supavisor.ClientHandler do
         key = {:secrets_check, data.tenant, data.user}
 
         if method != :password and reason == "Wrong password" and
-             Cachex.get(Supavisor.Cache, key) == {:ok, nil} do
+             Cachex.get(Ultravisor.Cache, key) == {:ok, nil} do
           case auth_secrets(info, data.user, key, 15_000) do
             {:ok, {method2, secrets2}} = value ->
               if method != method2 or Map.delete(secrets.(), :client_key) != secrets2.() do
                 Logger.warning("ClientHandler: Update secrets and terminate pool")
 
                 Cachex.update(
-                  Supavisor.Cache,
+                  Ultravisor.Cache,
                   {:secrets, data.tenant, data.user},
                   {:cached, value}
                 )
 
-                Supavisor.stop(data.id)
+                Ultravisor.stop(data.id)
               else
                 Logger.debug("ClientHandler: Cache the same #{inspect(key)}")
               end
@@ -409,7 +411,7 @@ defmodule Supavisor.ClientHandler do
     Logger.debug("ClientHandler: Subscribe to tenant #{inspect(data.id)}")
 
     with {:ok, sup} <-
-           Supavisor.start_dist(data.id, data.auth_secrets,
+           Ultravisor.start_dist(data.id, data.auth_secrets,
              log_level: data.log_level,
              availability_zone: data.tenant_availability_zone
            ),
@@ -418,7 +420,7 @@ defmodule Supavisor.ClientHandler do
              do: :proxy,
              else: true
            ),
-         {:ok, opts} <- Supavisor.subscribe(sup, data.id) do
+         {:ok, opts} <- Ultravisor.subscribe(sup, data.id) do
       manager_ref = Process.monitor(opts.workers.manager)
       data = Map.merge(data, opts.workers)
       db_pid = db_checkout(:both, :on_connect, data)
@@ -448,7 +450,7 @@ defmodule Supavisor.ClientHandler do
         {:stop, {:shutdown, :max_pools_reached}}
 
       :proxy ->
-        case Supavisor.get_pool_ranch(data.id) do
+        case Ultravisor.get_pool_ranch(data.id) do
           {:ok, %{port: port, host: host}} ->
             auth =
               Map.merge(data.auth, %{
@@ -717,7 +719,7 @@ defmodule Supavisor.ClientHandler do
 
   ## Internal functions
 
-  @spec handle_exchange(Supavisor.sock(), {atom(), fun()}) ::
+  @spec handle_exchange(Ultravisor.sock(), {atom(), fun()}) ::
           {:ok, binary() | nil} | {:error, String.t()}
   def handle_exchange({_, socket} = sock, {:auth_query_md5 = method, secrets}) do
     salt = :crypto.strong_rand_bytes(4)
@@ -811,7 +813,7 @@ defmodule Supavisor.ClientHandler do
   end
 
   @spec db_checkout(:write | :read | :both, :on_connect | :on_query, map) ::
-          {pid, pid, Supavisor.sock()} | nil
+          {pid, pid, Ultravisor.sock()} | nil
   defp db_checkout(_, _, %{mode: mode, db_pid: {pool, db_pid, db_sock}})
        when is_pid(db_pid) and mode in [:session, :proxy] do
     {pool, db_pid, db_sock}
@@ -862,7 +864,7 @@ defmodule Supavisor.ClientHandler do
         else: :auth_query
 
     auth = %{
-      application_name: data[:app_name] || "Supavisor",
+      application_name: data[:app_name] || "Ultravisor",
       database: db_name,
       host: to_charlist(info.tenant.db_host),
       sni_hostname:
@@ -893,7 +895,7 @@ defmodule Supavisor.ClientHandler do
   end
 
   @spec auth_secrets(map, String.t(), term(), non_neg_integer()) ::
-          {:ok, Supavisor.secrets()} | {:error, term()}
+          {:ok, Ultravisor.secrets()} | {:error, term()}
   ## password secrets
   def auth_secrets(%{user: user, tenant: %{require_user: true}}, _, _, _) do
     secrets = %{db_user: user.db_user, password: user.db_password, alias: user.db_user_alias}
@@ -910,7 +912,7 @@ defmodule Supavisor.ClientHandler do
       end
     end
 
-    case Cachex.fetch(Supavisor.Cache, key, fetch) do
+    case Cachex.fetch(Ultravisor.Cache, key, fetch) do
       {:ok, {:cached, value}} -> value
       {:commit, {:cached, value}, _opts} -> value
       {:ignore, resp} -> resp
@@ -940,7 +942,7 @@ defmodule Supavisor.ClientHandler do
         database: tenant.db_database,
         password: user.db_password,
         username: user.db_user,
-        parameters: [application_name: "Supavisor auth_query"],
+        parameters: [application_name: "Ultravisor auth_query"],
         ssl: tenant.upstream_ssl,
         socket_options: [
           Helpers.ip_version(tenant.ip_version, tenant.db_host)
@@ -1014,7 +1016,7 @@ defmodule Supavisor.ClientHandler do
     {message, sings}
   end
 
-  @spec try_get_sni(Supavisor.sock()) :: String.t() | nil
+  @spec try_get_sni(Ultravisor.sock()) :: String.t() | nil
   def try_get_sni({:ssl, sock}) do
     case :ssl.connection_information(sock, [:sni_hostname]) do
       {:ok, [sni_hostname: sni]} -> List.to_string(sni)
@@ -1025,7 +1027,7 @@ defmodule Supavisor.ClientHandler do
   def try_get_sni(_), do: nil
 
   defp db_pid_meta({_, {_, pid, _}} = _key) do
-    rkey = Supavisor.Registry.PoolPids
+    rkey = Ultravisor.Registry.PoolPids
     fnode = node(pid)
 
     if fnode == node() do
@@ -1096,7 +1098,7 @@ defmodule Supavisor.ClientHandler do
   defp handle_data(:info, bin, :idle, data) do
     query_type =
       with {:ok, payload} <- Client.get_payload(bin),
-           {:ok, statements} <- Supavisor.PgParser.statements(payload) do
+           {:ok, statements} <- Ultravisor.PgParser.statements(payload) do
         Logger.debug(
           "ClientHandler: Receive payload #{inspect(payload, pretty: true)} statements #{inspect(statements)}"
         )
@@ -1139,20 +1141,20 @@ defmodule Supavisor.ClientHandler do
     end
   end
 
-  @spec handle_prepared_statements({pid, pid, Supavisor.sock()}, binary, map) :: :ok | nil
+  @spec handle_prepared_statements({pid, pid, Ultravisor.sock()}, binary, map) :: :ok | nil
   defp handle_prepared_statements({_, pid, _}, bin, %{mode: :transaction} = data) do
     with {:ok, payload} <- Client.get_payload(bin),
-         {:ok, statements} <- Supavisor.PgParser.statements(payload),
+         {:ok, statements} <- Ultravisor.PgParser.statements(payload),
          true <- statements in [["PrepareStmt"], ["DeallocateStmt"]] do
       Logger.info("ClientHandler: Handle prepared statement #{inspect(payload)}")
 
       GenServer.call(data.pool, :get_all_workers)
       |> Enum.each(fn
-        {_, ^pid, _, [Supavisor.DbHandler]} ->
+        {_, ^pid, _, [Ultravisor.DbHandler]} ->
           Logger.debug("ClientHandler: Linked DbHandler #{inspect(pid)}")
           nil
 
-        {_, pool_proc, _, [Supavisor.DbHandler]} ->
+        {_, pool_proc, _, [Ultravisor.DbHandler]} ->
           Logger.debug(
             "ClientHandler: Sending prepared statement change #{inspect(payload)} to #{inspect(pool_proc)}"
           )
@@ -1182,11 +1184,11 @@ defmodule Supavisor.ClientHandler do
   @spec app_name(any()) :: String.t()
   def app_name(name) when is_binary(name), do: name
 
-  def app_name(nil), do: "Supavisor"
+  def app_name(nil), do: "Ultravisor"
 
   def app_name(name) do
     Logger.debug("ClientHandler: Invalid application name #{inspect(name)}")
-    "Supavisor"
+    "Ultravisor"
   end
 
   @spec maybe_change_log(map()) :: atom() | nil

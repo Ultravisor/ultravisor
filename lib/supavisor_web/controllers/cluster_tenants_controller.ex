@@ -1,14 +1,16 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.ClusterTenantsController do
-  use SupavisorWeb, :controller
+defmodule UltravisorWeb.ClusterTenantsController do
+  use UltravisorWeb, :controller
 
-  alias Supavisor.Tenants
-  alias Supavisor.Tenants.ClusterTenants
+  alias Ultravisor.Tenants
+  alias Ultravisor.Tenants.ClusterTenants
 
-  action_fallback(SupavisorWeb.FallbackController)
+  action_fallback(UltravisorWeb.FallbackController)
 
   def index(conn, _params) do
     cluster_tenants = Tenants.list_cluster_tenants()

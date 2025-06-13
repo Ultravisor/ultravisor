@@ -1,3 +1,8 @@
 #!/bin/sh
+
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
+#
+# SPDX-License-Identifier: EUPL-1.2
+
 cd -P -- "$(dirname -- "$0")"
-exec ./supavisor eval Supavisor.Release.migrate
+exec ./ultravisor eval Ultravisor.Release.migrate

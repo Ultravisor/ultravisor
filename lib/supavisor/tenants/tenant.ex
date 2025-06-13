@@ -1,18 +1,20 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Tenants.Tenant do
+defmodule Ultravisor.Tenants.Tenant do
   @moduledoc false
 
   use Ecto.Schema
   import Ecto.Changeset
-  alias Supavisor.Tenants.User
+  alias Ultravisor.Tenants.User
 
   @type t :: %__MODULE__{}
 
   @primary_key {:id, :binary_id, autogenerate: true}
-  @schema_prefix "_supavisor"
+  @schema_prefix "_ultravisor"
 
   @derive {JSON.Encoder, except: [:upstream_tls_ca, :__meta__]}
 
@@ -71,8 +73,8 @@ defmodule Supavisor.Tenants.Tenant do
       :allow_list,
       :availability_zone
     ])
-    |> check_constraint(:upstream_ssl, name: :upstream_constraints, prefix: "_supavisor")
-    |> check_constraint(:upstream_verify, name: :upstream_constraints, prefix: "_supavisor")
+    |> check_constraint(:upstream_ssl, name: :upstream_constraints, prefix: "_ultravisor")
+    |> check_constraint(:upstream_verify, name: :upstream_constraints, prefix: "_ultravisor")
     |> validate_required([
       :default_parameter_status,
       :external_id,
@@ -93,26 +95,26 @@ defmodule Supavisor.Tenants.Tenant do
   ## Examples
 
     iex> changeset =
-    iex> Ecto.Changeset.change(%Supavisor.Tenants.Tenant{}, %{allow_list: ["0.0.0.0"]})
-    iex> |> Supavisor.Tenants.Tenant.validate_allow_list()
+    iex> Ecto.Changeset.change(%Ultravisor.Tenants.Tenant{}, %{allow_list: ["0.0.0.0"]})
+    iex> |> Ultravisor.Tenants.Tenant.validate_allow_list()
     iex> changeset.errors
     [allow_list: {"Invalid CIDR range: 0.0.0.0", []}]
 
     iex> changeset =
-    iex> Ecto.Changeset.change(%Supavisor.Tenants.Tenant{}, %{allow_list: ["0.0.0.0/0", "::/0"]})
-    iex> |> Supavisor.Tenants.Tenant.validate_allow_list()
+    iex> Ecto.Changeset.change(%Ultravisor.Tenants.Tenant{}, %{allow_list: ["0.0.0.0/0", "::/0"]})
+    iex> |> Ultravisor.Tenants.Tenant.validate_allow_list()
     iex> changeset.errors
     []
 
     iex> changeset =
-    iex> Ecto.Changeset.change(%Supavisor.Tenants.Tenant{}, %{allow_list: ["0.0.0.0/0", "foo", "bar"]})
-    iex> |> Supavisor.Tenants.Tenant.validate_allow_list()
+    iex> Ecto.Changeset.change(%Ultravisor.Tenants.Tenant{}, %{allow_list: ["0.0.0.0/0", "foo", "bar"]})
+    iex> |> Ultravisor.Tenants.Tenant.validate_allow_list()
     iex> changeset.errors
     [{:allow_list, {"Invalid CIDR range: foo", []}}, {:allow_list, {"Invalid CIDR range: bar", []}}]
 
     iex> changeset =
-    iex> Ecto.Changeset.change(%Supavisor.Tenants.Tenant{}, %{allow_list: ["0.0.0.0/0   "]})
-    iex> |> Supavisor.Tenants.Tenant.validate_allow_list()
+    iex> Ecto.Changeset.change(%Ultravisor.Tenants.Tenant{}, %{allow_list: ["0.0.0.0/0   "]})
+    iex> |> Ultravisor.Tenants.Tenant.validate_allow_list()
     iex> changeset.errors
     []
   """

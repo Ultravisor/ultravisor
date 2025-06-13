@@ -1,10 +1,12 @@
 <!--
 SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 
 SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: EUPL-1.2
 -->
 
-When a client connection is established Supavisor needs to verify the
+When a client connection is established Ultravisor needs to verify the
 credentials of the connection.
 
 Credential verification is done either via `user` records or an `auth_query`.
@@ -31,17 +33,17 @@ SELECT rolname, rolpassword FROM pg_authid WHERE rolname=$1
 Alternatively, create a function to return a username and password for a user:
 
 ```sql
-CREATE USER supavisor;
+CREATE USER ultravisor;
 
-REVOKE ALL PRIVILEGES ON SCHEMA public FROM supavisor;
+REVOKE ALL PRIVILEGES ON SCHEMA public FROM ultravisor;
 
-CREATE SCHEMA supavisor AUTHORIZATION supavisor;
+CREATE SCHEMA ultravisor AUTHORIZATION ultravisor;
 
-CREATE OR REPLACE FUNCTION supavisor.get_auth(p_usename TEXT)
+CREATE OR REPLACE FUNCTION ultravisor.get_auth(p_usename TEXT)
 RETURNS TABLE(username TEXT, password TEXT) AS
 $$
 BEGIN
-    RAISE WARNING 'Supavisor auth request: %', p_usename;
+    RAISE WARNING 'Ultravisor auth request: %', p_usename;
 
     RETURN QUERY
     SELECT usename::TEXT, passwd::TEXT FROM pg_catalog.pg_shadow
@@ -49,13 +51,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-REVOKE ALL ON FUNCTION supavisor.get_auth(p_usename TEXT) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION supavisor.get_auth(p_usename TEXT) TO supavisor;
+REVOKE ALL ON FUNCTION ultravisor.get_auth(p_usename TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ultravisor.get_auth(p_usename TEXT) TO ultravisor;
 ```
 
 Update the `auth_query` on the `tenant` and it will use this query to match
 against client connection credentials.
 
 ```sql
-SELECT * FROM supavisor.get_auth($1)
+SELECT * FROM ultravisor.get_auth($1)
 ```

@@ -1,20 +1,22 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Monitoring.PromEx do
+defmodule Ultravisor.Monitoring.PromEx do
   @moduledoc """
-  This module configures the PromEx application for Supavisor. It defines
+  This module configures the PromEx application for Ultravisor. It defines
   the plugins used for collecting metrics, including built-in plugins and custom ones,
   and provides a function to remove remote metrics associated with a specific tenant.
   """
 
-  use PromEx, otp_app: :supavisor
+  use PromEx, otp_app: :ultravisor
   require Logger
 
   alias Peep.Storage
   alias PromEx.Plugins
-  alias Supavisor.PromEx.Plugins.{OsMon, Tenant}
+  alias Ultravisor.PromEx.Plugins.{OsMon, Tenant}
   alias Telemetry.Metrics
 
   defmodule Store do
@@ -22,7 +24,7 @@ defmodule Supavisor.Monitoring.PromEx do
     Storage module for PromEx that provide additional functionality of using
     global tags (extracted from Logger global metadata). It also disables
     scraping using `PromEx.scrape/1` function as it should not be used directly.
-    We expose scraping via `Supavisor.Monitoring.PromEx.get_metrics/0` function.
+    We expose scraping via `Ultravisor.Monitoring.PromEx.get_metrics/0` function.
     """
 
     @behaviour PromEx.Storage
@@ -34,7 +36,7 @@ defmodule Supavisor.Monitoring.PromEx do
         ""
       else
         raise(
-          "Do not use PromEx.scrape/1, instead use Supavisor.Monitoring.PromEx.fetch_cluster_metrics/0"
+          "Do not use PromEx.scrape/1, instead use Ultravisor.Monitoring.PromEx.fetch_cluster_metrics/0"
         )
       end
     end
@@ -58,13 +60,13 @@ defmodule Supavisor.Monitoring.PromEx do
 
   @impl true
   def plugins do
-    poll_rate = Application.fetch_env!(:supavisor, :prom_poll_rate)
+    poll_rate = Application.fetch_env!(:ultravisor, :prom_poll_rate)
 
     [
       # PromEx built in plugins
       Plugins.Application,
       Plugins.Beam,
-      {Plugins.Phoenix, router: SupavisorWeb.Router, endpoint: SupavisorWeb.Endpoint},
+      {Plugins.Phoenix, router: UltravisorWeb.Router, endpoint: UltravisorWeb.Endpoint},
       Plugins.Ecto,
 
       # Custom PromEx metrics plugins
@@ -88,14 +90,14 @@ defmodule Supavisor.Monitoring.PromEx do
   @spec do_cache_tenants_metrics() :: list
   def do_cache_tenants_metrics do
     pools =
-      Registry.select(Supavisor.Registry.TenantClients, [{{:"$1", :_, :_}, [], [:"$1"]}])
+      Registry.select(Ultravisor.Registry.TenantClients, [{{:"$1", :_, :_}, [], [:"$1"]}])
       |> Enum.uniq()
 
     Enum.each(pools, fn {{_type, tenant}, _, _, _, _} ->
       metrics = fetch_metrics_for(tenant: tenant)
 
       if metrics != %{} do
-        Cachex.put(Supavisor.Cache, {:metrics, tenant}, metrics)
+        Cachex.put(Ultravisor.Cache, {:metrics, tenant}, metrics)
       end
     end)
 
@@ -110,7 +112,7 @@ defmodule Supavisor.Monitoring.PromEx do
 
   @spec get_tenant_metrics(String.t()) :: String.t()
   def get_tenant_metrics(tenant) do
-    case Cachex.get(Supavisor.Cache, {:metrics, tenant}) do
+    case Cachex.get(Ultravisor.Cache, {:metrics, tenant}) do
       {_, metrics} when is_map(metrics) -> Peep.Prometheus.export(metrics)
       _ -> ""
     end
@@ -121,7 +123,7 @@ defmodule Supavisor.Monitoring.PromEx do
   end
 
   def fetch_tenant_metrics(tenant) do
-    case Cachex.get(Supavisor.Cache, {:metrics, tenant}) do
+    case Cachex.get(Ultravisor.Cache, {:metrics, tenant}) do
       {_, metrics} when is_map(metrics) -> metrics
       _ -> %{}
     end

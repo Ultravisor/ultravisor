@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.TenantView do
-  use SupavisorWeb, :view
-  alias SupavisorWeb.TenantView
-  alias SupavisorWeb.UserView
+defmodule UltravisorWeb.TenantView do
+  use UltravisorWeb, :view
+  alias UltravisorWeb.TenantView
+  alias UltravisorWeb.UserView
 
   def render("index.json", %{tenants: tenants}) do
     %{data: render_many(tenants, TenantView, "tenant.json")}

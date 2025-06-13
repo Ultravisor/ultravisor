@@ -1,16 +1,18 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.MetricsController do
+defmodule UltravisorWeb.MetricsController do
   @moduledoc """
   Handles requests for Prometheus metrics
   from all nodes in the cluster.
   """
 
-  use SupavisorWeb, :controller
+  use UltravisorWeb, :controller
   require Logger
-  alias Supavisor.Monitoring.PromEx
+  alias Ultravisor.Monitoring.PromEx
 
   @spec index(Plug.Conn.t(), any()) :: Plug.Conn.t()
   def index(conn, _) do

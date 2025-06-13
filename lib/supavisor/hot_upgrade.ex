@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.HotUpgrade do
+defmodule Ultravisor.HotUpgrade do
   @moduledoc false
   require Logger
 
@@ -65,7 +67,7 @@ defmodule Supavisor.HotUpgrade do
   @spec down(app(), version_str(), version_str(), [appup()], any()) :: [appup()]
   def down(_app, from_vsn, _to_vsn, appup, _transform) do
     [
-      {:apply, {Supavisor.HotUpgrade, :apply_runtime_config, [from_vsn]}},
+      {:apply, {Ultravisor.HotUpgrade, :apply_runtime_config, [from_vsn]}},
       {:apply, {__MODULE__, :reint_funs, []}}
     ] ++ appup
   end
@@ -81,7 +83,7 @@ defmodule Supavisor.HotUpgrade do
       IO.write("Loading runtime.exs from releases/#{vsn}")
 
       for {app, config} <-
-            Config.Reader.read!(path, env: Application.get_env(:supavisor, :env)) do
+            Config.Reader.read!(path, env: Application.get_env(:ultravisor, :env)) do
         updated_config =
           Config.Reader.merge(
             [{app, Application.get_all_env(app)}],
@@ -102,7 +104,7 @@ defmodule Supavisor.HotUpgrade do
 
   def reinit_pool_args do
     for [_tenant, pid, _meta] <-
-          Registry.select(Supavisor.Registry.TenantSups, [
+          Registry.select(Ultravisor.Registry.TenantSups, [
             {{:"$1", :"$2", :"$3"}, [], [[:"$1", :"$2", :"$3"]]}
           ]),
         {_, child_pid, _, [:poolboy]} <- Supervisor.which_children(pid),
@@ -116,7 +118,7 @@ defmodule Supavisor.HotUpgrade do
         Record.is_record(state, :state),
         state(state, :module) == :poolboy_sup do
       :sys.replace_state(linked_pid, fn state ->
-        db_handler = Supavisor.DbHandler
+        db_handler = Ultravisor.DbHandler
         {^db_handler, args} = state(state, :args)
 
         args =
@@ -136,19 +138,19 @@ defmodule Supavisor.HotUpgrade do
   end
 
   def reinit_auth_query do
-    Supavisor.Cache
+    Ultravisor.Cache
     |> Cachex.stream!()
     |> Enum.each(fn entry(key: key, value: value) ->
       case value do
         {:cached, {:ok, {:auth_query, auth}}} when is_function(auth) ->
           Logger.debug("Reinitializing secret auth_query: #{inspect(key)}")
           new = {:cached, {:ok, {:auth_query, enc(auth.())}}}
-          Cachex.put(Supavisor.Cache, key, new)
+          Cachex.put(Ultravisor.Cache, key, new)
 
         {:cached, {:ok, {:auth_query_md5, auth}}} when is_function(auth) ->
           Logger.debug("Reinitializing secret auth_query_md5: #{inspect(key)}")
           new = {:cached, {:ok, {:auth_query_md5, enc(auth.())}}}
-          Cachex.put(Supavisor.Cache, key, new)
+          Cachex.put(Ultravisor.Cache, key, new)
 
         other ->
           Logger.debug("Skipping:#{inspect(key)} #{inspect(other)}")

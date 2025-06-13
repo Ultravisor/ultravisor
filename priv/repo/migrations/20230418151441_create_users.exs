@@ -1,12 +1,14 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Repo.Migrations.CreateUsers do
+defmodule Ultravisor.Repo.Migrations.CreateUsers do
   use Ecto.Migration
 
   def change do
-    create table(:users, primary_key: false, prefix: "_supavisor") do
+    create table(:users, primary_key: false, prefix: "_ultravisor") do
       add(:id, :binary_id, primary_key: true)
       add(:db_user_alias, :string, null: false)
       add(:db_user, :string, null: false)
@@ -26,7 +28,7 @@ defmodule Supavisor.Repo.Migrations.CreateUsers do
     create(
       index(:users, [:db_user_alias, :tenant_external_id, :mode_type],
         unique: true,
-        prefix: "_supavisor"
+        prefix: "_ultravisor"
       )
     )
   end

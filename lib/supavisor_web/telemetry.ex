@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.Telemetry do
+defmodule UltravisorWeb.Telemetry do
   @moduledoc false
 
   use Supervisor
@@ -37,23 +39,23 @@ defmodule SupavisorWeb.Telemetry do
       ),
 
       # Database Metrics
-      summary("supavisor.repo.query.total_time",
+      summary("ultravisor.repo.query.total_time",
         unit: {:native, :millisecond},
         description: "The sum of the other measurements"
       ),
-      summary("supavisor.repo.query.decode_time",
+      summary("ultravisor.repo.query.decode_time",
         unit: {:native, :millisecond},
         description: "The time spent decoding the data received from the database"
       ),
-      summary("supavisor.repo.query.query_time",
+      summary("ultravisor.repo.query.query_time",
         unit: {:native, :millisecond},
         description: "The time spent executing the query"
       ),
-      summary("supavisor.repo.query.queue_time",
+      summary("ultravisor.repo.query.queue_time",
         unit: {:native, :millisecond},
         description: "The time spent waiting for a database connection"
       ),
-      summary("supavisor.repo.query.idle_time",
+      summary("ultravisor.repo.query.idle_time",
         unit: {:native, :millisecond},
         description:
           "The time the connection spent waiting before being checked out for the query"
@@ -71,7 +73,7 @@ defmodule SupavisorWeb.Telemetry do
     [
       # A module, function and arguments to be invoked periodically.
       # This function must call :telemetry.execute/3 and a metric must be added above.
-      # {SupavisorWeb, :count_users, []}
+      # {UltravisorWeb, :count_users, []}
     ]
   end
 end

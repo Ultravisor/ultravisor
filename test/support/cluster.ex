@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Support.Cluster do
+defmodule Ultravisor.Support.Cluster do
   @moduledoc """
   This module provides functionality to help handle distributive mode for testing.
   """
@@ -31,7 +33,7 @@ defmodule Supavisor.Support.Cluster do
     :peer.call(pid, :logger, :set_primary_config, [:level, :all])
     true = :peer.call(pid, :code, :set_path, [:code.get_path()])
     apply_config(pid)
-    :peer.call(pid, Application, :ensure_all_started, [:supavisor])
+    :peer.call(pid, Application, :ensure_all_started, [:ultravisor])
 
     {:ok, pid, node}
   end
@@ -41,19 +43,19 @@ defmodule Supavisor.Support.Cluster do
       for {key, val} <- Application.get_all_env(app_name) do
         val =
           case {app_name, key} do
-            {:supavisor, :proxy_port_transaction} ->
-              Application.get_env(:supavisor, :secondary_proxy_port)
+            {:ultravisor, :proxy_port_transaction} ->
+              Application.get_env(:ultravisor, :secondary_proxy_port)
 
-            {:supavisor, SupavisorWeb.Endpoint} ->
+            {:ultravisor, UltravisorWeb.Endpoint} ->
               put_in(val[:http],
                 ip: {127, 0, 0, 1},
                 port: 0
               )
 
-            {:supavisor, :region} ->
+            {:ultravisor, :region} ->
               "usa"
 
-            {:supavisor, :availability_zone} ->
+            {:ultravisor, :availability_zone} ->
               "ap-southeast-1c"
 
             _ ->

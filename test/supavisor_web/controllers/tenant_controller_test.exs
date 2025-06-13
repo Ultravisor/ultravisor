@@ -1,14 +1,16 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.TenantControllerTest do
-  use SupavisorWeb.ConnCase, async: false
+defmodule UltravisorWeb.TenantControllerTest do
+  use UltravisorWeb.ConnCase, async: false
 
-  import Supavisor.TenantsFixtures
+  import Ultravisor.TenantsFixtures
   import ExUnit.CaptureLog
 
-  alias Supavisor.Tenants.Tenant
+  alias Ultravisor.Tenants.Tenant
 
   @user_valid_attrs %{
     db_user_alias: "some_db_user",
@@ -43,7 +45,7 @@ defmodule SupavisorWeb.TenantControllerTest do
   }
 
   setup %{conn: conn} do
-    :meck.expect(Supavisor.Helpers, :check_creds_get_ver, fn _ -> {:ok, "0.0"} end)
+    :meck.expect(Ultravisor.Helpers, :check_creds_get_ver, fn _ -> {:ok, "0.0"} end)
 
     jwt = gen_token()
 
@@ -66,7 +68,7 @@ defmodule SupavisorWeb.TenantControllerTest do
       )
 
     on_exit(fn ->
-      :meck.unload(Supavisor.Helpers)
+      :meck.unload(Ultravisor.Helpers)
     end)
 
     {:ok, conn: new_conn, blocked_conn: blocked_conn}
@@ -123,7 +125,7 @@ defmodule SupavisorWeb.TenantControllerTest do
       assert json_response(conn, 422)["errors"] != %{}
     end
 
-    test "triggers Supavisor.stop/2", %{
+    test "triggers Ultravisor.stop/2", %{
       conn: conn,
       tenant: %Tenant{external_id: external_id}
     } do
@@ -163,18 +165,18 @@ defmodule SupavisorWeb.TenantControllerTest do
   end
 
   defp set_cache(external_id) do
-    Supavisor.Tenants.get_user_cache(:single, "user", external_id, nil)
-    Supavisor.Tenants.get_tenant_cache(external_id, nil)
+    Ultravisor.Tenants.get_user_cache(:single, "user", external_id, nil)
+    Ultravisor.Tenants.get_tenant_cache(external_id, nil)
   end
 
   defp check_cache(external_id) do
     assert {:ok, nil} =
-             Cachex.get(Supavisor.Cache, {:user_cache, :single, "user", external_id, nil})
+             Cachex.get(Ultravisor.Cache, {:user_cache, :single, "user", external_id, nil})
 
-    assert {:ok, nil} = Cachex.get(Supavisor.Cache, {:tenant_cache, external_id, nil})
+    assert {:ok, nil} = Cachex.get(Ultravisor.Cache, {:tenant_cache, external_id, nil})
   end
 
-  defp gen_token(secret \\ Application.fetch_env!(:supavisor, :metrics_jwt_secret)) do
-    Supavisor.Jwt.Token.gen!(secret)
+  defp gen_token(secret \\ Application.fetch_env!(:ultravisor, :metrics_jwt_secret)) do
+    Ultravisor.Jwt.Token.gen!(secret)
   end
 end

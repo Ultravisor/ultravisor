@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.SignalHandler do
+defmodule Ultravisor.SignalHandler do
   @moduledoc """
-  Supavisor.SignalHandler is a module that provides a custom signal handling behavior
-  for the Supavisor application. It implements the :gen_event behavior and intercepts
+  Ultravisor.SignalHandler is a module that provides a custom signal handling behavior
+  for the Ultravisor application. It implements the :gen_event behavior and intercepts
   system signals, such as SIGTERM, to manage application state during shutdown.
   """
 

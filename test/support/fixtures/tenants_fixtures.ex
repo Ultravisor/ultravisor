@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.TenantsFixtures do
+defmodule Ultravisor.TenantsFixtures do
   @moduledoc """
   This module defines test helpers for creating
-  entities via the `Supavisor.Tenants` context.
+  entities via the `Ultravisor.Tenants` context.
   """
 
   @doc """
@@ -30,7 +32,7 @@ defmodule Supavisor.TenantsFixtures do
           }
         ]
       })
-      |> Supavisor.Tenants.create_tenant()
+      |> Ultravisor.Tenants.create_tenant()
 
     tenant
   end
@@ -64,7 +66,7 @@ defmodule Supavisor.TenantsFixtures do
           }
         ]
       })
-      |> Supavisor.Tenants.create_cluster()
+      |> Ultravisor.Tenants.create_cluster()
 
     cluster
   end

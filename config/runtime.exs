@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
 import Config
 
 require Logger
-alias Supavisor.Helpers
+alias Ultravisor.Helpers
 
 secret_key_base =
   if config_env() in [:dev, :test] do
@@ -18,7 +20,7 @@ secret_key_base =
       """
   end
 
-config :supavisor, SupavisorWeb.Endpoint,
+config :ultravisor, UltravisorWeb.Endpoint,
   server: true,
   http: [
     port: String.to_integer(System.get_env("PORT") || "4000"),
@@ -48,7 +50,7 @@ topologies =
         polling_interval: 5_000,
         query: System.get_env("DNS_POLL"),
         node_basename:
-          System.get_env("NODE_NAME") || System.get_env("FLY_APP_NAME") || "supavisor"
+          System.get_env("NODE_NAME") || System.get_env("FLY_APP_NAME") || "ultravisor"
       ]
     ]
 
@@ -78,9 +80,9 @@ topologies =
   end
 
 topologies =
-  if System.get_env("CLUSTER_POSTGRES") && Application.spec(:supavisor, :vsn) do
+  if System.get_env("CLUSTER_POSTGRES") && Application.spec(:ultravisor, :vsn) do
     %Version{major: maj, minor: min} =
-      Application.spec(:supavisor, :vsn) |> List.to_string() |> Version.parse!()
+      Application.spec(:ultravisor, :vsn) |> List.to_string() |> Version.parse!()
 
     region =
       Enum.find_value(~W[CLUSTER_ID LOCATION_ID REGION], &System.get_env/1)
@@ -91,7 +93,7 @@ topologies =
       config: [
         url: System.get_env("DATABASE_URL", "ecto://postgres:postgres@localhost:6432/postgres"),
         heartbeat_interval: 5_000,
-        channel_name: "supavisor_#{region}_#{maj}_#{min}"
+        channel_name: "ultravisor_#{region}_#{maj}_#{min}"
       ]
     ]
 
@@ -148,12 +150,12 @@ downstream_key =
   end
 
 db_socket_options =
-  if System.get_env("SUPAVISOR_DB_IP_VERSION") == "ipv6",
+  if System.get_env("ULTRAVISOR_DB_IP_VERSION") == "ipv6",
     do: [:inet6],
     else: [:inet]
 
 if config_env() != :test do
-  config :supavisor,
+  config :ultravisor,
     availability_zone: System.get_env("AVAILABILITY_ZONE"),
     region: System.get_env("REGION") || System.get_env("FLY_REGION"),
     fly_alloc_id: System.get_env("FLY_ALLOC_ID"),
@@ -174,18 +176,18 @@ if config_env() != :test do
     node_host: System.get_env("NODE_IP", "127.0.0.1"),
     local_proxy_multiplier: System.get_env("LOCAL_PROXY_MULTIPLIER", "20") |> String.to_integer()
 
-  config :supavisor, Supavisor.Repo,
+  config :ultravisor, Ultravisor.Repo,
     url: System.get_env("DATABASE_URL", "ecto://postgres:postgres@localhost:6432/postgres"),
     pool_size: System.get_env("DB_POOL_SIZE", "25") |> String.to_integer(),
     ssl_opts: [
       verify: :verify_none
     ],
     parameters: [
-      application_name: "supavisor_meta"
+      application_name: "ultravisor_meta"
     ],
     socket_options: db_socket_options
 
-  config :supavisor, Supavisor.Vault,
+  config :ultravisor, Ultravisor.Vault,
     ciphers: [
       default: {
         Cloak.Ciphers.AES.GCM,
@@ -194,7 +196,7 @@ if config_env() != :test do
     ]
 end
 
-if path = System.get_env("SUPAVISOR_LOG_FILE_PATH") do
+if path = System.get_env("ULTRAVISOR_LOG_FILE_PATH") do
   config :logger, :default_handler,
     config: [
       file: to_charlist(path),
@@ -205,10 +207,10 @@ if path = System.get_env("SUPAVISOR_LOG_FILE_PATH") do
     ]
 end
 
-if System.get_env("SUPAVISOR_LOG_FORMAT") == "json" do
+if System.get_env("ULTRAVISOR_LOG_FORMAT") == "json" do
   config :logger, :default_handler,
     formatter:
-      {Supavisor.Logger.LogflareFormatter,
+      {Ultravisor.Logger.LogflareFormatter,
        %{
          # metadata: metadata,
          top_level: [:project],
@@ -216,8 +218,8 @@ if System.get_env("SUPAVISOR_LOG_FORMAT") == "json" do
        }}
 end
 
-if path = System.get_env("SUPAVISOR_ACCESS_LOG_FILE_PATH") do
-  config :supavisor, :logger, [
+if path = System.get_env("ULTRAVISOR_ACCESS_LOG_FILE_PATH") do
+  config :ultravisor, :logger, [
     {:handler, :access_log, :logger_std_h,
      %{
        level: :error,
@@ -230,7 +232,7 @@ if path = System.get_env("SUPAVISOR_ACCESS_LOG_FILE_PATH") do
          ),
        filter_default: :stop,
        filters: [
-         exchange: {&Supavisor.Logger.Filters.filter_client_handler/2, :exchange}
+         exchange: {&Ultravisor.Logger.Filters.filter_client_handler/2, :exchange}
        ],
        config: %{
          file: to_charlist(path),

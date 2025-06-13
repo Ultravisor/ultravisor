@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.TenantsMetrics do
+defmodule Ultravisor.TenantsMetrics do
   @moduledoc false
   use GenServer, restart: :transient
   require Logger
 
-  alias Supavisor.Monitoring.PromEx
+  alias Ultravisor.Monitoring.PromEx
 
   @check_timeout 10_000
 
@@ -37,7 +39,7 @@ defmodule Supavisor.TenantsMetrics do
     MapSet.difference(state.pools, active_pools)
     |> Enum.each(fn {{_type, tenant}, _, _, _, _} = pool ->
       Logger.debug("Removing cached metrics for #{inspect(pool)}")
-      Cachex.del(Supavisor.Cache, {:metrics, tenant})
+      Cachex.del(Ultravisor.Cache, {:metrics, tenant})
     end)
 
     {:noreply, %{state | check_ref: check_metrics(), pools: active_pools}}

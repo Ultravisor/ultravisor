@@ -1,15 +1,17 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.Router do
-  use SupavisorWeb, :router
+defmodule UltravisorWeb.Router do
+  use UltravisorWeb, :router
 
   pipeline :browser do
     plug(:accepts, ["html"])
     plug(:fetch_session)
     plug(:fetch_live_flash)
-    plug(:put_root_layout, {SupavisorWeb.LayoutView, :root})
+    plug(:put_root_layout, {UltravisorWeb.LayoutView, :root})
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
   end
@@ -24,7 +26,7 @@ defmodule SupavisorWeb.Router do
   end
 
   pipeline :openapi do
-    plug(OpenApiSpex.Plug.PutApiSpec, module: SupavisorWeb.ApiSpec)
+    plug(OpenApiSpex.Plug.PutApiSpec, module: UltravisorWeb.ApiSpec)
   end
 
   scope "/swaggerui" do
@@ -39,10 +41,10 @@ defmodule SupavisorWeb.Router do
 
   # websocket pg proxy
   scope "/v2" do
-    get("/", SupavisorWeb.WsProxy, [])
+    get("/", UltravisorWeb.WsProxy, [])
   end
 
-  scope "/api", SupavisorWeb do
+  scope "/api", UltravisorWeb do
     pipe_through(:api)
 
     get("/tenants/:external_id", TenantController, :show)
@@ -57,7 +59,7 @@ defmodule SupavisorWeb.Router do
     # get("/clusters/:alias/terminate", ClusterController, :terminate)
   end
 
-  scope "/metrics", SupavisorWeb do
+  scope "/metrics", UltravisorWeb do
     pipe_through(:metrics)
 
     get("/", MetricsController, :index)
@@ -65,7 +67,7 @@ defmodule SupavisorWeb.Router do
   end
 
   # Other scopes may use custom stacks.
-  # scope "/api", SupavisorWeb do
+  # scope "/api", UltravisorWeb do
   #   pipe_through :api
   # end
 
@@ -82,20 +84,20 @@ defmodule SupavisorWeb.Router do
     scope "/" do
       pipe_through(:browser)
 
-      live_dashboard("/dashboard", metrics: SupavisorWeb.Telemetry)
+      live_dashboard("/dashboard", metrics: UltravisorWeb.Telemetry)
     end
   end
 
   defp check_auth(%{request_path: "/api/health"} = conn, _), do: conn
 
   defp check_auth(conn, [secret_key, blocklist_key]) do
-    secret = Application.fetch_env!(:supavisor, secret_key)
-    blocklist = Application.fetch_env!(:supavisor, blocklist_key)
+    secret = Application.fetch_env!(:ultravisor, secret_key)
+    blocklist = Application.fetch_env!(:ultravisor, blocklist_key)
 
     with ["Bearer " <> token] <- get_req_header(conn, "authorization"),
          token <- Regex.replace(~r/\s|\n/, URI.decode(token), ""),
          false <- token in blocklist,
-         {:ok, _claims} <- Supavisor.Jwt.authorize(token, secret) do
+         {:ok, _claims} <- Ultravisor.Jwt.authorize(token, secret) do
       conn
     else
       _ ->

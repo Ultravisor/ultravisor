@@ -1,39 +1,41 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.HandlerHelpers do
+defmodule Ultravisor.HandlerHelpers do
   @moduledoc false
 
   alias Phoenix.PubSub
 
-  require Supavisor.Protocol.Server, as: Server
+  require Ultravisor.Protocol.Server, as: Server
 
-  @spec sock_send(Supavisor.sock(), iodata()) :: :ok | {:error, term()}
+  @spec sock_send(Ultravisor.sock(), iodata()) :: :ok | {:error, term()}
   def sock_send({mod, sock}, data) do
     mod.send(sock, data)
   end
 
-  @spec sock_close(Supavisor.sock() | nil | {any(), nil}) :: :ok | {:error, term()}
+  @spec sock_close(Ultravisor.sock() | nil | {any(), nil}) :: :ok | {:error, term()}
   def sock_close(nil), do: :ok
   def sock_close({_, nil}), do: :ok
 
   def sock_close({mod, sock}), do: mod.close(sock)
 
-  @spec setopts(Supavisor.sock(), term()) :: :ok | {:error, term()}
+  @spec setopts(Ultravisor.sock(), term()) :: :ok | {:error, term()}
   def setopts({mod, sock}, opts) do
     mod = if mod == :gen_tcp, do: :inet, else: mod
     mod.setopts(sock, opts)
   end
 
-  @spec active_once(Supavisor.sock()) :: :ok | {:error, term}
+  @spec active_once(Ultravisor.sock()) :: :ok | {:error, term}
   def active_once(sock), do: setopts(sock, active: :once)
 
-  @spec activate(Supavisor.sock()) :: :ok | {:error, term}
+  @spec activate(Ultravisor.sock()) :: :ok | {:error, term}
   def activate(sock), do: setopts(sock, active: true)
 
-  @spec try_ssl_handshake(Supavisor.tcp_sock(), boolean) ::
-          {:ok, Supavisor.sock()} | {:error, term()}
+  @spec try_ssl_handshake(Ultravisor.tcp_sock(), boolean) ::
+          {:ok, Ultravisor.sock()} | {:error, term()}
   def try_ssl_handshake(sock, true) do
     case sock_send(sock, Server.ssl_request()) do
       :ok -> ssl_recv(sock)
@@ -43,7 +45,7 @@ defmodule Supavisor.HandlerHelpers do
 
   def try_ssl_handshake(sock, false), do: {:ok, sock}
 
-  @spec ssl_recv(Supavisor.tcp_sock()) :: {:ok, Supavisor.ssl_sock()} | {:error, term}
+  @spec ssl_recv(Ultravisor.tcp_sock()) :: {:ok, Ultravisor.ssl_sock()} | {:error, term}
   def ssl_recv({:gen_tcp, sock} = s) do
     case :gen_tcp.recv(sock, 1, 15_000) do
       {:ok, <<?S>>} -> ssl_connect(s)
@@ -52,8 +54,8 @@ defmodule Supavisor.HandlerHelpers do
     end
   end
 
-  @spec ssl_connect(Supavisor.tcp_sock(), pos_integer) ::
-          {:ok, Supavisor.ssl_sock()} | {:error, term}
+  @spec ssl_connect(Ultravisor.tcp_sock(), pos_integer) ::
+          {:ok, Ultravisor.ssl_sock()} | {:error, term}
   def ssl_connect({:gen_tcp, sock}, timeout \\ 5000) do
     opts = [verify: :verify_none]
 
@@ -63,13 +65,13 @@ defmodule Supavisor.HandlerHelpers do
     end
   end
 
-  @spec send_error(Supavisor.sock(), String.t(), String.t()) :: :ok | {:error, term()}
+  @spec send_error(Ultravisor.sock(), String.t(), String.t()) :: :ok | {:error, term()}
   def send_error(sock, code, message) do
     data = Server.error_message(code, message)
     sock_send(sock, data)
   end
 
-  @spec try_get_sni(Supavisor.sock()) :: String.t() | nil
+  @spec try_get_sni(Ultravisor.sock()) :: String.t() | nil
   def try_get_sni({:ssl, sock}) do
     case :ssl.connection_information(sock, [:sni_hostname]) do
       {:ok, [sni_hostname: sni]} -> List.to_string(sni)
@@ -109,7 +111,7 @@ defmodule Supavisor.HandlerHelpers do
   @spec send_cancel_query(non_neg_integer, non_neg_integer, term) :: :ok | {:errr, term}
   def send_cancel_query(pid, key, msg \\ :cancel_query) do
     PubSub.broadcast(
-      Supavisor.PubSub,
+      Ultravisor.PubSub,
       "cancel_req:#{pid}_#{key}",
       msg
     )
@@ -117,7 +119,7 @@ defmodule Supavisor.HandlerHelpers do
 
   @spec listen_cancel_query(non_neg_integer, non_neg_integer) :: :ok | {:errr, term}
   def listen_cancel_query(pid, key) do
-    PubSub.subscribe(Supavisor.PubSub, "cancel_req:#{pid}_#{key}")
+    PubSub.subscribe(Ultravisor.PubSub, "cancel_req:#{pid}_#{key}")
   end
 
   @spec cancel_query(keyword, non_neg_integer, atom, non_neg_integer, non_neg_integer) :: :ok
@@ -138,16 +140,16 @@ defmodule Supavisor.HandlerHelpers do
 
   ## Examples
 
-    iex> Supavisor.HandlerHelpers.filter_cidrs(["0.0.0.0/0", "::/0"], {127, 0, 0, 1})
+    iex> Ultravisor.HandlerHelpers.filter_cidrs(["0.0.0.0/0", "::/0"], {127, 0, 0, 1})
     ["0.0.0.0/0"]
 
-    iex> Supavisor.HandlerHelpers.filter_cidrs(["71.209.249.38/32"], {71, 209, 249, 39})
+    iex> Ultravisor.HandlerHelpers.filter_cidrs(["71.209.249.38/32"], {71, 209, 249, 39})
     []
 
-    iex> Supavisor.HandlerHelpers.filter_cidrs(["0.0.0.0/0", "::/0"], {8193, 3512, 34211, 0, 0, 35374, 880, 29492})
+    iex> Ultravisor.HandlerHelpers.filter_cidrs(["0.0.0.0/0", "::/0"], {8193, 3512, 34211, 0, 0, 35374, 880, 29492})
     ["::/0"]
 
-    iex> Supavisor.HandlerHelpers.filter_cidrs(["0.0.0.0/0", "::/0"], :error)
+    iex> Ultravisor.HandlerHelpers.filter_cidrs(["0.0.0.0/0", "::/0"], :error)
     []
 
   """
@@ -164,7 +166,7 @@ defmodule Supavisor.HandlerHelpers do
     []
   end
 
-  @spec addr_from_sock(Supavisor.sock()) :: {:ok, :inet.ip_address()} | :error
+  @spec addr_from_sock(Ultravisor.sock()) :: {:ok, :inet.ip_address()} | :error
   def addr_from_sock({:gen_tcp, port}) do
     case :inet.peername(port) do
       {:ok, {:local, _}} ->

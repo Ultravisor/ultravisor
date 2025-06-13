@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Integration.ExternalTest do
-  use Supavisor.E2ECase, async: false
+defmodule Ultravisor.Integration.ExternalTest do
+  use Ultravisor.E2ECase, async: false
 
   @moduletag integration: true
 
@@ -94,6 +96,6 @@ defmodule Supavisor.Integration.ExternalTest do
 
   defp get_tool(name), do: System.find_executable(name)
 
-  defp port("session"), do: Application.fetch_env!(:supavisor, :proxy_port_session)
-  defp port("transaction"), do: Application.fetch_env!(:supavisor, :proxy_port_transaction)
+  defp port("session"), do: Application.fetch_env!(:ultravisor, :proxy_port_session)
+  defp port("transaction"), do: Application.fetch_env!(:ultravisor, :proxy_port_transaction)
 end

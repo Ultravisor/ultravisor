@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-site_name: supavisor
-site_url: https://supabase.github.io/supavisor
+site_name: ultravisor
+site_url: https://ultravisor.github.io/ultravisor
 site_description: A cloud native multi-tenant connection pooler for Postgres
 
-repo_name: supabase/supavisor
-repo_url: https://github.com/supabase/supavisor
+repo_name: ultravisor/ultravisor
+repo_url: https://github.com/ultravisor/ultravisor
 
 nav:
   - Welcome: "index.md"
@@ -37,7 +39,7 @@ theme:
   name: "material"
   favicon: "images/favicon.ico"
   logo: "images/favicon.ico"
-  homepage: https://supabase.github.io/supavisor
+  homepage: https://ultravisor.github.io/ultravisor
   features:
     - navigation.expand
   palette:

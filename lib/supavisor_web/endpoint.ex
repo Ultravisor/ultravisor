@@ -1,16 +1,18 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.Endpoint do
-  use Phoenix.Endpoint, otp_app: :supavisor
+defmodule UltravisorWeb.Endpoint do
+  use Phoenix.Endpoint, otp_app: :ultravisor
 
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
   # Set :encryption_salt if you would also like to encrypt it.
   @session_options [
     store: :cookie,
-    key: "_supavisor_key",
+    key: "_ultravisor_key",
     signing_salt: "zJOrGxcM"
   ]
 
@@ -31,5 +33,5 @@ defmodule SupavisorWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  plug SupavisorWeb.Router
+  plug UltravisorWeb.Router
 end

@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.ClusterTenantsJSON do
-  alias Supavisor.Tenants.ClusterTenants
+defmodule UltravisorWeb.ClusterTenantsJSON do
+  alias Ultravisor.Tenants.ClusterTenants
 
   @doc """
   Renders a list of cluster_tenants.

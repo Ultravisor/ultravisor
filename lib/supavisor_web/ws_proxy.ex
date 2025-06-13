@@ -1,15 +1,17 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.WsProxy do
+defmodule UltravisorWeb.WsProxy do
   @moduledoc """
-  The `Supavisor.WsProxy` module implements a WebSocket proxy for managing
+  The `Ultravisor.WsProxy` module implements a WebSocket proxy for managing
   TCP connections between clients and a Postgres database.
   """
 
   require Logger
-  alias Supavisor.Protocol.Server
+  alias Ultravisor.Protocol.Server
   @behaviour Plug
 
   def call(conn, state) do
@@ -64,7 +66,7 @@ defmodule SupavisorWeb.WsProxy do
 
   @spec connect_local() :: {:ok, port()} | {:error, term()}
   defp connect_local do
-    proxy_port = Application.fetch_env!(:supavisor, :proxy_port_transaction)
+    proxy_port = Application.fetch_env!(:ultravisor, :proxy_port_transaction)
     :gen_tcp.connect(~c"localhost", proxy_port, [:binary, packet: :raw, active: true])
   end
 end

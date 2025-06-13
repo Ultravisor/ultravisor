@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.MixProject do
+defmodule Ultravisor.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :supavisor,
+      app: :ultravisor,
       version: version(),
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -31,7 +33,7 @@ defmodule Supavisor.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {Supavisor.Application, []},
+      mod: {Ultravisor.Application, []},
       extra_applications:
         [:logger, :runtime_tools, :os_mon, :ssl] ++ extra_applications(Mix.env())
     ]
@@ -99,7 +101,7 @@ defmodule Supavisor.MixProject do
 
   def releases do
     [
-      supavisor: [
+      ultravisor: [
         steps: [:assemble, &upgrade/1, :tar],
         include_erts: System.get_env("INCLUDE_ERTS", "true") == "true",
         cookie: System.get_env("RELEASE_COOKIE", Base.url_encode64(:crypto.strong_rand_bytes(30)))
@@ -122,7 +124,7 @@ defmodule Supavisor.MixProject do
       test: [
         "ecto.create",
         "run priv/repo/seeds_before_migration.exs",
-        "ecto.migrate --prefix _supavisor --log-migrator-sql",
+        "ecto.migrate --prefix _ultravisor --log-migrator-sql",
         "run priv/repo/seeds_after_migration.exs",
         "test"
       ]
@@ -134,12 +136,12 @@ defmodule Supavisor.MixProject do
 
     if from && from != "" do
       vsn = release.version
-      path = Path.join([release.path, "releases", "supavisor-#{vsn}.rel"])
-      rel_content = File.read!(Path.join(release.version_path, "supavisor.rel"))
+      path = Path.join([release.path, "releases", "ultravisor-#{vsn}.rel"])
+      rel_content = File.read!(Path.join(release.version_path, "ultravisor.rel"))
 
-      Mix.Task.run("supavisor.gen.appup", ["--from=" <> from, "--to=" <> vsn])
+      Mix.Task.run("ultravisor.gen.appup", ["--from=" <> from, "--to=" <> vsn])
       :ok = File.write!(path, rel_content)
-      Mix.Task.run("supavisor.gen.relup", ["--from=" <> from, "--to=" <> vsn])
+      Mix.Task.run("ultravisor.gen.relup", ["--from=" <> from, "--to=" <> vsn])
     end
 
     release

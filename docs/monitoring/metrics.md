@@ -1,16 +1,18 @@
 <!--
 SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 
 SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: EUPL-1.2
 -->
 
 The metrics feature provides a range of metrics in the Prometheus format. The
 main modules involved in this implementation are:
 
-- `Supavisor.Monitoring.PromEx`
-- `Supavisor.PromEx.Plugins.OsMon`
-- `Supavisor.PromEx.Plugins.Tenant`
-- `Supavisor.Monitoring.Telem`
+- `Ultravisor.Monitoring.PromEx`
+- `Ultravisor.PromEx.Plugins.OsMon`
+- `Ultravisor.PromEx.Plugins.Tenant`
+- `Ultravisor.Monitoring.Telem`
 
 ## Endpoint
 
@@ -51,7 +53,7 @@ The exposed metrics include the following:
 
 ## Tenant metrics
 
-Supavisor also tags many metrics with the `tenant` `external_id` so you can
+Ultravisor also tags many metrics with the `tenant` `external_id` so you can
 drill down to metrics per tenant:
 
 - Pool checkout queue time

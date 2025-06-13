@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.MetricsCleaner do
+defmodule Ultravisor.MetricsCleaner do
   @moduledoc false
 
   use GenServer
@@ -23,7 +25,7 @@ defmodule Supavisor.MetricsCleaner do
 
     :telemetry.attach(
       {__MODULE__, :report},
-      [:supavisor, :metrics_cleaner, :stop],
+      [:ultravisor, :metrics_cleaner, :stop],
       &__MODULE__.__report_long_cleanups__/4,
       []
     )
@@ -42,7 +44,7 @@ defmodule Supavisor.MetricsCleaner do
   def handle_continue(:clean, state) do
     Process.cancel_timer(state.check_ref)
 
-    :telemetry.span([:supavisor, :metrics_cleaner], %{}, fn ->
+    :telemetry.span([:ultravisor, :metrics_cleaner], %{}, fn ->
       count = loop_and_cleanup_metrics_table()
       {[], %{orphaned_metrics: count}, %{}}
     end)
@@ -66,7 +68,7 @@ defmodule Supavisor.MetricsCleaner do
   defp check, do: Process.send_after(self(), :check, @interval)
 
   defp loop_and_cleanup_metrics_table do
-    {_, tids} = Peep.Persistent.storage(Supavisor.Monitoring.PromEx.Metrics)
+    {_, tids} = Peep.Persistent.storage(Ultravisor.Monitoring.PromEx.Metrics)
 
     tids
     |> List.wrap()

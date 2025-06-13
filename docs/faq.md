@@ -1,7 +1,9 @@
 <!--
 SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 
 SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: EUPL-1.2
 -->
 
 Answers to frequently asked questions.
@@ -16,16 +18,16 @@ this client will receive the error `Max client connections reached` which will
 be returned as a Postgres error to your client in the wire protocol and
 subsequently should show up in your exception monitoring software.
 
-## Does Supavisor support prepared statements?
+## Does Ultravisor support prepared statements?
 
-As of 1.0 Supavisor supports prepared statements. Supavisor will detect
+As of 1.0 Ultravisor supports prepared statements. Ultravisor will detect
 `prepare` statements and issue those to all database connections. All clients
 will then be able to address those prepared statements by name when issuing
 `execute` statements.
 
-## Why do you route connections to a single Supavisor node when deployed as a cluster?
+## Why do you route connections to a single Ultravisor node when deployed as a cluster?
 
-Supavisor can run as a cluster of nodes for high availability. The first node to
+Ultravisor can run as a cluster of nodes for high availability. The first node to
 receive a connection from a tenant spins up the connection pool on that node.
 Connections coming in to other nodes will route data do the owner node of the
 tenant pool.

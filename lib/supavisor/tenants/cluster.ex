@@ -1,18 +1,20 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Tenants.Cluster do
+defmodule Ultravisor.Tenants.Cluster do
   @moduledoc false
 
   use Ecto.Schema
   import Ecto.Changeset
-  alias Supavisor.Tenants.ClusterTenants
+  alias Ultravisor.Tenants.ClusterTenants
 
   @type t :: %__MODULE__{}
 
   @primary_key {:id, :binary_id, autogenerate: true}
-  @schema_prefix "_supavisor"
+  @schema_prefix "_ultravisor"
 
   schema "clusters" do
     field(:active, :boolean, default: false)

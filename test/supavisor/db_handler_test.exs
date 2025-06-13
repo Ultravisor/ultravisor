@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.DbHandlerTest do
+defmodule Ultravisor.DbHandlerTest do
   use ExUnit.Case, async: true
 
-  alias Supavisor.DbHandler, as: Db
+  alias Ultravisor.DbHandler, as: Db
 
   # import Mock
   @id {{:single, "tenant"}, "user", :transaction, "postgres", nil}

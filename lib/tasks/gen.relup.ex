@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Mix.Tasks.Supavisor.Gen.Relup do
+defmodule Mix.Tasks.Ultravisor.Gen.Relup do
   @moduledoc """
   Generates an appup file for a given release.
 
@@ -10,7 +12,7 @@ defmodule Mix.Tasks.Supavisor.Gen.Relup do
 
       # Generate an appup from 0.0.1 to 0.0.2 versions
 
-      mix supavisor.gen.appup --from=0.0.1 --to=0.0.2
+      mix ultravisor.gen.appup --from=0.0.1 --to=0.0.2
   """
 
   use Mix.Task
@@ -21,7 +23,7 @@ defmodule Mix.Tasks.Supavisor.Gen.Relup do
 
     {from_vsn, to_vsn} =
       if !parsed[:from] || !parsed[:to] do
-        Mix.Task.run("help", ["supavisor.gen.relup"])
+        Mix.Task.run("help", ["ultravisor.gen.relup"])
         System.halt(1)
       else
         {parsed[:from], parsed[:to]}
@@ -29,7 +31,7 @@ defmodule Mix.Tasks.Supavisor.Gen.Relup do
 
     IO.puts("Generating relup from #{from_vsn} to #{to_vsn}...\n")
 
-    rel_dir = Path.join([File.cwd!(), "_build", "#{Mix.env()}", "rel", "supavisor"])
+    rel_dir = Path.join([File.cwd!(), "_build", "#{Mix.env()}", "rel", "ultravisor"])
     prev_rel_dir = Path.join([rel_dir, "releases", from_vsn])
     curr_rel_dir = Path.join([rel_dir, "releases", to_vsn])
     lib_path = Path.join(rel_dir, "lib")
@@ -40,8 +42,8 @@ defmodule Mix.Tasks.Supavisor.Gen.Relup do
       {:outdir, to_charlist(curr_rel_dir)}
     ]
 
-    rel1 = Path.join(prev_rel_dir, "supavisor") |> to_charlist()
-    rel2 = Path.join(curr_rel_dir, "supavisor") |> to_charlist()
+    rel1 = Path.join(prev_rel_dir, "ultravisor") |> to_charlist()
+    rel2 = Path.join(curr_rel_dir, "ultravisor") |> to_charlist()
 
     case :systools.make_relup(rel2, [rel1], [rel1], opts) do
       :ok ->

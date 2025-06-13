@@ -1,26 +1,28 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.SecretChecker do
+defmodule Ultravisor.SecretChecker do
   @moduledoc false
 
   use GenServer
   require Logger
 
-  alias Supavisor.Helpers
+  alias Ultravisor.Helpers
 
   @interval :timer.seconds(15)
 
   def start_link(args) do
-    name = {:via, Registry, {Supavisor.Registry.Tenants, {:secret_checker, args.id}}}
+    name = {:via, Registry, {Ultravisor.Registry.Tenants, {:secret_checker, args.id}}}
 
     GenServer.start_link(__MODULE__, args, name: name)
   end
 
   def init(args) do
     Logger.debug("SecretChecker: Starting secret checker")
-    tenant = Supavisor.tenant(args.id)
+    tenant = Ultravisor.tenant(args.id)
 
     %{auth: auth, user: user} = Enum.find(args.replicas, fn e -> e.replica_type == :write end)
 
@@ -60,7 +62,7 @@ defmodule Supavisor.SecretChecker do
         database: auth.database,
         password: auth.password.(),
         username: auth.user,
-        parameters: [application_name: "Supavisor auth_query"],
+        parameters: [application_name: "Ultravisor auth_query"],
         ssl: auth.upstream_ssl,
         socket_options: [
           auth.ip_version
@@ -100,7 +102,7 @@ defmodule Supavisor.SecretChecker do
         secrets = Map.put(secret, :alias, auth.alias)
 
         update_cache =
-          case Cachex.get(Supavisor.Cache, state.key) do
+          case Cachex.get(Ultravisor.Cache, state.key) do
             {:ok, {:cached, {_, {old_method, old_secrets}}}} ->
               method != old_method or secrets != old_secrets.()
 
@@ -112,7 +114,7 @@ defmodule Supavisor.SecretChecker do
         if update_cache do
           Logger.info("Secrets changed or not present, updating cache")
           value = {:ok, {method, fn -> secrets end}}
-          Cachex.put(Supavisor.Cache, state.key, {:cached, value}, expire: :timer.hours(24))
+          Cachex.put(Ultravisor.Cache, state.key, {:cached, value}, expire: :timer.hours(24))
         end
 
       other ->

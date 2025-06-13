@@ -1,12 +1,14 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Logger.FiltersTest do
+defmodule Ultravisor.Logger.FiltersTest do
   use ExUnit.Case, async: false
   use ExUnitProperties
 
-  @subject Supavisor.Logger.Filters
+  @subject Ultravisor.Logger.Filters
 
   doctest @subject
 
@@ -26,7 +28,7 @@ defmodule Supavisor.Logger.FiltersTest do
         msg: {:string, "foo bar"},
         level: :info,
         meta: %{
-          mfa: {Supavisor.ClientHandler, :foo, 1},
+          mfa: {Ultravisor.ClientHandler, :foo, 1},
           state: :another
         }
       }
@@ -39,7 +41,7 @@ defmodule Supavisor.Logger.FiltersTest do
         msg: {:string, "foo bar"},
         level: :info,
         meta: %{
-          mfa: {Supavisor.ClientHandler, :foo, 1},
+          mfa: {Ultravisor.ClientHandler, :foo, 1},
           state: :some
         }
       }

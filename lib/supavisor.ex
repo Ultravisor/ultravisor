@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor do
+defmodule Ultravisor do
   @moduledoc false
 
   require Logger
 
-  alias Supavisor.{
+  alias Ultravisor.{
     Helpers,
     Manager,
     Tenants
@@ -22,8 +24,8 @@ defmodule Supavisor do
   @type id :: {{:single | :cluster, String.t()}, String.t(), mode, String.t(), String.t() | nil}
   @type subscribe_opts :: %{workers: workers, ps: list, idle_timeout: integer}
 
-  @registry Supavisor.Registry.Tenants
-  @max_pools Application.compile_env(:supavisor, :max_pools, 20)
+  @registry Ultravisor.Registry.Tenants
+  @max_pools Application.compile_env(:ultravisor, :max_pools, 20)
 
   @spec start_dist(id, secrets, keyword()) :: {:ok, pid()} | {:error, any()}
   def start_dist(id, secrets, options \\ []) do
@@ -118,7 +120,7 @@ defmodule Supavisor do
   """
   @spec dirty_terminate(String.t(), pos_integer()) :: map()
   def dirty_terminate(tenant, timeout \\ 15_000) do
-    Registry.lookup(Supavisor.Registry.TenantSups, tenant)
+    Registry.lookup(Ultravisor.Registry.TenantSups, tenant)
     |> Enum.reduce(%{}, fn {pid, %{user: user, mode: _mode}}, acc ->
       stop =
         try do
@@ -137,16 +139,16 @@ defmodule Supavisor do
   end
 
   def terminate_global(tenant) do
-    :erpc.multicall([node() | Node.list()], Supavisor, :dirty_terminate, [tenant], 60_000)
+    :erpc.multicall([node() | Node.list()], Ultravisor, :dirty_terminate, [tenant], 60_000)
   end
 
   @spec del_all_cache(String.t(), String.t()) :: [map()]
   def del_all_cache(tenant, user) do
     Logger.info("Deleting all cache for tenant #{tenant} and user #{user}")
-    {:ok, keys} = Cachex.keys(Supavisor.Cache)
+    {:ok, keys} = Cachex.keys(Ultravisor.Cache)
 
     del = fn key, acc ->
-      result = Cachex.del(Supavisor.Cache, key)
+      result = Cachex.del(Ultravisor.Cache, key)
       [%{inspect(key) => inspect(result)} | acc]
     end
 
@@ -165,7 +167,7 @@ defmodule Supavisor do
     Logger.info("Deleting all cache for tenant #{tenant}")
 
     del = fn key, acc ->
-      result = Cachex.del(Supavisor.Cache, key)
+      result = Cachex.del(Ultravisor.Cache, key)
       [%{inspect(key) => inspect(result)} | acc]
     end
 
@@ -186,7 +188,7 @@ defmodule Supavisor do
           acc
       end,
       [],
-      Supavisor.Cache
+      Ultravisor.Cache
     )
   end
 
@@ -195,7 +197,7 @@ defmodule Supavisor do
     Logger.info("Deleting all dist cache for tenant #{tenant}")
 
     for node <- [node() | Node.list()] do
-      %{to_string(node) => :erpc.call(node, Supavisor, :del_all_cache, [tenant], timeout)}
+      %{to_string(node) => :erpc.call(node, Ultravisor, :del_all_cache, [tenant], timeout)}
     end
   end
 
@@ -309,8 +311,8 @@ defmodule Supavisor do
           end)
 
         DynamicSupervisor.start_child(
-          {:via, PartitionSupervisor, {Supavisor.DynamicSupervisor, id}},
-          {Supavisor.TenantSupervisor, %{id: id, replicas: opts, log_level: log_level}}
+          {:via, PartitionSupervisor, {Ultravisor.DynamicSupervisor, id}},
+          {Ultravisor.TenantSupervisor, %{id: id, replicas: opts, log_level: log_level}}
         )
         |> case do
           {:error, {:already_started, pid}} -> {:ok, pid}
@@ -372,7 +374,7 @@ defmodule Supavisor do
       auth_query: auth_query,
       database: if(db_name != nil, do: db_name, else: db_database),
       password: fn -> db_pass end,
-      application_name: "Supavisor",
+      application_name: "Ultravisor",
       ip_version: Helpers.ip_version(ip_ver, db_host),
       upstream_ssl: tenant_record.upstream_ssl,
       upstream_verify: tenant_record.upstream_verify,
@@ -423,21 +425,21 @@ defmodule Supavisor do
         else: {1, 100}
 
     opts = %{
-      max_connections: max_clients * Application.get_env(:supavisor, :local_proxy_multiplier),
+      max_connections: max_clients * Application.get_env(:ultravisor, :local_proxy_multiplier),
       num_acceptors: max(acceptors, 10),
       socket_opts: [port: 0, keepalive: true]
     }
 
-    handler = Supavisor.ClientHandler
+    handler = Ultravisor.ClientHandler
     args = Map.put(args, :local, true)
 
     with {:ok, pid} <- :ranch.start_listener(args.id, :ranch_tcp, opts, handler, args) do
-      host = Application.get_env(:supavisor, :node_host)
+      host = Application.get_env(:ultravisor, :node_host)
       {:ok, %{listener: pid, host: host, port: :ranch.get_port(args.id)}}
     end
   end
 
   @spec count_pools(String.t()) :: non_neg_integer()
   def count_pools(tenant),
-    do: Registry.count_match(Supavisor.Registry.TenantSups, tenant, :_)
+    do: Registry.count_match(Ultravisor.Registry.TenantSups, tenant, :_)
 end

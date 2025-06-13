@@ -1,10 +1,12 @@
 <!--
 SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 
 SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: EUPL-1.2
 -->
 
-Profiling of the Supabase can be done using [eFlambé][eflambe] project.
+Profiling of the Ultravisor can be done using [eFlambé][eflambe] project.
 
 Example profiling session looks like:
 
@@ -15,7 +17,7 @@ Example profiling session looks like:
   quick snippet
 
   ```elixir
-  dir = "./tmp/capture-#{DateTime.utc_now()}"; File.mkdir_p!(dir); :eflambe.capture({Supavisor.ClientHandler, :handle_event, 4}, 0, [output_directory: dir])
+  dir = "./tmp/capture-#{DateTime.utc_now()}"; File.mkdir_p!(dir); :eflambe.capture({Ultravisor.ClientHandler, :handle_event, 4}, 0, [output_directory: dir])
   ```
 
   Which provides separate directory for each tracing session.

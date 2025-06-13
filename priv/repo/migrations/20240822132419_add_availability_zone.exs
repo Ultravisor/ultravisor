@@ -1,12 +1,14 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Repo.Migrations.AddAwsZone do
+defmodule Ultravisor.Repo.Migrations.AddAwsZone do
   use Ecto.Migration
 
   def change do
-    alter table("tenants", prefix: "_supavisor") do
+    alter table("tenants", prefix: "_ultravisor") do
       add(:availability_zone, :string)
     end
   end

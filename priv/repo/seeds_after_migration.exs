@@ -1,12 +1,14 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-alias Supavisor.Tenants
-alias Supavisor.Repo
+alias Ultravisor.Tenants
+alias Ultravisor.Repo
 import Ecto.Adapters.SQL, only: [query: 3]
 
-db_conf = Application.get_env(:supavisor, Repo)
+db_conf = Application.get_env(:ultravisor, Repo)
 
 tenant_name = "dev_tenant"
 

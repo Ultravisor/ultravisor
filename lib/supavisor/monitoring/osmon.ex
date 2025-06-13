@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.PromEx.Plugins.OsMon do
+defmodule Ultravisor.PromEx.Plugins.OsMon do
   @moduledoc """
   Polls os_mon metrics.
   """
@@ -13,7 +15,7 @@ defmodule Supavisor.PromEx.Plugins.OsMon do
   @event_ram_usage [:prom_ex, :plugin, :osmon, :ram_usage]
   @event_cpu_util [:prom_ex, :plugin, :osmon, :cpu_util]
   @event_cpu_la [:prom_ex, :plugin, :osmon, :cpu_avg1]
-  @prefix [:supavisor, :prom_ex]
+  @prefix [:ultravisor, :prom_ex]
 
   @impl true
   def polling_metrics(opts) do
@@ -26,7 +28,7 @@ defmodule Supavisor.PromEx.Plugins.OsMon do
 
   defp metrics(poll_rate) do
     Polling.build(
-      :supavisor_osmon_events,
+      :ultravisor_osmon_events,
       poll_rate,
       {__MODULE__, :execute_metrics, []},
       [

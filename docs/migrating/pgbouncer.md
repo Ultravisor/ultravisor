@@ -1,14 +1,16 @@
 <!--
 SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 
 SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: EUPL-1.2
 -->
 
-Migrating from PgBouncer is straight forward once a Supavisor cluster is setup
+Migrating from PgBouncer is straight forward once a Ultravisor cluster is setup
 and a database has been added as a `tenant`.
 
 No application level code changes should be required other than a connection
-string change. Both `transaction` and `session` pool mode behavior for Supavisor
+string change. Both `transaction` and `session` pool mode behavior for Ultravisor
 is the same as PgBouncer.
 
 One caveat during migration is running two connection poolers at the same time.
@@ -39,16 +41,16 @@ increase your `max_connections` limit on Postgres to accommodate two connection
 poolers.
 
 e.g if you're using 30 connections out of 100 and you set your
-`default_pool_size` to 20 you have enough connections to run a new Supavisor
+`default_pool_size` to 20 you have enough connections to run a new Ultravisor
 pool along side your PgBouncer pool.
 
 If you are using 90 connections out of 100 and your `default_pool_size` is set
-to 20 you will have problems during the deployment of your Supavisor connection
+to 20 you will have problems during the deployment of your Ultravisor connection
 string because you will hit your Postgres `max_connections` limit.
 
-## Verify Supavisor connections
+## Verify Ultravisor connections
 
-Once we've got Supavisor started we can verify it's using the amount of
+Once we've got Ultravisor started we can verify it's using the amount of
 connections we set for `default_pool_size`:
 
 ```sql
@@ -57,7 +59,7 @@ SELECT
   usename,
   application_name
 FROM pg_stat_activity
-WHERE application_name ILIKE '%Supavisor%'
+WHERE application_name ILIKE '%Ultravisor%'
 GROUP BY
   usename,
   application_name

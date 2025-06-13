@@ -1,15 +1,17 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.E2ECase do
+defmodule Ultravisor.E2ECase do
   @moduledoc """
   End to End test cases.
   """
 
   use ExUnit.CaseTemplate
 
-  @repo Supavisor.Repo
+  @repo Ultravisor.Repo
 
   using do
     quote do
@@ -24,7 +26,7 @@ defmodule Supavisor.E2ECase do
       raise "End to end tests must be run in synchronous mode"
     end
 
-    Supavisor.DataCase.setup_sandbox(tags)
+    Ultravisor.DataCase.setup_sandbox(tags)
   end
 
   def unboxed(fun) do
@@ -44,7 +46,7 @@ defmodule Supavisor.E2ECase do
     end)
 
     assert {:ok, tenant} =
-             Supavisor.Tenants.create_tenant(%{
+             Ultravisor.Tenants.create_tenant(%{
                default_parameter_status: %{},
                db_host: "localhost",
                db_port: 6432,
@@ -63,8 +65,8 @@ defmodule Supavisor.E2ECase do
              })
 
     on_exit(fn ->
-      _ = Supavisor.stop({{:single, external_id}, "postgres", :session, external_id, nil})
-      _ = Supavisor.stop({{:single, external_id}, "postgres", :transaction, external_id, nil})
+      _ = Ultravisor.stop({{:single, external_id}, "postgres", :session, external_id, nil})
+      _ = Ultravisor.stop({{:single, external_id}, "postgres", :transaction, external_id, nil})
 
       unboxed(fn ->
         assert {:ok, _} = @repo.query("DROP DATABASE #{external_id}")

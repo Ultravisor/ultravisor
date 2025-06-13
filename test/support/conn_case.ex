@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.ConnCase do
+defmodule UltravisorWeb.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -15,7 +17,7 @@ defmodule SupavisorWeb.ConnCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use SupavisorWeb.ConnCase, async: true`, although
+  by setting `use UltravisorWeb.ConnCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -26,17 +28,17 @@ defmodule SupavisorWeb.ConnCase do
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import SupavisorWeb.ConnCase
+      import UltravisorWeb.ConnCase
 
-      alias SupavisorWeb.Router.Helpers, as: Routes
+      alias UltravisorWeb.Router.Helpers, as: Routes
 
       # The default endpoint for testing
-      @endpoint SupavisorWeb.Endpoint
+      @endpoint UltravisorWeb.Endpoint
     end
   end
 
   setup tags do
-    Supavisor.DataCase.setup_sandbox(tags)
+    Ultravisor.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 end

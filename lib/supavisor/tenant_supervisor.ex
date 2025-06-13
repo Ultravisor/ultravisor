@@ -1,18 +1,20 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.TenantSupervisor do
+defmodule Ultravisor.TenantSupervisor do
   @moduledoc false
   use Supervisor
 
   require Logger
-  alias Supavisor.Manager
-  alias Supavisor.SecretChecker
+  alias Ultravisor.Manager
+  alias Ultravisor.SecretChecker
 
   def start_link(%{replicas: [%{mode: mode} = single]} = args)
       when mode in [:transaction, :session] do
-    {:ok, meta} = Supavisor.start_local_server(single)
+    {:ok, meta} = Ultravisor.start_local_server(single)
     Logger.info("Starting ranch instance #{inspect(meta)} for #{inspect(args.id)}")
     name = {:via, :syn, {:tenants, args.id, meta}}
     Supervisor.start_link(__MODULE__, args, name: name)
@@ -42,7 +44,7 @@ defmodule Supavisor.TenantSupervisor do
 
     {{type, tenant}, user, mode, db_name, search_path} = args.id
     map_id = %{user: user, mode: mode, type: type, db_name: db_name, search_path: search_path}
-    Registry.register(Supavisor.Registry.TenantSups, tenant, map_id)
+    Registry.register(Ultravisor.Registry.TenantSups, tenant, map_id)
 
     Supervisor.init(children,
       strategy: :one_for_all,
@@ -64,8 +66,8 @@ defmodule Supavisor.TenantSupervisor do
     {size, overflow} = {1, args.pool_size}
 
     [
-      name: {:via, Registry, {Supavisor.Registry.Tenants, id, args.replica_type}},
-      worker_module: Supavisor.DbHandler,
+      name: {:via, Registry, {Ultravisor.Registry.Tenants, id, args.replica_type}},
+      worker_module: Ultravisor.DbHandler,
       size: size,
       max_overflow: overflow,
       strategy: :lifo,

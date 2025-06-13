@@ -1,13 +1,15 @@
 <!--
 SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 
 SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: EUPL-1.2
 -->
 
 All configuration options for a tenant `user` are stored on the `user` record in
-the metadata database used by Supavisor.
+the metadata database used by Ultravisor.
 
-All `user` fields and their types are defined in the `Supavisor.Tenants.User`
+All `user` fields and their types are defined in the `Ultravisor.Tenants.User`
 module.
 
 ## Field Descriptions

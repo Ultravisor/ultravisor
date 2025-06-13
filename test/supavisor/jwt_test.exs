@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.JwtTest do
+defmodule Ultravisor.JwtTest do
   use ExUnit.Case, async: true
 
-  @subject Supavisor.Jwt
+  @subject Ultravisor.Jwt
 
   @secret "my_secret_key"
   @wrong_secret "my_wrong_secret_key"

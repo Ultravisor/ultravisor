@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-alias Supavisor.DbHandler, as: Db
+alias Ultravisor.DbHandler, as: Db
 
 long = <<51, 0, 0, 0, 4, 90, 0, 0, 0, 5, 84>>
 short = <<90, 0, 0, 0, 5, 84>>

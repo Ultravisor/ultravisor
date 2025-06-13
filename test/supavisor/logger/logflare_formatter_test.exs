@@ -1,14 +1,16 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Logger.LogflareFormatterTest do
+defmodule Ultravisor.Logger.LogflareFormatterTest do
   use ExUnit.Case, async: false
   use ExUnitProperties
 
   require Logger
 
-  @subject Supavisor.Logger.LogflareFormatter
+  @subject Ultravisor.Logger.LogflareFormatter
 
   doctest @subject
 

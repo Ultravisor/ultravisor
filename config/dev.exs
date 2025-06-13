@@ -1,14 +1,16 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
 import Config
 # Configure your database
-config :supavisor, Supavisor.Repo,
+config :ultravisor, Ultravisor.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
-  database: "supavisor_dev",
+  database: "ultravisor_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
@@ -19,7 +21,7 @@ config :supavisor, Supavisor.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we use it
 # with esbuild to bundle .js and .css sources.
-config :supavisor, SupavisorWeb.Endpoint,
+config :ultravisor, UltravisorWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: System.get_env("PORT", "4000")],
@@ -53,12 +55,12 @@ config :supavisor, SupavisorWeb.Endpoint,
 # different ports.
 
 # Watch static and templates for browser reloading.
-config :supavisor, SupavisorWeb.Endpoint,
+config :ultravisor, UltravisorWeb.Endpoint,
   live_reload: [
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
-      ~r"lib/supavisor_web/(live|views)/.*(ex)$",
-      ~r"lib/supavisor_web/templates/.*(eex)$"
+      ~r"lib/ultravisor_web/(live|views)/.*(ex)$",
+      ~r"lib/ultravisor_web/templates/.*(eex)$"
     ]
   ]
 

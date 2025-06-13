@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Application do
+defmodule Ultravisor.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
@@ -11,9 +13,9 @@ defmodule Supavisor.Application do
 
   require Logger
 
-  alias Supavisor.Monitoring.PromEx
+  alias Ultravisor.Monitoring.PromEx
 
-  @metrics_disabled Application.compile_env(:supavisor, :metrics_disabled, false)
+  @metrics_disabled Application.compile_env(:ultravisor, :metrics_disabled, false)
 
   @impl true
   def start(_type, _args) do
@@ -25,12 +27,12 @@ defmodule Supavisor.Application do
         _ -> nil
       end
 
-    region = Application.get_env(:supavisor, :region)
+    region = Application.get_env(:ultravisor, :region)
 
     global_metadata =
       %{
         nodehost: host,
-        az: Application.get_env(:supavisor, :availability_zone),
+        az: Application.get_env(:ultravisor, :availability_zone),
         region: region,
         location: System.get_env("LOCATION_KEY") || region,
         instance_id: System.get_env("INSTANCE_ID"),
@@ -43,21 +45,21 @@ defmodule Supavisor.Application do
         Map.merge(primary_config.metadata, global_metadata)
       )
 
-    :ok = Logger.add_handlers(:supavisor)
+    :ok = Logger.add_handlers(:ultravisor)
 
     :ok =
       :gen_event.swap_sup_handler(
         :erl_signal_server,
         {:erl_signal_handler, []},
-        {Supavisor.SignalHandler, []}
+        {Ultravisor.SignalHandler, []}
       )
 
     proxy_ports = [
-      {:pg_proxy_transaction, Application.get_env(:supavisor, :proxy_port_transaction),
-       :transaction, Supavisor.ClientHandler},
-      {:pg_proxy_session, Application.get_env(:supavisor, :proxy_port_session), :session,
-       Supavisor.ClientHandler},
-      {:pg_proxy, Application.get_env(:supavisor, :proxy_port), :proxy, Supavisor.ClientHandler}
+      {:pg_proxy_transaction, Application.get_env(:ultravisor, :proxy_port_transaction),
+       :transaction, Ultravisor.ClientHandler},
+      {:pg_proxy_session, Application.get_env(:ultravisor, :proxy_port_session), :session,
+       Ultravisor.ClientHandler},
+      {:pg_proxy, Application.get_env(:ultravisor, :proxy_port), :proxy, Ultravisor.ClientHandler}
     ]
 
     for {key, port, mode, handler} <- proxy_ports do
@@ -80,43 +82,43 @@ defmodule Supavisor.Application do
       end
     end
 
-    :syn.set_event_handler(Supavisor.SynHandler)
+    :syn.set_event_handler(Ultravisor.SynHandler)
     :syn.add_node_to_scopes([:tenants, :availability_zone])
 
-    :syn.join(:availability_zone, Application.get_env(:supavisor, :availability_zone), self(),
+    :syn.join(:availability_zone, Application.get_env(:ultravisor, :availability_zone), self(),
       node: node()
     )
 
     topologies = Application.get_env(:libcluster, :topologies) || []
 
     children = [
-      Supavisor.ErlSysMon,
-      {Registry, keys: :unique, name: Supavisor.Registry.Tenants},
-      {Registry, keys: :unique, name: Supavisor.Registry.ManagerTables},
-      {Registry, keys: :unique, name: Supavisor.Registry.PoolPids},
-      {Registry, keys: :duplicate, name: Supavisor.Registry.TenantSups},
+      Ultravisor.ErlSysMon,
+      {Registry, keys: :unique, name: Ultravisor.Registry.Tenants},
+      {Registry, keys: :unique, name: Ultravisor.Registry.ManagerTables},
+      {Registry, keys: :unique, name: Ultravisor.Registry.PoolPids},
+      {Registry, keys: :duplicate, name: Ultravisor.Registry.TenantSups},
       {Registry,
        keys: :duplicate,
-       name: Supavisor.Registry.TenantClients,
+       name: Ultravisor.Registry.TenantClients,
        partitions: System.schedulers_online()},
       {Registry,
        keys: :duplicate,
-       name: Supavisor.Registry.TenantProxyClients,
+       name: Ultravisor.Registry.TenantProxyClients,
        partitions: System.schedulers_online()},
-      {Cluster.Supervisor, [topologies, [name: Supavisor.ClusterSupervisor]]},
-      Supavisor.Repo,
+      {Cluster.Supervisor, [topologies, [name: Ultravisor.ClusterSupervisor]]},
+      Ultravisor.Repo,
       # Start the Telemetry supervisor
-      SupavisorWeb.Telemetry,
+      UltravisorWeb.Telemetry,
       # Start the PubSub system
-      {Phoenix.PubSub, name: Supavisor.PubSub},
+      {Phoenix.PubSub, name: Ultravisor.PubSub},
       {
         PartitionSupervisor,
-        child_spec: DynamicSupervisor, strategy: :one_for_one, name: Supavisor.DynamicSupervisor
+        child_spec: DynamicSupervisor, strategy: :one_for_one, name: Ultravisor.DynamicSupervisor
       },
-      Supavisor.Vault,
+      Ultravisor.Vault,
 
       # Start the Endpoint (http/https)
-      SupavisorWeb.Endpoint
+      UltravisorWeb.Endpoint
     ]
 
     Logger.warning("metrics_disabled is #{inspect(@metrics_disabled)}")
@@ -125,20 +127,20 @@ defmodule Supavisor.Application do
       if @metrics_disabled do
         children
       else
-        children ++ [PromEx, Supavisor.TenantsMetrics, Supavisor.MetricsCleaner]
+        children ++ [PromEx, Ultravisor.TenantsMetrics, Ultravisor.MetricsCleaner]
       end
 
     # start Cachex only if the node uses names, this is necessary for test setup
     children =
       if node() != :nonode@nohost do
-        [{Cachex, name: Supavisor.Cache} | children]
+        [{Cachex, name: Ultravisor.Cache} | children]
       else
         children
       end
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: Supavisor.Supervisor]
+    opts = [strategy: :one_for_one, name: Ultravisor.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
@@ -146,14 +148,14 @@ defmodule Supavisor.Application do
   # whenever the application is updated.
   @impl true
   def config_change(changed, _new, removed) do
-    SupavisorWeb.Endpoint.config_change(changed, removed)
+    UltravisorWeb.Endpoint.config_change(changed, removed)
     :ok
   end
 
   @spec short_node_id() :: String.t() | nil
   defp short_node_id do
     with {:ok, fly_alloc_id} when is_binary(fly_alloc_id) <-
-           Application.fetch_env(:supavisor, :fly_alloc_id),
+           Application.fetch_env(:ultravisor, :fly_alloc_id),
          [short_alloc_id, _] <- String.split(fly_alloc_id, "-", parts: 2) do
       short_alloc_id
     else

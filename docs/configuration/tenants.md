@@ -1,17 +1,19 @@
 <!--
 SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 
 SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: EUPL-1.2
 -->
 
 All configuration options for a tenant are stored on the `tenant` record in the
-metadata database used by Supavisor.
+metadata database used by Ultravisor.
 
 A `tenant` is looked via the `external_id` discovered in the incoming client
 connection.
 
 All `tenant` fields and their types are defined in the
-`Supavisor.Tenants.Tenant` module.
+`Ultravisor.Tenants.Tenant` module.
 
 ## Field Descriptions
 

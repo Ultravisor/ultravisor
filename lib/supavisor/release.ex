@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule Supavisor.Release do
+defmodule Ultravisor.Release do
   @moduledoc """
   Used for executing DB release tasks when run in production without Mix
   installed.
   """
-  @app :supavisor
+  @app :ultravisor
 
   def migrate do
     ensure_ssl_started()
@@ -16,7 +18,7 @@ defmodule Supavisor.Release do
       {:ok, _, _} =
         Ecto.Migrator.with_repo(
           repo,
-          &Ecto.Migrator.run(&1, :up, all: true, prefix: "_supavisor")
+          &Ecto.Migrator.run(&1, :up, all: true, prefix: "_ultravisor")
         )
     end
   end
@@ -27,7 +29,7 @@ defmodule Supavisor.Release do
     {:ok, _, _} =
       Ecto.Migrator.with_repo(
         repo,
-        &Ecto.Migrator.run(&1, :down, to: version, prefix: "_supavisor")
+        &Ecto.Migrator.run(&1, :down, to: version, prefix: "_ultravisor")
       )
   end
 

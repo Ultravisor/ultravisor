@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
-defmodule SupavisorWeb.ErrorView do
-  use SupavisorWeb, :view
+defmodule UltravisorWeb.ErrorView do
+  use UltravisorWeb, :view
 
   # If you want to customize a particular status code
   # for a certain format, you may uncomment below.

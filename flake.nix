@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2025 Supabase <support@supabase.io>
+# SPDX-FileCopyrightText: 2025 Łukasz Niemier <~@hauleth.dev>
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: EUPL-1.2
 
 {
   description = "Elixir's application";
@@ -42,12 +44,12 @@
           # Expose Devenv supervisor
           devenv-up = self'.devShells.default.config.procfileScript;
 
-          supavisor = let
+          ultravisor = let
             erl = pkgs.beam_nox.packages.erlang_27;
           in
             erl.callPackage ./nix/package.nix {};
 
-          default = self'.packages.supavisor;
+          default = self'.packages.ultravisor;
         };
 
         devShells.default = devenv.lib.mkShell {
