@@ -7,7 +7,10 @@
 defmodule Ultravisor.Manager do
   @moduledoc false
   use GenServer, restart: :transient
+
   require Logger
+
+  import Ultravisor, only: [conn_id: 1]
 
   alias Ultravisor.Helpers
   alias Ultravisor.Protocol.Server
@@ -45,7 +48,7 @@ defmodule Ultravisor.Manager do
 
     [args | _] = Enum.filter(args.replicas, fn e -> e.replica_type == :write end)
 
-    {{type, tenant}, user, _mode, db_name, _search_path} = args.id
+    conn_id(type: type, tenant: tenant, user: user, db_name: db_name) = args.id
 
     state = %{
       id: args.id,

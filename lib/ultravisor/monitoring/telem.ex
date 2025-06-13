@@ -9,6 +9,8 @@ defmodule Ultravisor.Monitoring.Telem do
 
   require Logger
 
+  import Ultravisor, only: [conn_id: 0, conn_id: 1]
+
   @disabled Application.compile_env(:ultravisor, :metrics_disabled, false)
 
   if @disabled do
@@ -34,7 +36,14 @@ defmodule Ultravisor.Monitoring.Telem do
             recv_oct: recv_oct - Map.get(stats, :recv_oct, 0)
           }
 
-          {{ptype, tenant}, user, mode, db_name, search_path} = id
+          conn_id(
+            type: ptype,
+            tenant: tenant,
+            user: user,
+            mode: mode,
+            db_name: db_name,
+            search_path: search_path
+          ) = id
 
           :telemetry.execute(
             [:ultravisor, type, :network, :stat],
@@ -59,66 +68,38 @@ defmodule Ultravisor.Monitoring.Telem do
   end
 
   @spec pool_checkout_time(integer(), Ultravisor.id(), :local | :remote) :: :ok | nil
-  def pool_checkout_time(time, {{type, tenant}, user, mode, db_name, search_path}, same_box) do
+  def pool_checkout_time(time, conn_id() = id, same_box) do
     telemetry_execute(
       [:ultravisor, :pool, :checkout, :stop, same_box],
       %{duration: time},
-      %{
-        tenant: tenant,
-        user: user,
-        mode: mode,
-        type: type,
-        db_name: db_name,
-        search_path: search_path
-      }
+      Ultravisor.conn_id_to_map(id)
     )
   end
 
   @spec client_query_time(integer(), Ultravisor.id()) :: :ok | nil
-  def client_query_time(start, {{type, tenant}, user, mode, db_name, search_path}) do
+  def client_query_time(start, conn_id() = id) do
     telemetry_execute(
       [:ultravisor, :client, :query, :stop],
       %{duration: System.monotonic_time() - start},
-      %{
-        tenant: tenant,
-        user: user,
-        mode: mode,
-        type: type,
-        db_name: db_name,
-        search_path: search_path
-      }
+      Ultravisor.conn_id_to_map(id)
     )
   end
 
   @spec client_connection_time(integer(), Ultravisor.id()) :: :ok | nil
-  def client_connection_time(start, {{type, tenant}, user, mode, db_name, search_path}) do
+  def client_connection_time(start, conn_id() = id) do
     telemetry_execute(
       [:ultravisor, :client, :connection, :stop],
       %{duration: System.monotonic_time() - start},
-      %{
-        tenant: tenant,
-        user: user,
-        mode: mode,
-        type: type,
-        db_name: db_name,
-        search_path: search_path
-      }
+      Ultravisor.conn_id_to_map(id)
     )
   end
 
   @spec client_join(:ok | :fail, Ultravisor.id() | any()) :: :ok | nil
-  def client_join(status, {{type, tenant}, user, mode, db_name, search_path}) do
+  def client_join(status, conn_id() = id) do
     telemetry_execute(
       [:ultravisor, :client, :joins, status],
       %{},
-      %{
-        tenant: tenant,
-        user: user,
-        mode: mode,
-        type: type,
-        db_name: db_name,
-        search_path: search_path
-      }
+      Ultravisor.conn_id_to_map(id)
     )
   end
 
@@ -131,18 +112,11 @@ defmodule Ultravisor.Monitoring.Telem do
           :started | :stopped | :db_connection,
           Ultravisor.id()
         ) :: :ok | nil
-  def handler_action(handler, action, {{type, tenant}, user, mode, db_name, search_path}) do
+  def handler_action(handler, action, conn_id() = id) do
     telemetry_execute(
       [:ultravisor, handler, action, :all],
       %{},
-      %{
-        tenant: tenant,
-        user: user,
-        mode: mode,
-        type: type,
-        db_name: db_name,
-        search_path: search_path
-      }
+      Ultravisor.conn_id_to_map(id)
     )
   end
 

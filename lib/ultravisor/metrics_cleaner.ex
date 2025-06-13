@@ -8,6 +8,7 @@ defmodule Ultravisor.MetricsCleaner do
   @moduledoc false
 
   use GenServer
+
   require Logger
 
   @interval :timer.minutes(30)
@@ -82,15 +83,15 @@ defmodule Ultravisor.MetricsCleaner do
       fn elem, acc ->
         with {{_,
                %{
-                 type: type,
-                 mode: mode,
-                 user: user,
-                 tenant: tenant,
-                 db_name: db,
-                 search_path: search_path
-               }} = key, _} <- elem,
-             [] <-
-               :ets.lookup(@tenant_registry_table, {{type, tenant}, user, mode, db, search_path}) do
+                 type: _type,
+                 mode: _mode,
+                 user: _user,
+                 tenant: _tenant,
+                 db_name: _db,
+                 search_path: _search_path
+               } = map} = key, _} <- elem,
+             id = Ultravisor.map_to_conn_id(map),
+             [] <- :ets.lookup(@tenant_registry_table, id) do
           Logger.warning("Found orphaned metric: #{inspect(key)}")
           :ets.delete(tid, key)
 

@@ -9,6 +9,8 @@ defmodule Ultravisor.Integration.ProxyTest do
 
   require Logger
 
+  import Ultravisor, only: [conn_id: 1]
+
   alias Postgrex, as: P
   alias Ultravisor.Support.Cluster
 
@@ -208,7 +210,7 @@ defmodule Ultravisor.Integration.ProxyTest do
 
     [{_, client_pid, _}] =
       Ultravisor.get_local_manager(
-        {{:single, @tenant}, "transaction", :transaction, "postgres", nil}
+        conn_id(tenant: @tenant, user: "transaction", db_name: "postgres")
       )
       |> :sys.get_state()
       |> Access.get(:tid)
@@ -259,7 +261,7 @@ defmodule Ultravisor.Integration.ProxyTest do
     assert [%Postgrex.Result{rows: [["1"]]}] = P.SimpleConnection.call(pid, {:query, "select 1;"})
     :gen_statem.stop(pid)
     P.query(origin, "alter user dev_postgres with password 'postgres_new';", [])
-    Ultravisor.stop({{:single, "is_manager"}, "dev_postgres", :transaction, "postgres"})
+    Ultravisor.stop(conn_id(tenant: "is_manager", user: "dev_postgres", db_name: "postgres"))
 
     :timer.sleep(1000)
 
@@ -303,7 +305,14 @@ defmodule Ultravisor.Integration.ProxyTest do
 
     assert {:ok, pid} = single_connection(connection_opts)
 
-    id = {{:single, @tenant}, db_conf[:username], :session, db_conf[:database], nil}
+    id =
+      conn_id(
+        tenant: @tenant,
+        user: db_conf[:username],
+        mode: :session,
+        db_name: db_conf[:database]
+      )
+
     [{client_pid, _}] = Registry.lookup(Ultravisor.Registry.TenantClients, id)
 
     P.SimpleConnection.call(pid, {:query, "select 1;"})

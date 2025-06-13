@@ -8,6 +8,8 @@ defmodule Ultravisor.Monitoring.PromExTest do
   use Ultravisor.DataCase, async: true
   use ExUnitProperties
 
+  import Ultravisor, only: [conn_id: 1]
+
   alias Ultravisor.Monitoring.Telem
 
   @subject Ultravisor.Monitoring.PromEx
@@ -47,10 +49,8 @@ defmodule Ultravisor.Monitoring.PromExTest do
       user = "user"
 
       check all(db_name <- string(:printable, min_length: 1, max_length: 63)) do
-        Telem.client_join(
-          :ok,
-          {{:single, tenant}, user, :session, db_name, nil}
-        )
+        id = conn_id(tenant: tenant, user: user, mode: :session, db_name: db_name)
+        Telem.client_join(:ok, id)
 
         metrics = @subject.get_metrics()
         file = Path.join(dir, "prom.out")
@@ -75,10 +75,8 @@ defmodule Ultravisor.Monitoring.PromExTest do
       db_name = "db_name"
 
       check all(user <- string(:printable, min_length: 1, max_length: 63)) do
-        Ultravisor.Monitoring.Telem.client_join(
-          :ok,
-          {{:single, tenant}, user, :session, db_name, nil}
-        )
+        id = conn_id(tenant: tenant, user: user, mode: :session, db_name: db_name)
+        Ultravisor.Monitoring.Telem.client_join(:ok, id)
 
         metrics = @subject.get_metrics()
         file = Path.join(dir, "prom.out")
@@ -103,10 +101,9 @@ defmodule Ultravisor.Monitoring.PromExTest do
       user = "user"
 
       check all(tenant <- string(:printable, min_length: 1)) do
-        Telem.client_join(
-          :ok,
-          {{:single, tenant}, user, :session, db_name, nil}
-        )
+        id = conn_id(tenant: tenant, user: user, mode: :session, db_name: db_name)
+
+        Telem.client_join(:ok, id)
 
         metrics = @subject.get_metrics()
         file = Path.join(dir, "prom.out")

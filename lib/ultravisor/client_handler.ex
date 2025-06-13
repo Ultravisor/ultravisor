@@ -12,16 +12,22 @@ defmodule Ultravisor.ClientHandler do
   supervisor. Each client connection is assigned to a specific tenant supervisor.
   """
 
-  require Logger
-
   @behaviour :ranch_protocol
   @behaviour :gen_statem
+
   @proto [:tcp, :ssl]
+
   @switch_active_count Application.compile_env(:ultravisor, :switch_active_count)
   @subscribe_retries Application.compile_env(:ultravisor, :subscribe_retries)
+
   @timeout_subscribe 500
   @clients_registry Ultravisor.Registry.TenantClients
   @proxy_clients_registry Ultravisor.Registry.TenantProxyClients
+
+  require Logger
+  require Ultravisor.Protocol.Server, as: Server
+
+  import Ultravisor, only: [conn_id: 1]
 
   alias Ultravisor.{
     DbHandler,
@@ -31,8 +37,6 @@ defmodule Ultravisor.ClientHandler do
     Protocol.Client,
     Tenants
   }
-
-  require Ultravisor.Protocol.Server, as: Server
 
   @impl true
   def start_link(ref, transport, opts) do
@@ -254,13 +258,13 @@ defmodule Ultravisor.ClientHandler do
         db_name = db_name || info.tenant.db_database
 
         id =
-          Ultravisor.id(
-            {type, tenant_or_alias},
-            user,
-            data.mode,
-            info.user.mode_type,
-            db_name,
-            search_path
+          conn_id(
+            type: type,
+            tenant: tenant_or_alias,
+            user: user,
+            mode: data.mode,
+            db_name: db_name,
+            search_path: search_path
           )
 
         mode = Ultravisor.mode(id)
