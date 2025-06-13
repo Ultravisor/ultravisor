@@ -20,8 +20,6 @@ defmodule UltravisorWeb.MetricsControllerTest do
       |> get(Routes.metrics_path(conn, :index))
 
     assert conn.status == 200
-    assert conn.resp_body =~ "region=\"eu\""
-    assert conn.resp_body =~ "region=\"usa\""
   end
 
   test "invalid jwt", %{conn: conn} do

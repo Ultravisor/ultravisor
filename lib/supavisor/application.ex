@@ -120,7 +120,7 @@ defmodule Ultravisor.Application do
       if @metrics_disabled do
         children
       else
-        children ++ [PromEx, Ultravisor.TenantsMetrics, Ultravisor.MetricsCleaner]
+        children ++ [PromEx, Ultravisor.MetricsCleaner]
       end
 
     # start Cachex only if the node uses names, this is necessary for test setup

@@ -14,10 +14,8 @@ defmodule Ultravisor.Monitoring.PromEx do
   use PromEx, otp_app: :ultravisor
   require Logger
 
-  alias Peep.Storage
   alias PromEx.Plugins
   alias Ultravisor.PromEx.Plugins.{OsMon, Tenant}
-  alias Telemetry.Metrics
 
   defmodule Store do
     @moduledoc """
@@ -30,15 +28,10 @@ defmodule Ultravisor.Monitoring.PromEx do
     @behaviour PromEx.Storage
 
     @impl true
-    def scrape(_name) do
-      # Hack to not report errors from ETSCronFlusher
-      if match?({PromEx.ETSCronFlusher, _, _}, Process.get(:"$initial_call")) do
-        ""
-      else
-        raise(
-          "Do not use PromEx.scrape/1, instead use Ultravisor.Monitoring.PromEx.fetch_cluster_metrics/0"
-        )
-      end
+    def scrape(name) do
+      name
+      |> Peep.get_all_metrics()
+      |> Peep.Prometheus.export()
     end
 
     @impl true
@@ -77,148 +70,6 @@ defmodule Ultravisor.Monitoring.PromEx do
 
   @spec get_metrics() :: iodata()
   def get_metrics do
-    fetch_metrics()
-    |> Peep.Prometheus.export()
-  end
-
-  @spec get_cluster_metrics() :: iodata()
-  def get_cluster_metrics do
-    fetch_cluster_metrics()
-    |> Peep.Prometheus.export()
-  end
-
-  @spec do_cache_tenants_metrics() :: list
-  def do_cache_tenants_metrics do
-    pools =
-      Registry.select(Ultravisor.Registry.TenantClients, [{{:"$1", :_, :_}, [], [:"$1"]}])
-      |> Enum.uniq()
-
-    Enum.each(pools, fn {{_type, tenant}, _, _, _, _} ->
-      metrics = fetch_metrics_for(tenant: tenant)
-
-      if metrics != %{} do
-        Cachex.put(Ultravisor.Cache, {:metrics, tenant}, metrics)
-      end
-    end)
-
-    pools
-  end
-
-  @spec get_cluster_tenant_metrics(String.t()) :: iodata()
-  def get_cluster_tenant_metrics(tenant) do
-    fetch_cluster_tenant_metrics(tenant)
-    |> Peep.Prometheus.export()
-  end
-
-  @spec get_tenant_metrics(String.t()) :: String.t()
-  def get_tenant_metrics(tenant) do
-    case Cachex.get(Ultravisor.Cache, {:metrics, tenant}) do
-      {_, metrics} when is_map(metrics) -> Peep.Prometheus.export(metrics)
-      _ -> ""
-    end
-  end
-
-  def fetch_metrics do
-    Peep.get_all_metrics(__metrics_collector_name__())
-  end
-
-  def fetch_tenant_metrics(tenant) do
-    case Cachex.get(Ultravisor.Cache, {:metrics, tenant}) do
-      {_, metrics} when is_map(metrics) -> metrics
-      _ -> %{}
-    end
-  end
-
-  def fetch_cluster_metrics do
-    [node() | Node.list()]
-    |> Task.async_stream(&fetch_node_metrics/1, timeout: :infinity)
-    |> Stream.map(fn {_, map} -> map end)
-    |> Enum.reduce(&merge_metrics/2)
-  end
-
-  def fetch_cluster_tenant_metrics(tenant) do
-    [node() | Node.list()]
-    |> Task.async_stream(&fetch_node_tenant_metrics(&1, tenant), timeout: :infinity)
-    |> Stream.map(fn {_, map} -> map end)
-    |> Enum.reduce(&merge_metrics/2)
-  end
-
-  @spec fetch_node_metrics(atom()) :: map()
-  defp fetch_node_metrics(node), do: do_fetch(node, :fetch_metrics, [])
-
-  @spec fetch_node_tenant_metrics(atom(), String.t()) :: map()
-  defp fetch_node_tenant_metrics(node, tenant),
-    do: do_fetch(node, :fetch_tenant_metrics, [tenant])
-
-  @spec do_fetch(node(), atom(), list()) :: map()
-  defp do_fetch(node, f, a) do
-    case :rpc.call(node, __MODULE__, f, a, 25_000) do
-      map when is_map(map) ->
-        map
-
-      {:badrpc, reason} ->
-        Logger.error(
-          "Cannot fetch metrics from the node #{inspect(node)} because #{inspect(reason)} (call #{f} with #{inspect(a)})"
-        )
-
-        %{}
-    end
-  end
-
-  defp merge_metrics(a, b), do: Map.merge(a, b, &do_merge/3)
-
-  defp do_merge(%Metrics.Counter{}, a, b), do: sum_merge(a, b)
-  defp do_merge(%Metrics.Sum{}, a, b), do: sum_merge(a, b)
-  defp do_merge(%Metrics.LastValue{}, a, b), do: Map.merge(a, b)
-
-  defp do_merge(%Metrics.Distribution{}, a, b) do
-    Map.merge(a, b, fn _, a, b -> sum_merge(a, b) end)
-  end
-
-  defp sum_merge(a, b), do: Map.merge(a, b, fn _, a, b -> a + b end)
-
-  def fetch_metrics_for(tags) do
-    match =
-      for {name, value} <- tags do
-        {:"=:=", {:map_get, {:const, name}, :"$1"}, {:const, value}}
-      end
-
-    {_, store} = Peep.Persistent.storage(__metrics_collector_name__())
-
-    store
-    |> List.wrap()
-    |> Enum.flat_map(fn tid ->
-      :ets.select(tid, [{{{:_, :"$1", :_}, :_}, match, [:"$_"]}])
-    end)
-    |> group_metrics(%{})
-  end
-
-  # Copied from Peep. Probably will work only with ETS storage (that we
-  # currently use).
-  # To be removed if Peep will accept feature request for similar functionality,
-  # see: https://github.com/rkallos/peep/issues/35
-  defp group_metrics([], acc) do
-    acc
-  end
-
-  defp group_metrics([metric | rest], acc) do
-    acc2 = group_metric(metric, acc)
-    group_metrics(rest, acc2)
-  end
-
-  defp group_metric({{%Metrics.Counter{} = metric, tags, _}, value}, acc) do
-    update_in(acc, [Access.key(metric, %{}), Access.key(tags, 0)], &(&1 + value))
-  end
-
-  defp group_metric({{%Metrics.Sum{} = metric, tags, _}, value}, acc) do
-    update_in(acc, [Access.key(metric, %{}), Access.key(tags, 0)], &(&1 + value))
-  end
-
-  defp group_metric({{%Metrics.LastValue{} = metric, tags}, value}, acc) do
-    put_in(acc, [Access.key(metric, %{}), Access.key(tags)], value)
-  end
-
-  defp group_metric({{%Metrics.Distribution{} = metric, tags}, atomics}, acc) do
-    put_in(acc, [Access.key(metric, %{}), Access.key(tags)], Storage.Atomics.values(atomics))
+    PromEx.get_metrics(__MODULE__)
   end
 end
