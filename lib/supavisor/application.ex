@@ -47,13 +47,6 @@ defmodule Ultravisor.Application do
 
     :ok = Logger.add_handlers(:ultravisor)
 
-    :ok =
-      :gen_event.swap_sup_handler(
-        :erl_signal_server,
-        {:erl_signal_handler, []},
-        {Ultravisor.SignalHandler, []}
-      )
-
     proxy_ports = [
       {:pg_proxy_transaction, Application.get_env(:ultravisor, :proxy_port_transaction),
        :transaction, Ultravisor.ClientHandler},
