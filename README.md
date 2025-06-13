@@ -223,3 +223,8 @@ the design decisions for Ultravisor.
 - [proxysql.com](https://proxysql.com/)
 - [Amazon RDS Proxy](https://aws.amazon.com/rds/proxy/)
 - [Google Cloud SQL Proxy](https://github.com/GoogleCloudPlatform/cloud-sql-proxy)
+
+## License
+
+Till commit `d7c2febd` (inclusive) - Apache-2.0
+Since commit `e82f1bc7` (inclusive) - EUPL-1.2
