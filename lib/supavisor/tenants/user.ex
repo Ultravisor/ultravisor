@@ -34,13 +34,6 @@ defmodule Ultravisor.Tenants.User do
 
   @doc false
   def changeset(user, attrs) do
-    attrs =
-      if attrs["db_user_alias"] do
-        attrs
-      else
-        Map.put(attrs, "db_user_alias", attrs["db_user"])
-      end
-
     user
     |> cast(attrs, [
       :db_user_alias,
@@ -52,6 +45,7 @@ defmodule Ultravisor.Tenants.User do
       :pool_checkout_timeout,
       :max_clients
     ])
+    |> fill_from_if_empty(:db_user_alias, :db_user)
     |> validate_required([
       :db_user_alias,
       :db_user,
@@ -59,5 +53,14 @@ defmodule Ultravisor.Tenants.User do
       :pool_size,
       :mode_type
     ])
+  end
+
+  defp fill_from_if_empty(changeset, target, source) do
+    if Ecto.Changeset.get_change(changeset, target) do
+      changeset
+    else
+      value = Ecto.Changeset.get_field(changeset, source)
+      Ecto.Changeset.put_change(changeset, target, value)
+    end
   end
 end
