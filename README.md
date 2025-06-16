@@ -6,8 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 SPDX-License-Identifier: EUPL-1.2
 -->
 
-![Ultravisor](/docs/images/ultravisor-banner.png)
-
 # Ultravisor - Postgres connection pooler
 
 - [Overview](#overview)
@@ -77,11 +75,6 @@ single VPC / multiple availability zone topologies is possible and can provide
 for greater redundancy when load balancing queries across read replicas are
 supported ([todo](#future-work)).
 
-<p align="center">
-<img src="https://user-images.githubusercontent.com/8291514/230757493-669bf563-084c-4705-b22e-38d398f4ec05.svg#gh-light-mode-only">
-<img src="https://user-images.githubusercontent.com/8291514/230757489-2d2fb07a-1fcb-423b-939e-b0c04e2d4d9b.svg#gh-dark-mode-only">
-</p>
-
 ## Docs
 
 - [Installation and usage](https://ultravisor.github.io/ultravisor/development/installation/)
@@ -100,6 +93,7 @@ supported ([todo](#future-work)).
   - Easy drop-in replacement for `PgBouncer`
 - Pool mode support per tenant
   - Transaction
+  - Session
 - Cloud-native
   - Cluster-able
   - Resilient during cluster resizing
@@ -121,15 +115,6 @@ supported ([todo](#future-work)).
 
 ## Future Work
 
-- Load balancing
-  - Queries can be load balanced across read-replicas
-  - Load balancing is independent of Postgres high-availability management (see
-    below)
-- Query caching
-  - Query results are optionally cached in the pool cluster and returned before
-    hitting the tenant database
-- Session pooling
-  - Like `PgBouncer`
 - Multi-protocol Postgres query interface
   - Postgres binary
   - HTTPS
@@ -143,70 +128,10 @@ supported ([todo](#future-work)).
     clusters as well
   - Pulumi / Terraform support
 
-## Benchmarks
-
-### Local Benchmarks
-
-- Running `pgbench` on `PgBouncer` (transaction mode/pool size 60)
-
-```
-PGPASSWORD=postgres pgbench -M extended --transactions 100 --jobs 10 --client 100 -h localhost -p 6452 -U postgres postgres
-pgbench (15.2, server 14.6 (Debian 14.6-1.pgdg110+1))
-starting vacuum...end.
-transaction type: <builtin: TPC-B (sort of)>
-scaling factor: 1
-query mode: extended
-number of clients: 100
-number of threads: 10
-maximum number of tries: 1
-number of transactions per client: 100
-number of transactions actually processed: 10000/10000
-number of failed transactions: 0 (0.000%)
-latency average = 510.310 ms
-initial connection time = 31.388 ms
-tps = 195.959361 (without initial connection time)
-```
-
-- Running `pgbench` on `Ultravisor` (pool size 60, no logs)
-
-```
-PGPASSWORD=postgres pgbench -M extended --transactions 100 --jobs 10 --client 100 -h localhost -p 7654 -U postgres.localhost postgres
-pgbench (15.2, server 14.6 (Debian 14.6-1.pgdg110+1))
-starting vacuum...end.
-transaction type: <builtin: TPC-B (sort of)>
-scaling factor: 1
-query mode: extended
-number of clients: 100
-number of threads: 10
-maximum number of tries: 1
-number of transactions per client: 100
-number of transactions actually processed: 10000/10000
-number of failed transactions: 0 (0.000%)
-latency average = 528.463 ms
-initial connection time = 178.591 ms
-tps = 189.228103 (without initial connection time)
-```
-
-### Load Test
-
-![Ultravisor load test virtual users chart](./docs/images/load-test-vus.png)
-
-![Ultravisor load test qps chart](./docs/images/load-test-qps.png)
-
-- Ultravisor two node cluster
-  - 64vCPU / 246RAM
-  - Ubuntu 22.04.2 aarch64
-- 1 003 200 concurrent client connection
-- 20 000+ QPS
-- 400 tenant Postgres connection
-- `SELECT * FROM (VALUES (1, 'one'), (2, 'two'), (3, 'three')) AS t (num, letter);`
-- ~50% CPU utilization (pool owner node)
-- 7.8G RAM usage
-
 ## Acknowledgements
 
 [José Valim](https://github.com/josevalim) and the [Dashbit](https://dashbit.co/) team were incredibly helpful in informing
-the design decisions for Ultravisor.
+the design decisions for Supavisor.
 
 ## Inspiration
 
@@ -226,5 +151,7 @@ the design decisions for Ultravisor.
 
 ## License
 
-Till commit `d7c2febd` (inclusive) - Apache-2.0
+The project is for of Supabase's Supavisor, as so the licensing is:
+
+Till commit `d7c2febd` (inclusive) - Apache-2.0 
 Since commit `e82f1bc7` (inclusive) - EUPL-1.2
