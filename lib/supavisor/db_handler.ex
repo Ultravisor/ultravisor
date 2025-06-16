@@ -427,7 +427,8 @@ defmodule Ultravisor.DbHandler do
     )
   end
 
-  @spec try_ssl_handshake(Ultravisor.tcp_sock(), map) :: {:ok, Ultravisor.sock()} | {:error, term()}
+  @spec try_ssl_handshake(Ultravisor.tcp_sock(), map) ::
+          {:ok, Ultravisor.sock()} | {:error, term()}
   defp try_ssl_handshake(sock, %{upstream_ssl: true} = auth) do
     case sock_send(sock, Server.ssl_request()) do
       :ok -> ssl_recv(sock, auth)

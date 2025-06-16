@@ -23,7 +23,12 @@ defmodule Ultravisor.Tenants.User do
     field(:pool_size, :integer)
     field(:pool_checkout_timeout, :integer, default: 60_000)
     field(:max_clients, :integer)
-    belongs_to(:tenant, Ultravisor.Tenants.Tenant, foreign_key: :tenant_external_id, type: :string)
+
+    belongs_to(:tenant, Ultravisor.Tenants.Tenant,
+      foreign_key: :tenant_external_id,
+      type: :string
+    )
+
     timestamps()
   end
 
