@@ -34,11 +34,6 @@ defmodule Ultravisor.SynHandlerTest do
     :pong = Node.ping(node2)
     Process.sleep(500)
 
-    msg = "Resolving syn_tenant conflict, stop local pid"
-
-    assert capture_log(fn -> Logger.warning(msg) end) =~
-             msg
-
     assert pid2 == Ultravisor.get_global_sup(@id)
     assert node(pid2) == node2
   end
