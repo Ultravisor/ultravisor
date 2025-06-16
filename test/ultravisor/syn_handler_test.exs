@@ -6,8 +6,9 @@
 
 defmodule Ultravisor.SynHandlerTest do
   use ExUnit.Case, async: false
-  import ExUnit.CaptureLog
+
   require Logger
+
   alias Ecto.Adapters.SQL.Sandbox
   alias Ultravisor.Support.Cluster
 
