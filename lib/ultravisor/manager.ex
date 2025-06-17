@@ -9,9 +9,9 @@ defmodule Ultravisor.Manager do
   use GenServer, restart: :transient
   require Logger
 
+  alias Ultravisor.Helpers
   alias Ultravisor.Protocol.Server
   alias Ultravisor.Tenants
-  alias Ultravisor.Helpers
 
   @check_timeout 120_000
 

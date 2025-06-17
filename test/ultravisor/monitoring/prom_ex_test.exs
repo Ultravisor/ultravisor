@@ -8,6 +8,8 @@ defmodule Ultravisor.Monitoring.PromExTest do
   use Ultravisor.DataCase, async: true
   use ExUnitProperties
 
+  alias Ultravisor.Monitoring.Telem
+
   @subject Ultravisor.Monitoring.PromEx
 
   describe "get_metrics/1" do
@@ -41,7 +43,7 @@ defmodule Ultravisor.Monitoring.PromExTest do
       user = "user"
 
       check all db_name <- string(:printable, min_length: 1, max_length: 63) do
-        Ultravisor.Monitoring.Telem.client_join(
+        Telem.client_join(
           :ok,
           {{:single, tenant}, user, :session, db_name, nil}
         )
@@ -97,7 +99,7 @@ defmodule Ultravisor.Monitoring.PromExTest do
       user = "user"
 
       check all tenant <- string(:printable, min_length: 1) do
-        Ultravisor.Monitoring.Telem.client_join(
+        Telem.client_join(
           :ok,
           {{:single, tenant}, user, :session, db_name, nil}
         )

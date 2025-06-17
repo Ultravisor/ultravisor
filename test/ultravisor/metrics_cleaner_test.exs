@@ -7,6 +7,7 @@
 defmodule Ultravisor.MetricsCleanerTest do
   use ExUnit.Case, async: false
 
+  alias Ultravisor.Monitoring.PromEx
   alias Ultravisor.PromEx.Plugins.Tenant, as: Metrics
 
   @subject Ultravisor.MetricsCleaner
@@ -31,7 +32,7 @@ defmodule Ultravisor.MetricsCleanerTest do
         {{{:single, "non-existent"}, "foo", :transaction, "bar", nil}, 2137}
       )
 
-    metrics = Ultravisor.Monitoring.PromEx.get_metrics()
+    metrics = PromEx.get_metrics()
 
     assert IO.iodata_to_binary(metrics) =~ ~r/non-existent/
 
@@ -39,7 +40,7 @@ defmodule Ultravisor.MetricsCleanerTest do
 
     assert_receive {:metrics, _}
 
-    metrics = Ultravisor.Monitoring.PromEx.get_metrics()
+    metrics = PromEx.get_metrics()
 
     refute IO.iodata_to_binary(metrics) =~ ~r/non-existent/
   end

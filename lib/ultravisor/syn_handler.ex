@@ -69,16 +69,7 @@ defmodule Ultravisor.SynHandler do
 
     if node() == node(stop) do
       spawn(fn ->
-        resp =
-          if Process.alive?(stop) do
-            try do
-              Supervisor.stop(stop, :shutdown, 30_000)
-            catch
-              error, reason -> {:error, {error, reason}}
-            end
-          else
-            :not_alive
-          end
+        resp = try_stop(stop)
 
         Logger.warning(
           "SynHandler: Resolving #{inspect(id)} conflict, stop local pid: #{inspect(stop)}, response: #{inspect(resp)}"
@@ -91,5 +82,17 @@ defmodule Ultravisor.SynHandler do
     end
 
     keep
+  end
+
+  defp try_stop(pid) do
+    if Process.alive?(pid) do
+      try do
+        Supervisor.stop(pid, :shutdown, 30_000)
+      catch
+        error, reason -> {:error, {error, reason}}
+      end
+    else
+      :not_alive
+    end
   end
 end

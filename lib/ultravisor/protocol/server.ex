@@ -480,5 +480,5 @@ defmodule Ultravisor.Protocol.Server do
   def application_name, do: @application_name
 
   @spec terminate_message() :: binary
-  def terminate_message(), do: @terminate_message
+  def terminate_message, do: @terminate_message
 end
