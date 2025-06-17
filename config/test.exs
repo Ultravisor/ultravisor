@@ -8,7 +8,6 @@ import Config
 
 config :ultravisor,
   region: "eu",
-  fly_alloc_id: "123e4567-e89b-12d3-a456-426614174000",
   api_jwt_secret: "dev",
   metrics_jwt_secret: "dev",
   jwt_claim_validators: %{},

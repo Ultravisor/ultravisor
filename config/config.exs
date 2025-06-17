@@ -36,8 +36,6 @@ metadata = [
   :request_id,
   :project,
   :user,
-  :region,
-  :instance_id,
   :mode,
   :type,
   :app_name,
