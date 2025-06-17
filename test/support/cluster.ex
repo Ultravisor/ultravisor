@@ -52,9 +52,6 @@ defmodule Ultravisor.Support.Cluster do
                 port: 0
               )
 
-            {:ultravisor, :region} ->
-              "usa"
-
             {:ultravisor, :availability_zone} ->
               "ap-southeast-1c"
 

@@ -21,23 +21,13 @@ defmodule Ultravisor.Application do
   def start(_type, _args) do
     primary_config = :logger.get_primary_config()
 
-    host =
-      case node() |> Atom.to_string() |> String.split("@") do
-        [_, host] -> host
-        _ -> nil
-      end
-
-    region = Application.get_env(:ultravisor, :region)
+    {:ok, host} = :inet.gethostname()
 
     global_metadata =
-      %{
-        nodehost: host,
-        az: Application.get_env(:ultravisor, :availability_zone),
-        region: region,
-        location: System.get_env("LOCATION_KEY") || region,
-        instance_id: System.get_env("INSTANCE_ID"),
-        short_node_id: short_node_id()
-      }
+      Application.get_env(:ultravisor, :metadata, %{})
+      |> Map.merge(%{
+        hostname: to_string(host)
+      })
 
     :ok =
       :logger.set_primary_config(
@@ -143,16 +133,5 @@ defmodule Ultravisor.Application do
   def config_change(changed, _new, removed) do
     UltravisorWeb.Endpoint.config_change(changed, removed)
     :ok
-  end
-
-  @spec short_node_id() :: String.t() | nil
-  defp short_node_id do
-    with {:ok, fly_alloc_id} when is_binary(fly_alloc_id) <-
-           Application.fetch_env(:ultravisor, :fly_alloc_id),
-         [short_alloc_id, _] <- String.split(fly_alloc_id, "-", parts: 2) do
-      short_alloc_id
-    else
-      _ -> nil
-    end
   end
 end

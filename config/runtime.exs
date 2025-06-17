@@ -9,6 +9,14 @@ import Config
 require Logger
 alias Ultravisor.Helpers
 
+if metadata = System.get_env("ULTRAVISOR_METADATA") do
+  decoded = JSON.decode(metadata)
+
+  if is_map(decoded) do
+    config :ultravisor, :metadata, decoded
+  end
+end
+
 secret_key_base =
   if config_env() in [:dev, :test] do
     "3S1V5RyqQcuPrMVuR4BjH9XBayridj56JA0EE6wYidTEc6H84KSFY6urVX7GfOhK"
@@ -158,7 +166,6 @@ if config_env() != :test do
   config :ultravisor,
     availability_zone: System.get_env("AVAILABILITY_ZONE"),
     region: System.get_env("REGION") || System.get_env("FLY_REGION"),
-    fly_alloc_id: System.get_env("FLY_ALLOC_ID"),
     jwt_claim_validators: System.get_env("JWT_CLAIM_VALIDATORS", "{}") |> JSON.decode!(),
     api_jwt_secret: System.get_env("API_JWT_SECRET"),
     metrics_jwt_secret: System.get_env("METRICS_JWT_SECRET"),
@@ -214,7 +221,7 @@ if System.get_env("ULTRAVISOR_LOG_FORMAT") == "json" do
        %{
          # metadata: metadata,
          top_level: [:project],
-         context: [:nodehost, :instance_id, :location, :region]
+         context: [:hostname]
        }}
 end
 
