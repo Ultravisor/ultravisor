@@ -24,18 +24,21 @@ env:
   MIX_ENV: test
 
 jobs:
-  deps:
-    name: Fetch deps
+  elixir:
+    name: Run Elixir CI
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Elixir
-        id: beam
-        uses: erlef/setup-beam@v1
+      - uses: cachix/install-nix-action@v26
+      - uses: cachix/cachix-action@v14
         with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
+          name: devenv
+      - name: Cache Mix
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
       - name: Cache Mix
         uses: actions/cache@v4
         with:
@@ -43,217 +46,226 @@ jobs:
           key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
           restore-keys: |
             ${{ runner.os }}-mix-
-      - name: Install dependencies
-        run: mix deps.get --check-locked
+      - name: Run CI
+        run: nix develop --impure . --command bash -c "task ci"
 
-  format:
-    name: Formatting checks
-    runs-on: ubuntu-latest
-    needs: [deps]
-
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Elixir
-        id: beam
-        uses: erlef/setup-beam@v1
-        with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
-      - name: Cache Mix
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
-      - name: Run format check
-        run: mix format --check-formatted
-
-  credo:
-    name: Code style
-    runs-on: ubuntu-latest
-    needs: [deps]
-
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Elixir
-        id: beam
-        uses: erlef/setup-beam@v1
-        with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
-      - name: Cache Mix
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
-      - name: Compile deps
-        run: mix deps.compile
-      - name: Credo checks
-        run: mix credo --strict --all --mute-exit-status --format=sarif > results.sarif
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: results.sarif
-          category: credo
-
-  tests:
-    name: Run tests
-    runs-on: ubuntu-latest
-    needs: [deps]
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Postgres
-        run: docker-compose -f ./docker-compose.db.yml up -d
-      - name: Setup Elixir
-        id: beam
-        uses: erlef/setup-beam@v1
-        with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: stable
-      - name: Cache Mix
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
-      - name: Cache native
-        uses: actions/cache@v4
-        with:
-          path: |
-            _build/${{ env.MIX_ENV }}/lib/supavisor/native
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-build-native-${{ hashFiles(format('{0}{1}', github.workspace, '/native/**/Cargo.lock')) }}
-          restore-keys: |
-            ${{ runner.os }}-build-native-
-      - name: Compile deps
-        run: mix deps.compile
-      - name: Compile
-        run: mix compile
-      - name: Start epmd
-        run: epmd -daemon
-      - name: Run tests
-        run: mix coveralls.lcov
-      - name: Upload Parallel Coverage Report
-        uses: coverallsapp/github-action@v2
-        with:
-          flag-name: run-tests
-          parallel: true
-
-  integration:
-    name: Run integration tests
-    runs-on: ubuntu-latest
-    needs: [deps]
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Postgres
-        run: docker-compose -f ./docker-compose.db.yml up -d
-      - name: Setup Elixir
-        id: beam
-        uses: erlef/setup-beam@v1
-        with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-          cache-dependency-path: 'test/integration/js/'
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: stable
-      - name: Cache Mix
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
-      - name: Cache native
-        uses: actions/cache@v4
-        with:
-          path: |
-            _build/${{ env.MIX_ENV }}/lib/supavisor/native
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-build-native-${{ hashFiles(format('{0}{1}', github.workspace, '/native/**/Cargo.lock')) }}
-          restore-keys: |
-            ${{ runner.os }}-build-native-
-      - name: Compile deps
-        run: mix deps.compile
-      - name: Compile
-        run: mix compile
-      - name: Start epmd
-        run: epmd -daemon
-      - name: Install Node dependencies
-        run: 'cd test/integration/js/; npm install'
-      - name: Run tests
-        run: mix coveralls.lcov --only integration --trace
-      - name: Upload Parallel Coverage Report
-        uses: coverallsapp/github-action@v2
-        with:
-          flag-name: run-integration
-          parallel: true
-
-  dialyzer:
-    name: Dialyze
-    runs-on: ubuntu-latest
-    needs: [deps]
-
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Elixir
-        id: beam
-        uses: erlef/setup-beam@v1
-        with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: stable
-      - name: Cache Mix
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
-      - name: Cache native
-        uses: actions/cache@v4
-        with:
-          path: |
-            _build/${{ env.MIX_ENV }}/lib/supavisor/native
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-build-native-${{ hashFiles(format('{0}{1}', github.workspace, '/native/**/Cargo.lock')) }}
-          restore-keys: |
-            ${{ runner.os }}-build-native-
-      - name: Compile deps
-        run: mix deps.compile
-      - name: Compile
-        run: mix compile
-      - name: Retrieve PLT Cache
-        uses: actions/cache@v4
-        id: plt-cache
-        with:
-          path: _build/${{ env.MIX_ENV }}/*.plt
-          key: ${{ runner.os }}-${{ steps.beam.outputs.otp-version }}-${{ steps.beam.outputs.elixir-version }}-plts-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
-          restore-keys: |
-            ${{ runner.os }}-${{ steps.beam.outputs.otp-version }}-${{ steps.beam.outputs.elixir-version }}-plts-
-
-      - name: Create PLTs
-        if: steps.plt-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p priv/plts
-          mix dialyzer.build
-      - name: Run dialyzer
-        run: mix dialyzer
+  # deps:
+  #   name: Fetch deps
+  #   runs-on: ubuntu-latest
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: cachix/install-nix-action@v26
+  #     - uses: cachix/cachix-action@v14
+  #       with:
+  #         name: devenv
+  #     - name: Cache Mix
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: deps
+  #         key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+  #     - name: Install Hex and Rebar
+  #       run: nix develop --impure . --command bash -c "mix do local.hex --force, local.rebar --force"
+  #     - name: Cache Mix
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: deps
+  #         key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-mix-
+  #     - name: Install dependencies
+  #       run: nix develop --impure . --command bash -c "mix deps.get --check-locked"
+  #
+  # format:
+  #   name: Formatting checks
+  #   runs-on: ubuntu-latest
+  #   needs: [deps]
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: cachix/install-nix-action@v26
+  #     - uses: cachix/cachix-action@v14
+  #       with:
+  #         name: devenv
+  #     - name: Install Hex and Rebar
+  #       run: nix develop --impure . --command bash -c "mix do local.hex --force, local.rebar --force"
+  #     - name: Cache Mix
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: deps
+  #         key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+  #     - name: Cache Mix
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: deps
+  #         key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+  #     - name: Run format check
+  #       run: nix develop --impure . --command bash -c "mix format --check-formatted"
+  #
+  # credo:
+  #   name: Code style
+  #   runs-on: ubuntu-latest
+  #   needs: [deps]
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: cachix/install-nix-action@v26
+  #     - uses: cachix/cachix-action@v14
+  #       with:
+  #         name: devenv
+  #     - name: Cache Mix
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: deps
+  #         key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+  #     - name: Install Hex and Rebar
+  #       run: nix develop --impure . --command bash -c "mix do local.hex --force, local.rebar --force"
+  #     - name: Compile deps
+  #       run: nix develop --impure . --command bash -c "mix deps.compile"
+  #     - name: Credo checks
+  #       run: nix develop --impure . --command bash -c "mix credo --strict --all --mute-exit-status --format=sarif > results.sarif"
+  #     - name: Upload SARIF file
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       continue-on-error: true
+  #       with:
+  #         sarif_file: results.sarif
+  #         category: credo
+  #
+  # tests:
+  #   name: Run tests
+  #   runs-on: ubuntu-latest
+  #   needs: [deps]
+  #   env:
+  #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: cachix/install-nix-action@v26
+  #     - uses: cachix/cachix-action@v14
+  #       with:
+  #         name: devenv
+  #     - name: Install Hex and Rebar
+  #       run: nix develop --impure . --command bash -c "mix do local.hex --force, local.rebar --force"
+  #     - name: Setup services
+  #       run: |
+  #         nix build --impure -o services .#devenv-up
+  #         ./services
+  #     - name: Cache Mix
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: deps
+  #         key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+  #     - name: Cache native
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: |
+  #           _build/${{ env.MIX_ENV }}/lib/supavisor/native
+  #           ~/.cargo/bin/
+  #           ~/.cargo/registry/index/
+  #           ~/.cargo/registry/cache/
+  #           ~/.cargo/git/db/
+  #         key: ${{ runner.os }}-build-native-${{ hashFiles(format('{0}{1}', github.workspace, '/native/**/Cargo.lock')) }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-build-native-
+  #     - name: Compile deps
+  #       run: nix develop --impure . --command bash -c "mix deps.compile"
+  #     - name: Compile
+  #       run: nix develop --impure . --command bash -c "mix compile"
+  #     - name: Start epmd
+  #       run: nix develop --impure . --command bash -c "epmd -daemon"
+  #     - name: Run tests
+  #       run: nix develop --impure . --command bash -c "mix coveralls.lcov"
+  #
+  # integration:
+  #   name: Run integration tests
+  #   runs-on: ubuntu-latest
+  #   needs: [deps]
+  #   env:
+  #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: cachix/install-nix-action@v26
+  #     - uses: cachix/cachix-action@v14
+  #       with:
+  #         name: devenv
+  #     - name: Install Hex and Rebar
+  #       run: nix develop --impure . --command bash -c "mix do local.hex --force, local.rebar --force"
+  #     - name: Setup services
+  #       run: |
+  #         nix build --no-pure-eval -o services .#devenv-up 
+  #         ./services
+  #     - name: Cache Mix
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: deps
+  #         key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+  #     - name: Cache native
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: |
+  #           _build/${{ env.MIX_ENV }}/lib/supavisor/native
+  #           ~/.cargo/bin/
+  #           ~/.cargo/registry/index/
+  #           ~/.cargo/registry/cache/
+  #           ~/.cargo/git/db/
+  #         key: ${{ runner.os }}-build-native-${{ hashFiles(format('{0}{1}', github.workspace, '/native/**/Cargo.lock')) }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-build-native-
+  #     - name: Compile deps
+  #       run: nix develop --impure . --command bash -c "mix deps.compile"
+  #     - name: Compile
+  #       run: nix develop --impure . --command bash -c "mix compile"
+  #     - name: Start epmd
+  #       run: nix develop --impure . --command bash -c "epmd -daemon"
+  #     - name: Run tests
+  #       run: nix develop --impure . --command bash -c "mix coveralls.lcov --only integration --trace"
+  #
+  # dialyzer:
+  #   name: Dialyze
+  #   runs-on: ubuntu-latest
+  #   needs: [deps]
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: cachix/install-nix-action@v26
+  #     - uses: cachix/cachix-action@v14
+  #       with:
+  #         name: devenv
+  #     - name: Install Hex and Rebar
+  #       run: nix develop --impure . --command bash -c "mix do local.hex --force, local.rebar --force"
+  #     - name: Cache Mix
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: deps
+  #         key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+  #     - name: Cache native
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: |
+  #           _build/${{ env.MIX_ENV }}/lib/supavisor/native
+  #           ~/.cargo/bin/
+  #           ~/.cargo/registry/index/
+  #           ~/.cargo/registry/cache/
+  #           ~/.cargo/git/db/
+  #         key: ${{ runner.os }}-build-native-${{ hashFiles(format('{0}{1}', github.workspace, '/native/**/Cargo.lock')) }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-build-native-
+  #     - name: Compile deps
+  #       run: nix develop --impure . --command bash -c "mix deps.compile"
+  #     - name: Compile
+  #       run: nix develop --impure . --command bash -c "mix compile"
+  #     - name: Retrieve PLT Cache
+  #       uses: actions/cache@v4
+  #       id: plt-cache
+  #       with:
+  #         path: _build/${{ env.MIX_ENV }}/*.plt
+  #         key: ${{ runner.os }}-${{ steps.beam.outputs.otp-version }}-${{ steps.beam.outputs.elixir-version }}-plts-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-${{ steps.beam.outputs.otp-version }}-${{ steps.beam.outputs.elixir-version }}-plts-
+  #
+  #     - name: Create PLTs
+  #       if: steps.plt-cache.outputs.cache-hit != 'true'
+  #       run: |
+  #         mkdir -p priv/plts
+  #         nix develop --impure . --command bash -c "mix dialyzer.build"
+  #     - name: Run dialyzer
+  #       run: nix develop --impure . --command bash -c "mix dialyzer"

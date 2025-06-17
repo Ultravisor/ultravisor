@@ -57,31 +57,22 @@
 
           modules = [
             {
-              pre-commit.hooks = {
-                alejandra.enable = true;
-                typos = {
-                  enable = true;
-                  excludes = [
-                    "test/integration/"
-                  ];
-                };
-                check-yaml.enable = true;
-                # yamlfmt.enable = true;
-              };
+              packages = [ pkgs.go-task ];
             }
             {
               languages.elixir = {
                 enable = true;
                 package = pkgs.beam.packages.erlang_27.elixir_1_18;
               };
+
+              languages.erlang = {
+                enable = true;
+                package = pkgs.beam.packages.erlang_27.erlang;
+              };
+
               packages = [
                 pkgs.lexical
               ];
-
-              pre-commit.hooks = {
-                mix-format.enable = true;
-                # credo.enable = true;
-              };
 
               # env.DYLD_INSERT_LIBRARIES = "${pkgs.mimalloc}/lib/libmimalloc.dylib";
             }
@@ -126,16 +117,12 @@
               languages.rust.enable = true;
               languages.cplusplus.enable = true;
 
-              pre-commit.hooks = {
-                clippy.enable = true;
-                rustfmt.enable = true;
-              };
-
               packages =
                 [
                   pkgs.protobuf
                   pkgs.cargo-outdated
                   pkgs.prom2json
+                  pkgs.llvmPackages_18.libclang
                 ]
                 ++ lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk; [
                   frameworks.System

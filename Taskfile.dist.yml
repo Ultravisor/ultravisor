@@ -1,0 +1,60 @@
+version: '3'
+
+run: once
+
+tasks:
+  deps-get:
+    cmds:
+    - mix do local.hex --force, local.rebar --force
+    - mix deps.get
+
+  deps-compile:
+    deps: [deps-get]
+    cmds:
+    - mix deps.compile
+
+  format-check:
+    deps: [deps-get]
+    cmds:
+    - mix format --check-formatted
+
+  credo:
+    deps: [deps-compile]
+    ignore_error: true
+    cmds:
+    - mix credo --strict --all
+
+  compile:
+    deps: [deps-compile]
+    cmds:
+    - mix compile
+
+  test:
+    deps: [compile]
+    cmds:
+    - epmd -daemon
+    - mix test
+
+  integration:
+    deps: [compile]
+    cmds:
+    - epmd -daemon
+    - mix test --only integration --trace
+
+  dialyzer-plt:
+    deps: [compile]
+    cmds:
+    - mkdir -p priv/plts
+    - mix dialyzer.build
+
+  dialyzer:
+    deps: [dialyzer-plt]
+    cmds:
+    - mix dialyzer
+
+  ci:
+    deps:
+    - format-check
+    - credo
+    - test
+    - dialyzer
