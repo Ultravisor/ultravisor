@@ -18,13 +18,6 @@ this client will receive the error `Max client connections reached` which will
 be returned as a Postgres error to your client in the wire protocol and
 subsequently should show up in your exception monitoring software.
 
-## Does Ultravisor support prepared statements?
-
-As of 1.0 Ultravisor supports prepared statements. Ultravisor will detect
-`prepare` statements and issue those to all database connections. All clients
-will then be able to address those prepared statements by name when issuing
-`execute` statements.
-
 ## Why do you route connections to a single Ultravisor node when deployed as a cluster?
 
 Ultravisor can run as a cluster of nodes for high availability. The first node to
