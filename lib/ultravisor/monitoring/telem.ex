@@ -11,65 +11,51 @@ defmodule Ultravisor.Monitoring.Telem do
 
   import Ultravisor, only: [conn_id: 0, conn_id: 1]
 
-  @disabled Application.compile_env(:ultravisor, :metrics_disabled, false)
-
-  if @disabled do
-    defp telemetry_execute(_name, _measurements, _meta), do: :ok
-  else
-    defp telemetry_execute(event_name, measurements, metadata) do
-      :telemetry.execute(event_name, measurements, metadata)
-    end
-  end
-
   @spec network_usage(:client | :db, Ultravisor.sock(), Ultravisor.id(), map()) ::
           {:ok | :error, map()}
-  if @disabled do
-    def network_usage(_type, _sock, _id, _stats), do: {:ok, %{recv_oct: 0, send_oct: 0}}
-  else
-    def network_usage(type, {mod, socket}, id, stats) do
-      mod = if mod == :ssl, do: :ssl, else: :inet
+  def network_usage(type, {mod, socket}, id, stats) do
+    mod = if mod == :ssl, do: :ssl, else: :inet
 
-      case mod.getstat(socket, [:recv_oct, :send_oct]) do
-        {:ok, [{:recv_oct, recv_oct}, {:send_oct, send_oct}]} ->
-          stats = %{
-            send_oct: send_oct - Map.get(stats, :send_oct, 0),
-            recv_oct: recv_oct - Map.get(stats, :recv_oct, 0)
-          }
+    case mod.getstat(socket, [:recv_oct, :send_oct]) do
+      {:ok, [{:recv_oct, recv_oct}, {:send_oct, send_oct}]} ->
+        stats = %{
+          send_oct: send_oct - Map.get(stats, :send_oct, 0),
+          recv_oct: recv_oct - Map.get(stats, :recv_oct, 0)
+        }
 
-          conn_id(
-            type: ptype,
+        conn_id(
+          type: ptype,
+          tenant: tenant,
+          user: user,
+          mode: mode,
+          db_name: db_name,
+          search_path: search_path
+        ) = id
+
+        :telemetry.execute(
+          [:ultravisor, type, :network, :stat],
+          stats,
+          %{
             tenant: tenant,
             user: user,
             mode: mode,
+            type: ptype,
             db_name: db_name,
             search_path: search_path
-          ) = id
+          }
+        )
 
-          :telemetry.execute(
-            [:ultravisor, type, :network, :stat],
-            stats,
-            %{
-              tenant: tenant,
-              user: user,
-              mode: mode,
-              type: ptype,
-              db_name: db_name,
-              search_path: search_path
-            }
-          )
+        {:ok, %{recv_oct: recv_oct, send_oct: send_oct}}
 
-          {:ok, %{recv_oct: recv_oct, send_oct: send_oct}}
-
-        {:error, reason} ->
-          Logger.error("Failed to get socket stats: #{inspect(reason)}")
-          {:error, stats}
-      end
+      {:error, reason} ->
+        Logger.error("Failed to get socket stats: #{inspect(reason)}")
+        {:error, stats}
     end
   end
 
   @spec pool_checkout_time(integer(), Ultravisor.id(), :local | :remote) :: :ok | nil
   def pool_checkout_time(time, conn_id() = id, same_box) do
-    telemetry_execute(
+    :telemetry.execute(
       [:ultravisor, :pool, :checkout, :stop, same_box],
       %{duration: time},
       Ultravisor.conn_id_to_map(id)
@@ -78,7 +64,7 @@ defmodule Ultravisor.Monitoring.Telem do
 
   @spec client_query_time(integer(), Ultravisor.id()) :: :ok | nil
   def client_query_time(start, conn_id() = id) do
-    telemetry_execute(
+    :telemetry.execute(
       [:ultravisor, :client, :query, :stop],
       %{duration: System.monotonic_time() - start},
       Ultravisor.conn_id_to_map(id)
@@ -87,7 +73,7 @@ defmodule Ultravisor.Monitoring.Telem do
 
   @spec client_connection_time(integer(), Ultravisor.id()) :: :ok | nil
   def client_connection_time(start, conn_id() = id) do
-    telemetry_execute(
+    :telemetry.execute(
       [:ultravisor, :client, :connection, :stop],
       %{duration: System.monotonic_time() - start},
       Ultravisor.conn_id_to_map(id)
@@ -96,7 +82,7 @@ defmodule Ultravisor.Monitoring.Telem do
 
   @spec client_join(:ok | :fail, Ultravisor.id() | any()) :: :ok | nil
   def client_join(status, conn_id() = id) do
-    telemetry_execute(
+    :telemetry.execute(
       [:ultravisor, :client, :joins, status],
       %{},
       Ultravisor.conn_id_to_map(id)
@@ -113,7 +99,7 @@ defmodule Ultravisor.Monitoring.Telem do
           Ultravisor.id()
         ) :: :ok | nil
   def handler_action(handler, action, conn_id() = id) do
-    telemetry_execute(
+    :telemetry.execute(
       [:ultravisor, handler, action, :all],
       %{},
       Ultravisor.conn_id_to_map(id)
