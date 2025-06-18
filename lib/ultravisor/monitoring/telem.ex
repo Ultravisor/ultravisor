@@ -151,4 +151,36 @@ defmodule Ultravisor.Monitoring.Telem do
       "handler_action is called with a mismatched #{inspect(handler)} #{inspect(action)} #{inspect(id)}"
     )
   end
+
+  def handle_system_monitor([:erlang, :sys_mon, kind], measurements, meta, _opts) do
+    Logger.warning(
+      %{
+        sys_mon: %{
+          kind: kind,
+          info: measurements,
+          meta: meta
+        }
+      },
+      report_cb: &__MODULE__.__sys_mon_report__/1
+    )
+  end
+
+  def handle_system_monitor([:erlang, :sys_mon, :long_schedule, _], measurements, meta, _opts) do
+    Logger.warning(
+      %{
+        sys_mon: %{
+          kind: :long_schedule,
+          info: measurements,
+          meta: meta
+        }
+      },
+      report_cb: &__MODULE__.__sys_mon_report__/1
+    )
+  end
+
+  def __sys_mon_report__(%{sys_mon: event}) do
+    %{kind: kind, info: info, meta: meta} = event
+
+    {"ErlSysMon message: ~p ~p ~p", [kind, info, meta]}
+  end
 end
