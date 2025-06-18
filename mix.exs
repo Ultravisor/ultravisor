@@ -71,6 +71,7 @@ defmodule Ultravisor.MixProject do
       {:cachex, "~> 3.6"},
       {:inet_cidr, "~> 1.0.0"},
       {:observer_cli, "~> 1.7"},
+      {:sauron, github: "hauleth/sauron"},
 
       # pooller
       # {:poolboy, "~> 1.5.2"},

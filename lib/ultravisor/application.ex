@@ -75,7 +75,6 @@ defmodule Ultravisor.Application do
     topologies = Application.get_env(:libcluster, :topologies) || []
 
     children = [
-      Ultravisor.ErlSysMon,
       {Registry, keys: :unique, name: Ultravisor.Registry.Tenants},
       {Registry, keys: :unique, name: Ultravisor.Registry.ManagerTables},
       {Registry, keys: :unique, name: Ultravisor.Registry.PoolPids},
@@ -120,6 +119,21 @@ defmodule Ultravisor.Application do
       else
         children
       end
+
+    :telemetry.attach_many(
+      :ultravisor_sys_mon,
+      [
+        [:erlang, :sys_mon, :long_gc],
+        [:erlang, :sys_mon, :large_heap],
+        [:erlang, :sys_mon, :long_schedule, :process],
+        [:erlang, :sys_mon, :long_schedule, :port],
+        [:erlang, :sys_mon, :long_message_queue],
+        [:erlang, :sys_mon, :busy_port],
+        [:erlang, :sys_mon, :busy_dist_port]
+      ],
+      &Ultravisor.Monitoring.Telem.handle_system_monitor/4,
+      []
+    )
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
