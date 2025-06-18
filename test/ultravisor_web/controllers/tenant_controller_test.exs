@@ -176,7 +176,7 @@ defmodule UltravisorWeb.TenantControllerTest do
     assert {:ok, nil} = Cachex.get(Ultravisor.Cache, {:tenant_cache, external_id, nil})
   end
 
-  defp gen_token(secret \\ Application.fetch_env!(:ultravisor, :metrics_jwt_secret)) do
+  defp gen_token(secret \\ Application.fetch_env!(:ultravisor, :api_jwt_secret)) do
     Ultravisor.Jwt.Token.gen!(secret)
   end
 end

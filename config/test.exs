@@ -8,8 +8,8 @@ import Config
 
 config :ultravisor,
   region: "eu",
-  api_jwt_secret: "dev",
-  metrics_jwt_secret: "dev",
+  api_jwt_secret: "api-test-secret",
+  metrics_jwt_secret: "metrics-test-secret",
   jwt_claim_validators: %{},
   proxy_port_session: System.get_env("PROXY_PORT_SESSION", "7653") |> String.to_integer(),
   proxy_port_transaction: System.get_env("PROXY_PORT_TRANSACTION", "7654") |> String.to_integer(),
