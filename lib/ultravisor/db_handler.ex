@@ -686,9 +686,9 @@ defmodule Ultravisor.DbHandler do
   defp handle_authentication_error(%{proxy: true}, _reason), do: :ok
 
   @spec reconnect_timeout(map()) :: pos_integer()
-  def reconnect_timeout(%{proxy: true}),
+  defp reconnect_timeout(%{proxy: true}),
     do: @reconnect_timeout_proxy
 
-  def reconnect_timeout(_),
+  defp reconnect_timeout(_),
     do: @reconnect_timeout
 end
