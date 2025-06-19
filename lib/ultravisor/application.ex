@@ -15,8 +15,6 @@ defmodule Ultravisor.Application do
 
   alias Ultravisor.Monitoring.PromEx
 
-  @metrics_disabled Application.compile_env(:ultravisor, :metrics_disabled, false)
-
   @impl true
   def start(_type, _args) do
     primary_config = :logger.get_primary_config()
@@ -74,51 +72,32 @@ defmodule Ultravisor.Application do
 
     topologies = Application.get_env(:libcluster, :topologies) || []
 
-    children = [
-      {Registry, keys: :unique, name: Ultravisor.Registry.Tenants},
-      {Registry, keys: :unique, name: Ultravisor.Registry.ManagerTables},
-      {Registry, keys: :unique, name: Ultravisor.Registry.PoolPids},
-      {Registry, keys: :duplicate, name: Ultravisor.Registry.TenantSups},
-      {Registry,
-       keys: :duplicate,
-       name: Ultravisor.Registry.TenantClients,
-       partitions: System.schedulers_online()},
-      {Registry,
-       keys: :duplicate,
-       name: Ultravisor.Registry.TenantProxyClients,
-       partitions: System.schedulers_online()},
-      {Cluster.Supervisor, [topologies, [name: Ultravisor.ClusterSupervisor]]},
-      Ultravisor.Repo,
-      # Start the Telemetry supervisor
-      UltravisorWeb.Telemetry,
-      # Start the PubSub system
-      {Phoenix.PubSub, name: Ultravisor.PubSub},
-      {
-        PartitionSupervisor,
-        child_spec: DynamicSupervisor, strategy: :one_for_one, name: Ultravisor.DynamicSupervisor
-      },
-      Ultravisor.Vault,
-
-      # Start the Endpoint (http/https)
-      UltravisorWeb.Endpoint
-    ]
-
-    Logger.warning("metrics_disabled is #{inspect(@metrics_disabled)}")
-
     children =
-      if @metrics_disabled do
-        children
-      else
-        children ++ [PromEx, Ultravisor.MetricsCleaner]
-      end
+      Enum.concat([
+        registries(),
+        cache(),
+        [
+          {Cluster.Supervisor, [topologies, [name: Ultravisor.ClusterSupervisor]]},
+          Ultravisor.Repo
+        ],
+        metrics(),
+        [
+          # Start the Telemetry supervisor
+          UltravisorWeb.Telemetry,
+          # Start the PubSub system
+          {Phoenix.PubSub, name: Ultravisor.PubSub},
+          {
+            PartitionSupervisor,
+            child_spec: DynamicSupervisor,
+            strategy: :one_for_one,
+            name: Ultravisor.DynamicSupervisor
+          },
+          Ultravisor.Vault,
 
-    # start Cachex only if the node uses names, this is necessary for test setup
-    children =
-      if node() != :nonode@nohost do
-        [{Cachex, name: Ultravisor.Cache} | children]
-      else
-        children
-      end
+          # Start the Endpoint (http/https)
+          UltravisorWeb.Endpoint
+        ]
+      ])
 
     :telemetry.attach_many(
       :ultravisor_sys_mon,
@@ -139,6 +118,41 @@ defmodule Ultravisor.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Ultravisor.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp registries do
+    [
+      {Registry, keys: :unique, name: Ultravisor.Registry.Tenants},
+      {Registry, keys: :unique, name: Ultravisor.Registry.ManagerTables},
+      {Registry, keys: :unique, name: Ultravisor.Registry.PoolPids},
+      {Registry, keys: :duplicate, name: Ultravisor.Registry.TenantSups},
+      {Registry,
+       keys: :duplicate,
+       name: Ultravisor.Registry.TenantClients,
+       partitions: System.schedulers_online()},
+      {Registry,
+       keys: :duplicate,
+       name: Ultravisor.Registry.TenantProxyClients,
+       partitions: System.schedulers_online()}
+    ]
+  end
+
+  defp metrics do
+    if Application.get_env(:ultravisor, :metrics_enabled, true) do
+      [PromEx, Ultravisor.MetricsCleaner]
+    else
+      Logger.warning("Metrics gathering is disabled")
+      []
+    end
+  end
+
+  # start Cachex only if the node uses names, this is necessary for test setup
+  defp cache do
+    if node() != :nonode@nohost do
+      [{Cachex, name: Ultravisor.Cache}]
+    else
+      []
+    end
   end
 
   # Tell Phoenix to update the endpoint configuration

@@ -17,7 +17,6 @@ config :ultravisor,
   ecto_repos: [Ultravisor.Repo],
   version: Mix.Project.config()[:version],
   env: Mix.env(),
-  metrics_disabled: System.get_env("METRICS_DISABLED") == "true",
   switch_active_count: System.get_env("SWITCH_ACTIVE_COUNT", "100") |> String.to_integer(),
   reconnect_retries: System.get_env("RECONNECT_RETRIES", "5") |> String.to_integer(),
   subscribe_retries: System.get_env("SUBSCRIBE_RETRIES", "20") |> String.to_integer()

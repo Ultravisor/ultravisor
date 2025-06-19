@@ -8,14 +8,11 @@ import Config
 
 require Logger
 alias Ultravisor.Helpers
+alias Ultravisor.Config
 
-if metadata = System.get_env("ULTRAVISOR_METADATA") do
-  decoded = JSON.decode(metadata)
-
-  if is_map(decoded) do
-    config :ultravisor, :metadata, decoded
-  end
-end
+config :ultravisor,
+  metrics_enabled: Config.get_bool("ULTRAVISOR_METRICS"),
+  metadata: Config.get_json_map("ULTRAVISOR_METADATA")
 
 secret_key_base =
   if config_env() in [:dev, :test] do
