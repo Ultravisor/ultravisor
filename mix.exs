@@ -13,11 +13,13 @@ defmodule Ultravisor.MixProject do
       version: version(),
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
+      compilers: [:unused] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
       releases: releases(),
       docs: docs(),
+      unused: unused(),
       dialyzer: [plt_add_apps: [:mix]],
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
@@ -37,6 +39,18 @@ defmodule Ultravisor.MixProject do
       mod: {Ultravisor.Application, []},
       extra_applications:
         [:logger, :runtime_tools, :os_mon, :ssl] ++ extra_applications(Mix.env())
+    ]
+  end
+
+  defp unused do
+    [
+      ignore: [
+        ~r/^UltravisorWeb\..*Controller$/,
+        ~r/^UltravisorWeb\.OpenApiSchemas/,
+        UltravisorWeb,
+        {:_, :start_link, 1},
+        {:_, :__using__, 1}
+      ]
     ]
   end
 
@@ -92,6 +106,7 @@ defmodule Ultravisor.MixProject do
       {:inet_cidr, "~> 1.0.0"},
       {:observer_cli, "~> 1.7"},
       {:sauron, github: "hauleth/sauron"},
+      {:mix_unused, github: "hauleth/mix_unused", runtime: false},
 
       # Documentation
       {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},

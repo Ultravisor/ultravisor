@@ -12,6 +12,7 @@ defmodule Ultravisor.Protocol.Server do
   Error codes https://www.postgresql.org/docs/current/errcodes-appendix.html
   """
   require Logger
+
   alias Ultravisor.Protocol.PgType
 
   @pkt_header_size 5
