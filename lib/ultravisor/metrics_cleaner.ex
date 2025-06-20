@@ -72,9 +72,12 @@ defmodule Ultravisor.MetricsCleaner do
     {_, tids} = Peep.Persistent.storage(Ultravisor.Monitoring.PromEx.Metrics)
 
     tids
-    |> List.wrap()
+    |> to_list()
     |> Enum.sum_by(&clean_table/1)
   end
+
+  defp to_list(map) when is_map(map), do: Map.values(map)
+  defp to_list(other), do: List.wrap(other)
 
   @tenant_registry_table :syn_registry_by_name_tenants
 

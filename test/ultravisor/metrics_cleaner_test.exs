@@ -21,6 +21,10 @@ defmodule Ultravisor.MetricsCleanerTest do
       parent: self()
     })
 
+    on_exit(fn ->
+      :telemetry.detach(ctx)
+    end)
+
     :ok
   end
 

@@ -41,12 +41,13 @@ defmodule Ultravisor.Monitoring.PromEx do
 
       Peep.child_spec(
         name: name,
-        metrics: Enum.map(metrics, &extent_tags(&1, global_tags_keys)),
-        global_tags: global_tags
+        metrics: Enum.map(metrics, &extend_tags(&1, global_tags_keys)),
+        global_tags: global_tags,
+        storage: :striped
       )
     end
 
-    defp extent_tags(%{tags: tags} = metric, global_tags) do
+    defp extend_tags(%{tags: tags} = metric, global_tags) do
       %{metric | tags: tags ++ global_tags}
     end
   end
