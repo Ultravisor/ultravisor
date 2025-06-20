@@ -21,6 +21,10 @@ defmodule Ultravisor.Monitoring.PromExTest do
       {:linux, :aarch64} => {
         "https://github.com/prometheus/prom2json/releases/download/v1.4.1/prom2json-1.4.1.linux-arm64.tar.gz",
         "prom2json-1.4.1.linux-arm64/prom2json"
+      },
+      {:linux, :x86_64} => {
+        "https://github.com/prometheus/prom2json/releases/download/v1.4.1/prom2json-1.4.1.linux-amd64.tar.gz",
+        "prom2json-1.4.1.linux-amd64/prom2json"
       }
     }
 
@@ -42,7 +46,7 @@ defmodule Ultravisor.Monitoring.PromExTest do
       tenant = "tenant"
       user = "user"
 
-      check all db_name <- string(:printable, min_length: 1, max_length: 63) do
+      check all(db_name <- string(:printable, min_length: 1, max_length: 63)) do
         Telem.client_join(
           :ok,
           {{:single, tenant}, user, :session, db_name, nil}
@@ -70,7 +74,7 @@ defmodule Ultravisor.Monitoring.PromExTest do
       tenant = "tenant"
       db_name = "db_name"
 
-      check all user <- string(:printable, min_length: 1, max_length: 63) do
+      check all(user <- string(:printable, min_length: 1, max_length: 63)) do
         Ultravisor.Monitoring.Telem.client_join(
           :ok,
           {{:single, tenant}, user, :session, db_name, nil}
@@ -98,7 +102,7 @@ defmodule Ultravisor.Monitoring.PromExTest do
       db_name = "db_name"
       user = "user"
 
-      check all tenant <- string(:printable, min_length: 1) do
+      check all(tenant <- string(:printable, min_length: 1)) do
         Telem.client_join(
           :ok,
           {{:single, tenant}, user, :session, db_name, nil}

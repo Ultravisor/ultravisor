@@ -91,6 +91,7 @@ jobs:
         run: mix credo --strict --all --mute-exit-status --format=sarif > results.sarif
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
         with:
           sarif_file: results.sarif
           category: credo
@@ -104,7 +105,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Postgres
-        run: docker-compose -f ./docker-compose.db.yml up -d
+        uses: hoverkraft-tech/compose-action@v2.2.0
+        with:
+          compose-file: ./docker-compose.db.yml
       - name: Setup Elixir
         id: beam
         uses: erlef/setup-beam@v1
@@ -140,11 +143,6 @@ jobs:
         run: epmd -daemon
       - name: Run tests
         run: mix coveralls.lcov
-      - name: Upload Parallel Coverage Report
-        uses: coverallsapp/github-action@v2
-        with:
-          flag-name: run-tests
-          parallel: true
 
   integration:
     name: Run integration tests
@@ -155,7 +153,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Postgres
-        run: docker-compose -f ./docker-compose.db.yml up -d
+        uses: hoverkraft-tech/compose-action@v2.2.0
+        with:
+          compose-file: ./docker-compose.db.yml
       - name: Setup Elixir
         id: beam
         uses: erlef/setup-beam@v1
@@ -197,11 +197,6 @@ jobs:
         run: 'cd test/integration/js/; npm install'
       - name: Run tests
         run: mix coveralls.lcov --only integration --trace
-      - name: Upload Parallel Coverage Report
-        uses: coverallsapp/github-action@v2
-        with:
-          flag-name: run-integration
-          parallel: true
 
   dialyzer:
     name: Dialyze
