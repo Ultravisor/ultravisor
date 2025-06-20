@@ -119,31 +119,14 @@
             }
             ({
               pkgs,
-              lib,
-              config,
               ...
             }: {
-              languages.rust.enable = true;
               languages.cplusplus.enable = true;
-
-              git-hooks.hooks = {
-                clippy.enable = true;
-                rustfmt.enable = true;
-              };
 
               packages =
                 [
-                  pkgs.protobuf
-                  pkgs.cargo-outdated
                   pkgs.prom2json
                 ];
-
-              # Workaround for https://github.com/rust-lang/cargo/issues/5376
-              env.RUSTFLAGS = lib.mkForce (lib.optionals pkgs.stdenv.isDarwin [
-                "-L framework=${config.devenv.profile}/Library/Frameworks"
-                "-C link-arg=-undefined"
-                "-C link-arg=dynamic_lookup"
-              ]);
             })
           ];
         };
