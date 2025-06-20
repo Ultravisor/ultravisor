@@ -67,7 +67,6 @@ defmodule Ultravisor.MixProject do
       {:prom_ex, "~> 1.10"},
       {:open_api_spex, "~> 3.16"},
       {:libcluster, "~> 3.5"},
-      {:distillery, "~> 2.1"},
       {:cachex, "~> 3.6"},
       {:inet_cidr, "~> 1.0.0"},
       {:observer_cli, "~> 1.7"},
@@ -102,7 +101,7 @@ defmodule Ultravisor.MixProject do
   def releases do
     [
       ultravisor: [
-        steps: [:assemble, &upgrade/1, :tar],
+        steps: [:assemble, :tar],
         include_erts: System.get_env("INCLUDE_ERTS", "true") == "true",
         cookie: System.get_env("RELEASE_COOKIE", Base.url_encode64(:crypto.strong_rand_bytes(30)))
       ]
@@ -129,22 +128,6 @@ defmodule Ultravisor.MixProject do
         "test"
       ]
     ]
-  end
-
-  defp upgrade(release) do
-    from = System.get_env("UPGRADE_FROM")
-
-    if from && from != "" do
-      vsn = release.version
-      path = Path.join([release.path, "releases", "ultravisor-#{vsn}.rel"])
-      rel_content = File.read!(Path.join(release.version_path, "ultravisor.rel"))
-
-      Mix.Task.run("ultravisor.gen.appup", ["--from=" <> from, "--to=" <> vsn])
-      :ok = File.write!(path, rel_content)
-      Mix.Task.run("ultravisor.gen.relup", ["--from=" <> from, "--to=" <> vsn])
-    end
-
-    release
   end
 
   defp version, do: File.read!("./VERSION") |> String.trim()
