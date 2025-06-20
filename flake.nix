@@ -57,7 +57,7 @@
 
           modules = [
             {
-              pre-commit.hooks = {
+              git-hooks.hooks = {
                 alejandra.enable = true;
                 typos = {
                   enable = true;
@@ -78,7 +78,7 @@
                 pkgs.lexical
               ];
 
-              pre-commit.hooks = {
+              git-hooks.hooks = {
                 mix-format.enable = true;
                 # credo.enable = true;
               };
@@ -126,7 +126,7 @@
               languages.rust.enable = true;
               languages.cplusplus.enable = true;
 
-              pre-commit.hooks = {
+              git-hooks.hooks = {
                 clippy.enable = true;
                 rustfmt.enable = true;
               };
@@ -136,17 +136,7 @@
                   pkgs.protobuf
                   pkgs.cargo-outdated
                   pkgs.prom2json
-                ]
-                ++ lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk; [
-                  frameworks.System
-                  frameworks.CoreFoundation
-                  frameworks.CoreServices
-                  frameworks.DiskArbitration
-                  frameworks.IOKit
-                  frameworks.CFNetwork
-                  frameworks.Security
-                  libs.libDER
-                ]);
+                ];
 
               # Workaround for https://github.com/rust-lang/cargo/issues/5376
               env.RUSTFLAGS = lib.mkForce (lib.optionals pkgs.stdenv.isDarwin [
