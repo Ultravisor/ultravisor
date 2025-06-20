@@ -336,13 +336,6 @@ defmodule Ultravisor.DbHandler do
     end
   end
 
-  def handle_event(:info, {:handle_ps, payload, bin}, _state, data) do
-    Logger.notice("DbHandler: Apply prepare statement change #{inspect(payload)}")
-
-    {:keep_state, %{data | anon_buffer: [bin | data.anon_buffer]},
-     {:next_event, :internal, :check_anon_buffer}}
-  end
-
   def handle_event({:call, from}, {:checkout, sock, caller}, state, data) do
     Logger.debug("DbHandler: checkout call when state was #{state}")
 

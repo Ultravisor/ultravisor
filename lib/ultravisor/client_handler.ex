@@ -34,7 +34,6 @@ defmodule Ultravisor.ClientHandler do
     HandlerHelpers,
     Helpers,
     Monitoring.Telem,
-    Protocol.Client,
     Tenants
   }
 
@@ -1087,7 +1086,6 @@ defmodule Ultravisor.ClientHandler do
   defp handle_data(:info, bin, :idle, %{pool: pid} = data) when is_pid(pid) do
     Logger.debug("ClientHandler: Receive query #{inspect(bin)}")
     db_pid = db_checkout(:both, :on_query, data)
-    handle_prepared_statements(db_pid, bin, data)
 
     {:next_state, :busy, %{data | db_pid: db_pid, query_start: System.monotonic_time()},
      {:next_event, :internal, bin}}
@@ -1100,23 +1098,7 @@ defmodule Ultravisor.ClientHandler do
 
   # incoming query with read/write pools
   defp handle_data(:info, bin, :idle, data) do
-    query_type =
-      with {:ok, payload} <- Client.get_payload(bin),
-           {:ok, statements} <- Ultravisor.PgParser.statements(payload) do
-        Logger.debug(
-          "ClientHandler: Receive payload #{inspect(payload, pretty: true)} statements #{inspect(statements)}"
-        )
-
-        case statements do
-          # naive check for read only queries
-          ["SelectStmt"] -> :read
-          _ -> :write
-        end
-      else
-        other ->
-          Logger.error("ClientHandler: Receive query error: #{inspect(other)}")
-          :write
-      end
+    query_type = :write
 
     ts = System.monotonic_time()
     db_pid = db_checkout(query_type, :on_query, data)
@@ -1144,34 +1126,6 @@ defmodule Ultravisor.ClientHandler do
         {:stop, {:shutdown, :send_query_error}}
     end
   end
-
-  @spec handle_prepared_statements({pid, pid, Ultravisor.sock()}, binary, map) :: :ok | nil
-  defp handle_prepared_statements({_, pid, _}, bin, %{mode: :transaction} = data) do
-    with {:ok, payload} <- Client.get_payload(bin),
-         {:ok, statements} <- Ultravisor.PgParser.statements(payload),
-         true <- statements in [["PrepareStmt"], ["DeallocateStmt"]] do
-      Logger.info("ClientHandler: Handle prepared statement #{inspect(payload)}")
-
-      GenServer.call(data.pool, :get_all_workers)
-      |> Enum.each(fn
-        {_, ^pid, _, [Ultravisor.DbHandler]} ->
-          Logger.debug("ClientHandler: Linked DbHandler #{inspect(pid)}")
-          nil
-
-        {_, pool_proc, _, [Ultravisor.DbHandler]} ->
-          Logger.debug(
-            "ClientHandler: Sending prepared statement change #{inspect(payload)} to #{inspect(pool_proc)}"
-          )
-
-          send(pool_proc, {:handle_ps, payload, bin})
-      end)
-    else
-      error ->
-        Logger.debug("ClientHandler: Skip prepared statement #{inspect(error)}")
-    end
-  end
-
-  defp handle_prepared_statements(_, _, _), do: nil
 
   @spec handle_actions(map) :: [{:timeout, non_neg_integer, atom}]
   defp handle_actions(%{} = data) do
