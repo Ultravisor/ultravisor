@@ -67,6 +67,7 @@ defmodule Ultravisor.MixProject do
       {:prom_ex, "~> 1.10"},
       {:open_api_spex, "~> 3.16"},
       {:libcluster, "~> 3.5"},
+      {:libcluster_postgres, "~> 0.1.3"},
       {:cachex, "~> 3.6"},
       {:inet_cidr, "~> 1.0.0"},
       {:observer_cli, "~> 1.7"},
