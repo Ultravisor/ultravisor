@@ -45,71 +45,10 @@ config :ultravisor, UltravisorWeb.Endpoint,
   ],
   secret_key_base: secret_key_base
 
-topologies = []
-
-topologies =
-  if System.get_env("DNS_POLL") do
-    dns_poll = [
-      strategy: Cluster.Strategy.DNSPoll,
-      config: [
-        polling_interval: 5_000,
-        query: System.get_env("DNS_POLL"),
-        node_basename:
-          System.get_env("NODE_NAME") || System.get_env("FLY_APP_NAME") || "ultravisor"
-      ]
-    ]
-
-    Keyword.put(topologies, :dns_poll, dns_poll)
-  else
-    topologies
-  end
-
-topologies =
-  if System.get_env("CLUSTER_NODES") do
-    epmd = [
-      strategy: Cluster.Strategy.Epmd,
-      config: [
-        hosts:
-          System.get_env("CLUSTER_NODES", "")
-          |> String.split(",")
-          |> Enum.map(&String.to_atom/1)
-      ],
-      connect: {:net_kernel, :connect_node, []},
-      disconnect: {:erlang, :disconnect_node, []},
-      list_nodes: {:erlang, :nodes, [:connected]}
-    ]
-
-    Keyword.put(topologies, :epmd, epmd)
-  else
-    topologies
-  end
-
-topologies =
-  if System.get_env("CLUSTER_POSTGRES") && Application.spec(:ultravisor, :vsn) do
-    %Version{major: maj, minor: min} =
-      Application.spec(:ultravisor, :vsn) |> List.to_string() |> Version.parse!()
-
-    region =
-      Enum.find_value(~W[CLUSTER_ID LOCATION_ID REGION], &System.get_env/1)
-      |> String.replace("-", "_")
-
-    postgres = [
-      strategy: Cluster.Strategy.Postgres,
-      config: [
-        url: System.get_env("DATABASE_URL", "ecto://postgres:postgres@localhost:6432/postgres"),
-        heartbeat_interval: 5_000,
-        channel_name: "ultravisor_#{region}_#{maj}_#{min}"
-      ]
-    ]
-
-    Keyword.put(topologies, :postgres, postgres)
-  else
-    topologies
-  end
+config :ultravisor, :cluster_channel, System.get_env("ULTRAVISOR_CLUSTER_POSTGRES")
 
 config :libcluster,
-  debug: false,
-  topologies: topologies
+  debug: false
 
 upstream_ca =
   if path = System.get_env("GLOBAL_UPSTREAM_CA_PATH") do

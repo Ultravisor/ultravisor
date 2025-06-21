@@ -70,15 +70,13 @@ defmodule Ultravisor.Application do
       node: node()
     )
 
-    topologies = Application.get_env(:libcluster, :topologies) || []
-
     children =
       Enum.concat([
         registries(),
         cache(),
         [
-          {Cluster.Supervisor, [topologies, [name: Ultravisor.ClusterSupervisor]]},
-          Ultravisor.Repo
+          Ultravisor.Repo,
+          {Cluster.Supervisor, [topologies(), [name: Ultravisor.ClusterSupervisor]]}
         ],
         metrics(),
         [
@@ -143,6 +141,25 @@ defmodule Ultravisor.Application do
     else
       Logger.warning("Metrics gathering is disabled")
       []
+    end
+  end
+
+  defp topologies do
+    case Application.fetch_env(:ultravisor, :cluster_channel) do
+      {:ok, channel} when is_binary(channel) and channel != "" ->
+        [
+          postgres: [
+            strategy: LibclusterPostgres.Strategy,
+            config:
+              Ultravisor.Repo.config() ++
+                [
+                  channel_name: channel
+                ]
+          ]
+        ]
+
+      _ ->
+        []
     end
   end
 

@@ -13,9 +13,8 @@ dev:
 	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
 	API_JWT_SECRET=dev \
 	METRICS_JWT_SECRET=dev \
-	CLUSTER_ID=eu \
 	SECRET_KEY_BASE="dev" \
-	CLUSTER_POSTGRES="true" \
+	ULTRAVISOR_CLUSTER_POSTGRES="ultravisor_local" \
 	DB_POOL_SIZE="5" \
 	METRICS_DISABLED="false" \
 	AVAILABILITY_ZONE="ap-southeast-1b" \
@@ -28,9 +27,8 @@ dev.node2:
 	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
 	API_JWT_SECRET=dev \
 	METRICS_JWT_SECRET=dev \
-	CLUSTER_ID=eu \
 	SECRET_KEY_BASE="dev" \
-	CLUSTER_POSTGRES="true" \
+	ULTRAVISOR_CLUSTER_POSTGRES="ultravisor_local" \
 	PROXY_PORT_SESSION="5442" \
 	PROXY_PORT_TRANSACTION="6553" \
 	PROXY_PORT="5402" \
@@ -45,9 +43,8 @@ dev.node3:
 	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
 	API_JWT_SECRET=dev \
 	METRICS_JWT_SECRET=dev \
-	CLUSTER_ID=eu \
 	SECRET_KEY_BASE="dev" \
-	CLUSTER_POSTGRES="true" \
+	ULTRAVISOR_CLUSTER_POSTGRES="ultravisor_local" \
 	PROXY_PORT_SESSION="5443" \
 	PROXY_PORT_TRANSACTION="6554" \
 	ERL_AFLAGS="-kernel shell_history enabled" \
@@ -106,9 +103,8 @@ dev_start_rel:
 	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
 	API_JWT_SECRET=dev \
 	METRICS_JWT_SECRET=dev \
-	CLUSTER_ID=eu \
 	SECRET_KEY_BASE="dev" \
-	CLUSTER_POSTGRES="true" \
+	ULTRAVISOR_CLUSTER_POSTGRES="ultravisor_local" \
 	DB_POOL_SIZE="5" \
 	_build/prod/rel/ultravisor/bin/ultravisor start_iex
 
@@ -122,9 +118,8 @@ prod_start_rel:
 	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
 	API_JWT_SECRET=dev \
 	METRICS_JWT_SECRET=dev \
-	CLUSTER_ID=eu \
 	SECRET_KEY_BASE="dev" \
-	CLUSTER_POSTGRES="true" \
+	ULTRAVISOR_CLUSTER_POSTGRES="ultravisor_local" \
 	DB_POOL_SIZE="5" \
 	_build/prod/rel/ultravisor/bin/ultravisor start_iex
 
@@ -135,9 +130,8 @@ prod_start_rel2:
 	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
 	API_JWT_SECRET=dev \
 	METRICS_JWT_SECRET=dev \
-	CLUSTER_ID=eu \
 	SECRET_KEY_BASE="dev" \
-	CLUSTER_POSTGRES="true" \
+	ULTRAVISOR_CLUSTER_POSTGRES="ultravisor_local" \
 	PROXY_PORT_SESSION="5442" \
 	PROXY_PORT_TRANSACTION="6553" \
 	NODE_IP=localhost \
