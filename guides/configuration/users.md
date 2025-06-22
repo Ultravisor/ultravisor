@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 SPDX-License-Identifier: EUPL-1.2
 -->
 
+# Users
+
 All configuration options for a tenant `user` are stored on the `user` record in
 the metadata database used by Ultravisor.
 

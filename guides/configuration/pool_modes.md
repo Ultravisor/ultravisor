@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 SPDX-License-Identifier: EUPL-1.2
 -->
 
+# Pool Modes
+
 Configure the `mode_type` on the `user` to set how Ultravisor connection pools
 will behave.
 
