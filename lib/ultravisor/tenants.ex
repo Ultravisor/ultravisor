@@ -60,12 +60,12 @@ defmodule Ultravisor.Tenants do
   def get_tenant_cache(external_id, sni_hostname) do
     cache_key = {:tenant_cache, external_id, sni_hostname}
 
-    case Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
-           {:commit, {:cached, get_tenant(external_id, sni_hostname)}, ttl: :timer.hours(24)}
-         end) do
-      {_, {:cached, value}} -> value
-      {_, {:cached, value}, _} -> value
-    end
+    {_, {:cached, value}} =
+      Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
+        {:commit, {:cached, get_tenant(external_id, sni_hostname)}, expire: :timer.hours(24)}
+      end)
+
+    value
   end
 
   @spec get_tenant(String.t() | nil, String.t() | nil) :: Tenant.t() | nil
@@ -84,13 +84,13 @@ defmodule Ultravisor.Tenants do
   def get_user_cache(type, user, external_id, sni_hostname) do
     cache_key = {:user_cache, type, user, external_id, sni_hostname}
 
-    case Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
-           {:commit, {:cached, get_user(type, user, external_id, sni_hostname)},
-            ttl: :timer.hours(24)}
-         end) do
-      {_, {:cached, value}} -> value
-      {_, {:cached, value}, _} -> value
-    end
+    {_, {:cached, value}} =
+      Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
+        {:commit, {:cached, get_user(type, user, external_id, sni_hostname)},
+         expire: :timer.hours(24)}
+      end)
+
+    value
   end
 
   @spec get_user(atom(), String.t(), String.t() | nil, String.t() | nil) ::
@@ -151,12 +151,12 @@ defmodule Ultravisor.Tenants do
     ttl = if is_nil(ttl), do: :timer.hours(24), else: ttl
     cache_key = {:pool_config_cache, external_id, user}
 
-    case Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
-           {:commit, {:cached, get_pool_config(external_id, user)}, ttl: ttl}
-         end) do
-      {_, {:cached, value}} -> value
-      {_, {:cached, value}, _} -> value
-    end
+    {_, {:cached, value}} =
+      Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
+        {:commit, {:cached, get_pool_config(external_id, user)}, expire: ttl}
+      end)
+
+    value
   end
 
   @spec get_cluster_config(String.t(), String.t()) :: [ClusterTenants.t()] | {:error, any()}
