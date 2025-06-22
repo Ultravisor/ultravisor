@@ -7,7 +7,6 @@
 import Config
 
 config :ultravisor,
-  region: "eu",
   api_jwt_secret: "api-test-secret",
   metrics_jwt_secret: "metrics-test-secret",
   jwt_claim_validators: %{},
