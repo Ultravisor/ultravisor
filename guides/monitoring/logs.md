@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 SPDX-License-Identifier: EUPL-1.2
 -->
 
+# Logs
+
 Ultravisor will emit various logs during operation.
 
 Use these error codes to debug a running Ultravisor cluster.

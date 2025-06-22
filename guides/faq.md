@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 SPDX-License-Identifier: EUPL-1.2
 -->
 
+# FAQ
+
 Answers to frequently asked questions.
 
 ## What happens when I hit my connection limit?

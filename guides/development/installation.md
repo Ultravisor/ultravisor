@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 SPDX-License-Identifier: EUPL-1.2
 -->
 
+# Installation
+
 Before starting, set up the database where Ultravisor will store tenants' data.
 The following command will pull a Docker image with PostgreSQL 14 and run it on
 port 6432:

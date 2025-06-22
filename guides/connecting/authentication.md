@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 SPDX-License-Identifier: EUPL-1.2
 -->
 
+# Authentication
+
 When a client connection is established Ultravisor needs to verify the
 credentials of the connection.
 

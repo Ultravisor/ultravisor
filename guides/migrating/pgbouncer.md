@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 SPDX-License-Identifier: EUPL-1.2
 -->
 
+# PGBouncer
+
 Migrating from PgBouncer is straight forward once a Ultravisor cluster is setup
 and a database has been added as a `tenant`.
 

@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 SPDX-License-Identifier: EUPL-1.2
 -->
 
+# Metrics
+
 The metrics feature provides a range of metrics in the Prometheus format. The
 main modules involved in this implementation are:
 
