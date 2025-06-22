@@ -17,6 +17,7 @@ defmodule Ultravisor.MixProject do
       aliases: aliases(),
       deps: deps(),
       releases: releases(),
+      docs: docs(),
       dialyzer: [plt_add_apps: [:mix]],
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
@@ -46,6 +47,27 @@ defmodule Ultravisor.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
+  defp docs do
+    [
+      main: "readme",
+      api_reference: false,
+      assets: %{
+        "guides/images/" => "images"
+      },
+      extra_section: "GUIDES",
+      extras: ["README.md"] ++ Path.wildcard("guides/**/*.md"),
+      groups_for_extras: [
+        "Configuration": ~r"/configuration/",
+        "Deployment": ~r"/deployment/",
+        "Connecting": ~r"/connecting/",
+        "ORMs": ~r"/orms/",
+        "Monitoring": ~r"/monitoring/",
+        "Migrating": ~r"/migrating/",
+        "Development": ~r"/development/"
+      ]
+    ]
+  end
+
   # Specifies your project dependencies.
   #
   # Type `mix help deps` for examples and options.
@@ -63,7 +85,6 @@ defmodule Ultravisor.MixProject do
       {:plug_cowboy, "~> 2.5"},
       {:joken, "~> 2.6.0"},
       {:cloak_ecto, "~> 1.3.0"},
-      {:req, "~> 0.5"},
       {:prom_ex, "~> 1.10"},
       {:open_api_spex, "~> 3.16"},
       {:libcluster, "~> 3.5"},
@@ -72,6 +93,9 @@ defmodule Ultravisor.MixProject do
       {:inet_cidr, "~> 1.0.0"},
       {:observer_cli, "~> 1.7"},
       {:sauron, github: "hauleth/sauron"},
+
+      # Documentation
+      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
 
       # pooller
       # {:poolboy, "~> 1.5.2"},
@@ -94,6 +118,7 @@ defmodule Ultravisor.MixProject do
       # Test utilities
       {:excoveralls, ">= 0.0.0", only: [:dev, :test]},
       {:stream_data, "~> 1.0", only: [:dev, :test]},
+      {:req, "~> 0.5", only: [:test]},
       # Override needed due to eflambe
       {:meck, "~> 1.0", only: [:dev, :test], override: true}
     ]

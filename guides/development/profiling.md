@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 SPDX-License-Identifier: EUPL-1.2
 -->
 
+# Profiling
+
 Profiling of the Ultravisor can be done using [eFlambé][eflambe] project.
 
 Example profiling session looks like:
@@ -23,7 +25,7 @@ Example profiling session looks like:
   Which provides separate directory for each tracing session.
 - Generated traces can be viewed in [Speedoscope][] for visual navigation.
 
-![Speedoscope session example](/docs/images/trace-example.png)
+![Speedoscope session example](/images/trace-example.png)
 
 ### Problems to be resolved
 
