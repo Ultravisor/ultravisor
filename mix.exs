@@ -68,7 +68,7 @@ defmodule Ultravisor.MixProject do
       {:open_api_spex, "~> 3.16"},
       {:libcluster, "~> 3.5"},
       {:libcluster_postgres, "~> 0.1.3"},
-      {:cachex, "~> 3.6"},
+      {:cachex, "~> 4.0"},
       {:inet_cidr, "~> 1.0.0"},
       {:observer_cli, "~> 1.7"},
       {:sauron, github: "hauleth/sauron"},

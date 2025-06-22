@@ -61,7 +61,7 @@ defmodule Ultravisor.Tenants do
     cache_key = {:tenant_cache, external_id, sni_hostname}
 
     case Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
-           {:commit, {:cached, get_tenant(external_id, sni_hostname)}, ttl: :timer.hours(24)}
+           {:commit, {:cached, get_tenant(external_id, sni_hostname)}, expire: :timer.hours(24)}
          end) do
       {_, {:cached, value}} -> value
       {_, {:cached, value}, _} -> value
@@ -86,7 +86,7 @@ defmodule Ultravisor.Tenants do
 
     case Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
            {:commit, {:cached, get_user(type, user, external_id, sni_hostname)},
-            ttl: :timer.hours(24)}
+            expire: :timer.hours(24)}
          end) do
       {_, {:cached, value}} -> value
       {_, {:cached, value}, _} -> value
@@ -152,7 +152,7 @@ defmodule Ultravisor.Tenants do
     cache_key = {:pool_config_cache, external_id, user}
 
     case Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
-           {:commit, {:cached, get_pool_config(external_id, user)}, ttl: ttl}
+           {:commit, {:cached, get_pool_config(external_id, user)}, expire: ttl}
          end) do
       {_, {:cached, value}} -> value
       {_, {:cached, value}, _} -> value
