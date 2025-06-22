@@ -23,7 +23,7 @@ dev:
 	iex --name node1@127.0.0.1 --cookie cookie -S mix run --no-halt
 
 dev.node2:
-	PORT=4001 \
+	ULTRAVISOR_MANAGEMENT_PORT=4001 \
 	MIX_ENV=dev \
 	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
 	API_JWT_SECRET=dev \
@@ -40,7 +40,7 @@ dev.node2:
 	iex --name node2@127.0.0.1 --cookie cookie -S mix phx.server
 
 dev.node3:
-	PORT=4002 \
+	ULTRAVISOR_MANAGEMENT_PORT=4002 \
 	MIX_ENV=dev \
 	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
 	API_JWT_SECRET=dev \
@@ -131,7 +131,7 @@ prod_start_rel:
 prod_start_rel2:
 	MIX_ENV=prod \
 	NODE_NAME=node2 \
-	PORT=4001 \
+	ULTRAVISOR_MANAGEMENT_PORT=4001 \
 	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
 	API_JWT_SECRET=dev \
 	METRICS_JWT_SECRET=dev \
