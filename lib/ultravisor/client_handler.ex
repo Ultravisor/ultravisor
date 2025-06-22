@@ -910,14 +910,14 @@ defmodule Ultravisor.ClientHandler do
   def auth_secrets(info, db_user, key, ttl) do
     fetch = fn _key ->
       case get_secrets(info, db_user) do
-        {:ok, _} = resp -> {:commit, {:cached, resp}, ttl: ttl}
+        {:ok, _} = resp -> {:commit, {:cached, resp}, expire: ttl}
         {:error, _} = resp -> {:ignore, resp}
       end
     end
 
     case Cachex.fetch(Ultravisor.Cache, key, fetch) do
       {:ok, {:cached, value}} -> value
-      {:commit, {:cached, value}, _opts} -> value
+      {:commit, {:cached, value}} -> value
       {:ignore, resp} -> resp
     end
   end
