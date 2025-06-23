@@ -25,12 +25,12 @@ defmodule UltravisorWeb.ConnCase do
 
   using do
     quote do
+      use Phoenix.VerifiedRoutes, router: UltravisorWeb.Router
+
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
       import UltravisorWeb.ConnCase
-
-      alias UltravisorWeb.Router.Helpers, as: Routes
 
       # The default endpoint for testing
       @endpoint UltravisorWeb.Endpoint

@@ -73,12 +73,12 @@ defmodule UltravisorWeb.TenantControllerTest do
 
   describe "create tenant" do
     test "renders tenant when data is valid", %{conn: conn} do
-      conn = put(conn, Routes.tenant_path(conn, :update, "dev_tenant"), tenant: @create_attrs)
+      conn = put(conn, ~p"/api/tenants/dev_tenant", tenant: @create_attrs)
       assert %{"external_id" => _id} = json_response(conn, 201)["data"]
     end
 
     test "renders errors when data is invalid", %{conn: conn} do
-      conn = put(conn, Routes.tenant_path(conn, :update, "dev_tenant"), tenant: @invalid_attrs)
+      conn = put(conn, ~p"/api/tenants/dev_tenant", tenant: @invalid_attrs)
       assert json_response(conn, 422)["errors"] != %{}
     end
   end
@@ -86,9 +86,7 @@ defmodule UltravisorWeb.TenantControllerTest do
   describe "create tenant with blocked ip" do
     test "renders tenant when data is valid", %{blocked_conn: blocked_conn} do
       blocked_conn =
-        put(blocked_conn, Routes.tenant_path(blocked_conn, :update, "dev_tenant"),
-          tenant: @create_attrs
-        )
+        put(blocked_conn, ~p"/api/tenants/dev_tenant", tenant: @create_attrs)
 
       assert blocked_conn.status == 403
     end
@@ -102,11 +100,11 @@ defmodule UltravisorWeb.TenantControllerTest do
       tenant: %Tenant{external_id: external_id} = _tenant
     } do
       set_cache(external_id)
-      conn = put(conn, Routes.tenant_path(conn, :update, external_id), tenant: @update_attrs)
+      conn = put(conn, ~p"/api/tenants/#{external_id}", tenant: @update_attrs)
       assert %{"external_id" => ^external_id} = json_response(conn, 200)["data"]
       check_cache(external_id)
 
-      conn = get(conn, Routes.tenant_path(conn, :show, external_id))
+      conn = get(conn, ~p"/api/tenants/#{external_id}")
 
       assert %{
                "external_id" => ^external_id,
@@ -118,7 +116,7 @@ defmodule UltravisorWeb.TenantControllerTest do
     end
 
     test "renders errors when data is invalid", %{conn: conn, tenant: tenant} do
-      conn = put(conn, Routes.tenant_path(conn, :update, tenant), tenant: @invalid_attrs)
+      conn = put(conn, ~p"/api/tenants/#{tenant}", tenant: @invalid_attrs)
       assert json_response(conn, 422)["errors"] != %{}
     end
 
@@ -129,7 +127,7 @@ defmodule UltravisorWeb.TenantControllerTest do
       msg = "Stop #{@update_attrs.external_id}"
 
       assert capture_log(fn ->
-               put(conn, Routes.tenant_path(conn, :update, external_id), tenant: @update_attrs)
+               put(conn, ~p"/api/tenants/#{external_id}", tenant: @update_attrs)
              end) =~ msg
     end
   end
@@ -139,7 +137,7 @@ defmodule UltravisorWeb.TenantControllerTest do
 
     test "deletes chosen tenant", %{conn: conn, tenant: %Tenant{external_id: external_id}} do
       set_cache(external_id)
-      conn = delete(conn, Routes.tenant_path(conn, :delete, external_id))
+      conn = delete(conn, ~p"/api/tenants/#{external_id}")
       check_cache(external_id)
       assert response(conn, 204)
     end
@@ -149,7 +147,7 @@ defmodule UltravisorWeb.TenantControllerTest do
     test "returns 404 not found for non-existing tenant", %{conn: conn} do
       non_existing_tenant_id = "non_existing_tenant_id"
 
-      conn = get(conn, Routes.tenant_path(conn, :show, non_existing_tenant_id))
+      conn = get(conn, ~p"/api/tenants/#{non_existing_tenant_id}")
       assert json_response(conn, 404)["error"] == "Not Found"
     end
   end
