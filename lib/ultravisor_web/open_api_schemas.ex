@@ -34,10 +34,7 @@ defmodule UltravisorWeb.OpenApiSchemas do
         updated_at: %Schema{type: :string, format: :date_time, readOnly: true}
       },
       required: [
-        :db_host,
-        :db_port,
         :db_user,
-        :db_database,
         :db_password,
         :pool_size
       ],
