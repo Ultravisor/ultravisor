@@ -15,11 +15,6 @@ defmodule UltravisorWeb.ClusterController do
 
   action_fallback(UltravisorWeb.FallbackController)
 
-  # def index(conn, _params) do
-  #   clusters = Tenants.list_clusters()
-  #   render(conn, :index, clusters: clusters)
-  # end
-
   def create(conn, %{"cluster" => params}) do
     with {:ok, %ClusterModel{} = cluster} <- Tenants.create_cluster(params) do
       conn
