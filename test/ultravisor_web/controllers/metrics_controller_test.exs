@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: EUPL-1.2
 
 defmodule UltravisorWeb.MetricsControllerTest do
-  use UltravisorWeb.ConnCase
+  use UltravisorWeb.ConnCase, async: true
   alias Ultravisor.Support.Cluster
 
   @tag cluster: true
