@@ -8,7 +8,10 @@ defmodule Ultravisor.Tenants.Tenant do
   @moduledoc false
 
   use Ecto.Schema
+
   import Ecto.Changeset
+  import Ultravisor.Ecto.Changeset
+
   alias Ultravisor.Tenants.User
 
   @type t :: %__MODULE__{}
@@ -27,7 +30,7 @@ defmodule Ultravisor.Tenants.Tenant do
     field(:ip_version, Ecto.Enum, values: [:v4, :v6, :auto], default: :auto)
     field(:upstream_ssl, :boolean, default: false)
     field(:upstream_verify, Ecto.Enum, values: [:none, :peer])
-    field(:upstream_tls_ca, :binary)
+    field(:upstream_tls_ca, Ultravisor.Ecto.Cert)
     field(:enforce_ssl, :boolean, default: false)
     field(:require_user, :boolean, default: false)
     field(:auth_query, :string)
@@ -73,6 +76,7 @@ defmodule Ultravisor.Tenants.Tenant do
       :allow_list,
       :availability_zone
     ])
+    |> with_defaults(upstream_tls_ca: Application.get_env(:ultravisor, :global_upstream_ca))
     |> check_constraint(:upstream_ssl, name: :upstream_constraints, prefix: "_ultravisor")
     |> check_constraint(:upstream_verify, name: :upstream_constraints, prefix: "_ultravisor")
     |> validate_required([

@@ -166,7 +166,9 @@ defmodule UltravisorWeb.TenantController do
   def delete(conn, %{"external_id" => id}) do
     code = if Tenants.delete_tenant_by_external_id(id), do: 204, else: 404
 
-    Logger.info("Delete cache dist #{id}: #{inspect(Ultravisor.del_all_cache_dist(id))}")
+    result = Ultravisor.del_all_cache_dist(id)
+
+    Logger.info("Delete cache dist #{id}: #{inspect(result)}")
 
     send_resp(conn, code, "")
   end
@@ -188,9 +190,9 @@ defmodule UltravisorWeb.TenantController do
     result = Ultravisor.terminate_global(external_id) |> inspect()
     Logger.warning("Terminate #{external_id}: #{result}")
 
-    Logger.info(
-      "Delete cache dist #{external_id}: #{inspect(Ultravisor.del_all_cache_dist(external_id))}"
-    )
+    clean_result = Ultravisor.del_all_cache_dist(external_id)
+
+    Logger.info("Delete cache dist #{external_id}: #{inspect(clean_result)}")
 
     render(conn, :show_terminate, result: result)
   end
