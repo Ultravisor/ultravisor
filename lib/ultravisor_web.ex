@@ -26,8 +26,11 @@ defmodule UltravisorWeb do
     quote do
       use Phoenix.Controller, namespace: UltravisorWeb, formats: [:json]
 
+      use Phoenix.VerifiedRoutes,
+        endpoint: UltravisorWeb.Endpoint,
+        router: UltravisorWeb.Router
+
       import Plug.Conn
-      alias UltravisorWeb.Router.Helpers, as: Routes
     end
   end
 
