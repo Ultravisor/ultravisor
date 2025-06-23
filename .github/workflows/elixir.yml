@@ -138,7 +138,11 @@ jobs:
       - name: Start epmd
         run: epmd -daemon
       - name: Run tests
-        run: mix coveralls.lcov
+        run: mix coveralls.json
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   integration:
     name: Run integration tests
@@ -188,7 +192,12 @@ jobs:
       - name: Install Node dependencies
         run: 'cd test/integration/js/; npm install'
       - name: Run tests
-        run: mix coveralls.lcov --only integration --trace
+        run: mix coveralls.json --only integration --trace
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: integration
 
   dialyzer:
     name: Dialyze
