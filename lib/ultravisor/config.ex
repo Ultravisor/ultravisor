@@ -33,7 +33,7 @@ defmodule Ultravisor.Config do
 
   def get_list(env_name, default \\ []) do
     case System.fetch_env(env_name) do
-      {:ok, env} -> String.split(env, ",")
+      {:ok, env} -> String.split(env, ",", trim: true)
       :error -> default
     end
   end
