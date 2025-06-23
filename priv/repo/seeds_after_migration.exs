@@ -12,11 +12,9 @@ db_conf = Application.get_env(:ultravisor, Repo)
 
 tenant_name = "dev_tenant"
 
-if Tenants.get_tenant_by_external_id(tenant_name) do
-  Tenants.delete_tenant_by_external_id(tenant_name)
-end
+Tenants.delete_tenant_by_external_id(tenant_name)
 
-if !Tenants.get_tenant_by_external_id("is_manager") do
+with {:error, _} <- Tenants.get_tenant_by_external_id("is_manager") do
   {:ok, _} =
     %{
       db_host: db_conf[:hostname],
@@ -42,7 +40,7 @@ end
 
 ["proxy_tenant1", "syn_tenant", "prom_tenant", "max_pool_tenant", "metrics_tenant"]
 |> Enum.each(fn tenant ->
-  if !Tenants.get_tenant_by_external_id(tenant) do
+  with {:error, _} <- Tenants.get_tenant_by_external_id(tenant) do
     {:ok, _} =
       %{
         db_host: db_conf[:hostname],
