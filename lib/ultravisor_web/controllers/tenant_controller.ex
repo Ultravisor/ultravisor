@@ -41,7 +41,7 @@ defmodule UltravisorWeb.TenantController do
     with {:ok, %TenantModel{} = tenant} <- Tenants.create_tenant(tenant_params) do
       conn
       |> put_status(:created)
-      |> put_resp_header("location", Routes.tenant_path(conn, :show, tenant))
+      |> put_resp_header("location", ~p"/api/tenants/#{tenant}")
       |> render(:show, tenant: tenant)
     end
   end
