@@ -56,7 +56,6 @@ defmodule UltravisorWeb.Router do
     get("/clusters/:alias", ClusterController, :show)
     put("/clusters/:alias", ClusterController, :update)
     delete("/clusters/:alias", ClusterController, :delete)
-    # get("/clusters/:alias/terminate", ClusterController, :terminate)
   end
 
   scope "/metrics", UltravisorWeb do
