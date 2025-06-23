@@ -5,7 +5,8 @@
 # SPDX-License-Identifier: EUPL-1.2
 
 defmodule UltravisorWeb.TenantControllerTest do
-  use UltravisorWeb.ConnCase, async: false
+  use UltravisorWeb.ConnCase, async: true
+  use Repatch.ExUnit
 
   import Ultravisor.TenantsFixtures
   import ExUnit.CaptureLog
@@ -45,7 +46,7 @@ defmodule UltravisorWeb.TenantControllerTest do
   }
 
   setup %{conn: conn} do
-    :meck.expect(Ultravisor.Helpers, :check_creds_get_ver, fn _ -> {:ok, "0.0"} end)
+    Repatch.patch(Ultravisor.Helpers, :check_creds_get_ver, fn _ -> {:ok, "0.0"} end)
 
     jwt = gen_token()
 
@@ -66,10 +67,6 @@ defmodule UltravisorWeb.TenantControllerTest do
         "authorization",
         "Bearer " <> blocked_jwt
       )
-
-    on_exit(fn ->
-      :meck.unload(Ultravisor.Helpers)
-    end)
 
     {:ok, conn: new_conn, blocked_conn: blocked_conn}
   end

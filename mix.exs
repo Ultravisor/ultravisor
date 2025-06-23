@@ -96,7 +96,8 @@ defmodule Ultravisor.MixProject do
       {:stream_data, "~> 1.0", only: [:dev, :test]},
       # Override needed due to eflambe
       {:meck, "~> 1.0", only: [:dev, :test], override: true},
-      {:junit_formatter, "~> 3.4", only: [:test]}
+      {:junit_formatter, "~> 3.4", only: [:test]},
+      {:repatch, "~> 1.5", only: [:test]}
     ]
   end
 
