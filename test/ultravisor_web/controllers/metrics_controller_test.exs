@@ -17,7 +17,7 @@ defmodule UltravisorWeb.MetricsControllerTest do
     conn =
       conn
       |> auth
-      |> get(Routes.metrics_path(conn, :index))
+      |> get(~p"/metrics")
 
     assert conn.status == 200
   end
@@ -28,7 +28,7 @@ defmodule UltravisorWeb.MetricsControllerTest do
     conn =
       conn
       |> auth(token)
-      |> get(Routes.metrics_path(conn, :index))
+      |> get(~p"/metrics")
 
     assert conn.status == 403
   end
