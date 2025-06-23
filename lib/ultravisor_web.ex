@@ -12,7 +12,6 @@ defmodule UltravisorWeb do
   This can be used in your application as:
 
       use UltravisorWeb, :controller
-      use UltravisorWeb, :view
 
   The definitions below will be executed for every view,
   controller, etc, so keep them short and clean, focused
@@ -25,23 +24,10 @@ defmodule UltravisorWeb do
 
   def controller do
     quote do
-      use Phoenix.Controller, namespace: UltravisorWeb
+      use Phoenix.Controller, namespace: UltravisorWeb, formats: [:json]
 
       import Plug.Conn
       alias UltravisorWeb.Router.Helpers, as: Routes
-    end
-  end
-
-  def view do
-    quote do
-      use Phoenix.View,
-        root: "lib/ultravisor_web/templates",
-        namespace: UltravisorWeb
-
-      # Import basic rendering functionality (render, render_layout, etc)
-      import Phoenix.View
-
-      import UltravisorWeb.ErrorHelpers
     end
   end
 

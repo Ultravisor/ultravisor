@@ -120,14 +120,6 @@ defmodule UltravisorWeb.OpenApiSchemas do
     def response, do: {"Tenant Response", "application/json", __MODULE__}
   end
 
-  defmodule TenantList do
-    @moduledoc false
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{type: :array, items: Tenant})
-    def response, do: {"Tenant List Response", "application/json", __MODULE__}
-  end
-
   defmodule TenantCreate do
     @moduledoc false
     require OpenApiSpex

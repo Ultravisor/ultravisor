@@ -11,7 +11,7 @@ defmodule UltravisorWeb.ClusterJSON do
   Renders a list of clusters.
   """
   def index(%{clusters: clusters}) do
-    %{data: for(cluster <- clusters, do: data(cluster))}
+    %{data: Enum.map(clusters, &data/1)}
   end
 
   @doc """
@@ -24,7 +24,14 @@ defmodule UltravisorWeb.ClusterJSON do
   defp data(%Cluster{} = cluster) do
     %{
       id: cluster.id,
-      active: cluster.active
+      alias: cluster.alias,
+      active: cluster.active,
+      inserted_at: cluster.inserted_at,
+      cluster_tenants:
+        Enum.map(
+          cluster.cluster_tenants,
+          &UltravisorWeb.ClusterTenantsJSON.data/1
+        )
     }
   end
 end
