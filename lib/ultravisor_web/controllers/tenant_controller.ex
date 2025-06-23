@@ -55,14 +55,8 @@ defmodule UltravisorWeb.TenantController do
   )
 
   def show(conn, %{"external_id" => id}) do
-    id
-    |> Tenants.get_tenant_by_external_id()
-    |> case do
-      %TenantModel{} = tenant ->
-        render(conn, :show, tenant: tenant)
-
-      nil ->
-        {:error, :not_found}
+    with {:ok, tenant} <- Tenants.get_tenant_by_external_id(id) do
+      render(conn, :show, tenant: tenant)
     end
   end
 
@@ -114,7 +108,7 @@ defmodule UltravisorWeb.TenantController do
       )
     else
       case Tenants.get_tenant_by_external_id(id) do
-        nil ->
+        {:error, _} ->
           case Helpers.check_creds_get_ver(params) do
             {:error, reason} ->
               conn
@@ -134,7 +128,7 @@ defmodule UltravisorWeb.TenantController do
               create(conn, %{"tenant" => Map.put(params, "external_id", id)})
           end
 
-        tenant ->
+        {:ok, tenant} ->
           tenant = Repo.preload(tenant, :users)
 
           with {:ok, %TenantModel{} = tenant} <-

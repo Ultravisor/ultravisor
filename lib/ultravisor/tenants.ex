@@ -44,9 +44,11 @@ defmodule Ultravisor.Tenants do
   """
   def get_tenant!(id), do: Repo.get!(Tenant, id)
 
-  @spec get_tenant_by_external_id(String.t()) :: Tenant.t() | nil
+  @spec get_tenant_by_external_id(String.t()) :: {:ok, Tenant.t()} | {:error, :not_found}
   def get_tenant_by_external_id(external_id) do
-    Tenant |> Repo.get_by(external_id: external_id) |> Repo.preload(:users)
+    with {:ok, tenant} <- Repo.fetch_by(Tenant, external_id: external_id) do
+      {:ok, Repo.preload(tenant, :users)}
+    end
   end
 
   @spec get_tenant_cache(String.t() | nil, String.t() | nil) :: Tenant.t() | nil

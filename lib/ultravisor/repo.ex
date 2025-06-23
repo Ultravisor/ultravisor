@@ -8,4 +8,16 @@ defmodule Ultravisor.Repo do
   use Ecto.Repo,
     otp_app: :ultravisor,
     adapter: Ecto.Adapters.Postgres
+
+  import Ecto.Query
+
+  def fetch_by(queryable, selectors) do
+    query =
+      from queryable, where: ^selectors, limit: 1
+
+    case all(query) do
+      [] -> {:error, :not_found}
+      [row] -> {:ok, row}
+    end
+  end
 end
