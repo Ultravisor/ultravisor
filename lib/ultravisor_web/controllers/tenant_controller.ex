@@ -23,8 +23,7 @@ defmodule UltravisorWeb.TenantController do
     Empty,
     NotFound,
     Tenant,
-    TenantCreate,
-    TenantList
+    TenantCreate
   }
 
   action_fallback(UltravisorWeb.FallbackController)
@@ -38,25 +37,12 @@ defmodule UltravisorWeb.TenantController do
       "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE2ODAxNjIxNTR9.U9orU6YYqXAtpF8uAiw6MS553tm4XxRzxOhz2IwDhpY"
   ]
 
-  operation(:index,
-    summary: "List tenants",
-    parameters: [authorization: @authorization],
-    responses: %{
-      200 => TenantList.response()
-    }
-  )
-
-  def index(conn, _params) do
-    tenants = Tenants.list_tenants()
-    render(conn, "index.json", tenants: tenants)
-  end
-
   def create(conn, %{"tenant" => tenant_params}) do
     with {:ok, %TenantModel{} = tenant} <- Tenants.create_tenant(tenant_params) do
       conn
       |> put_status(:created)
       |> put_resp_header("location", Routes.tenant_path(conn, :show, tenant))
-      |> render("show.json", tenant: tenant)
+      |> render(:show, tenant: tenant)
     end
   end
 
@@ -77,12 +63,10 @@ defmodule UltravisorWeb.TenantController do
     |> Tenants.get_tenant_by_external_id()
     |> case do
       %TenantModel{} = tenant ->
-        render(conn, "show.json", tenant: tenant)
+        render(conn, :show, tenant: tenant)
 
       nil ->
-        conn
-        |> put_status(404)
-        |> render("not_found.json", tenant: nil)
+        {:error, :not_found}
     end
   end
 
@@ -114,7 +98,7 @@ defmodule UltravisorWeb.TenantController do
       {:error, realson} ->
         conn
         |> put_status(400)
-        |> render("error.json",
+        |> render(:error,
           error: "Invalid 'upstream_tls_ca' certificate, reason: #{inspect(realson)}"
         )
     end
@@ -129,7 +113,7 @@ defmodule UltravisorWeb.TenantController do
     if params["upstream_ssl"] && params["upstream_verify"] == "peer" && !cert do
       conn
       |> put_status(400)
-      |> render("error.json",
+      |> render(:error,
         error: "Invalid 'upstream_verify' value, 'peer' is not allowed without certificate"
       )
     else
@@ -139,7 +123,7 @@ defmodule UltravisorWeb.TenantController do
             {:error, reason} ->
               conn
               |> put_status(400)
-              |> render("error.json", error: reason)
+              |> render(:error, error: reason)
 
             {:ok, pg_version} ->
               params =
@@ -161,7 +145,7 @@ defmodule UltravisorWeb.TenantController do
                  Tenants.update_tenant(tenant, params) do
             result = Ultravisor.terminate_global(tenant.external_id)
             Logger.warning("Stop #{tenant.external_id}: #{inspect(result)}")
-            render(conn, "show.json", tenant: tenant)
+            render(conn, :show, tenant: tenant)
           end
       end
     end
@@ -208,7 +192,7 @@ defmodule UltravisorWeb.TenantController do
       "Delete cache dist #{external_id}: #{inspect(Ultravisor.del_all_cache_dist(external_id))}"
     )
 
-    render(conn, "show_terminate.json", result: result)
+    render(conn, :show_terminate, result: result)
   end
 
   operation(:health,

@@ -16,15 +16,19 @@ defmodule UltravisorWeb.FallbackController do
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
     conn
     |> put_status(:unprocessable_entity)
-    |> put_view(UltravisorWeb.ChangesetView)
-    |> render("error.json", changeset: changeset)
+    |> put_view(json: UltravisorWeb.ChangesetJSON)
+    |> render(:error, changeset: changeset)
   end
 
   # This clause is an example of how to handle resources that cannot be found.
   def call(conn, {:error, :not_found}) do
     conn
     |> put_status(:not_found)
-    |> put_view(UltravisorWeb.ErrorView)
+    |> put_view(json: UltravisorWeb.ErrorJSON)
     |> render(:"404")
+  end
+
+  def call(conn, :no_content) do
+    send_resp(conn, :no_content, [])
   end
 end

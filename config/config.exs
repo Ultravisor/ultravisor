@@ -27,7 +27,7 @@ config :prom_ex, storage_adapter: Ultravisor.Monitoring.PromEx.Store
 config :ultravisor, UltravisorWeb.Endpoint,
   url: [host: "localhost"],
   secret_key_base: "ktyW57usZxrivYdvLo9os7UGcUUZYKchOMHT3tzndmnHuxD09k+fQnPUmxlPMUI3",
-  render_errors: [view: UltravisorWeb.ErrorView, accepts: ~w(html json), layout: false],
+  render_errors: [view: [json: UltravisorWeb.ErrorJSON], accepts: ~w(json), layout: false],
   pubsub_server: Ultravisor.PubSub,
   live_view: [signing_salt: "qf3AEZ7n"]
 
