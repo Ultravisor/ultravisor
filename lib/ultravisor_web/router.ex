@@ -57,10 +57,10 @@ defmodule UltravisorWeb.Router do
     delete("/clusters/:alias", ClusterController, :delete)
   end
 
-  scope "/metrics", UltravisorWeb do
+  scope "/metrics" do
     pipe_through(:metrics)
 
-    get("/", MetricsController, :index)
+    forward "/", PromEx.Plug, prom_ex_module: Ultravisor.Monitoring.PromEx
   end
 
   # Other scopes may use custom stacks.

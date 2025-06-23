@@ -4,8 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-License-Identifier: EUPL-1.2
 
-defmodule UltravisorWeb.MetricsControllerTest do
+defmodule UltravisorWeb.MetricsTest do
   use UltravisorWeb.ConnCase, async: true
+
   alias Ultravisor.Support.Cluster
 
   @tag cluster: true
