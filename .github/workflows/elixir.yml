@@ -142,6 +142,11 @@ jobs:
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
+          flags: main
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   integration:
@@ -198,6 +203,11 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: integration
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   dialyzer:
     name: Dialyze
