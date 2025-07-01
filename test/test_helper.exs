@@ -24,6 +24,7 @@ logs =
   end
 
 ExUnit.start(
+  formatters: [JUnitFormatter, ExUnit.CLIFormatter],
   capture_log: logs,
   exclude: [
     flaky: true,
