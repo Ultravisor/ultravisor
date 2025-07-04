@@ -335,16 +335,12 @@ defmodule Ultravisor do
 
     case type do
       :single -> Tenants.get_pool_config_cache(tenant, user)
-      :cluster -> Tenants.get_cluster_config(tenant, user)
     end
     |> case do
       [_ | _] = replicas ->
         opts =
           Enum.map(replicas, fn replica ->
             case replica do
-              %Tenants.ClusterTenants{tenant: tenant, type: type} ->
-                Map.put(tenant, :replica_type, type)
-
               %Tenants.Tenant{} = tenant ->
                 Map.put(tenant, :replica_type, :write)
             end

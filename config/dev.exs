@@ -11,6 +11,7 @@ config :ultravisor, Ultravisor.Repo,
   password: "postgres",
   hostname: "localhost",
   database: "ultravisor_dev",
+  port: System.get_env("PGPORT"),
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10

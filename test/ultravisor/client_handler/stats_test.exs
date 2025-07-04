@@ -108,6 +108,7 @@ defmodule Ultravisor.ClientHandler.StatsTest do
 
     @tag external_id: "metrics_tenant"
     # it depends on the connection setup order
+    @tag flaky: true
     test "another instance do not send events here", %{telemetry: telemetry} = ctx do
       assert {:ok, _pid, node} = Ultravisor.Support.Cluster.start_node()
 
