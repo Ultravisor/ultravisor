@@ -30,11 +30,13 @@ defmodule UltravisorWeb.Router do
 
   scope "/swaggerui" do
     pipe_through(:browser)
+
     get("/", OpenApiSpex.Plug.SwaggerUI, path: "/api/openapi")
   end
 
   scope "/api" do
     pipe_through(:openapi)
+
     get("/openapi", OpenApiSpex.Plug.RenderSpec, [])
   end
 
