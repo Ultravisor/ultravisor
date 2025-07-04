@@ -109,6 +109,8 @@
 
               # Force connection through TCP instead of Unix socket
               env.PGHOST = lib.mkForce "";
+
+              # env.DATABASE_URL = "postgres://postgres:postgres@localhost:6432/";
             }
             {
               languages.javascript = {

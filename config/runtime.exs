@@ -112,7 +112,7 @@ if config_env() != :test do
     local_proxy_multiplier: Config.get_integer("LOCAL_PROXY_MULTIPLIER", 20)
 
   config :ultravisor, Ultravisor.Repo,
-    url: System.get_env("DATABASE_URL", "ecto://postgres:postgres@localhost:6432/postgres"),
+    url: System.get_env("DATABASE_URL"),
     pool_size: Config.get_integer("DB_POOL_SIZE", 25),
     ssl_opts: [
       verify: :verify_none

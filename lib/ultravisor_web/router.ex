@@ -53,10 +53,6 @@ defmodule UltravisorWeb.Router do
     delete("/tenants/:external_id", TenantController, :delete)
     get("/tenants/:external_id/terminate", TenantController, :terminate)
     get("/health", TenantController, :health)
-
-    get("/clusters/:alias", ClusterController, :show)
-    put("/clusters/:alias", ClusterController, :update)
-    delete("/clusters/:alias", ClusterController, :delete)
   end
 
   scope "/metrics" do
