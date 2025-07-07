@@ -176,22 +176,6 @@ defmodule Ultravisor.Tenants do
     |> Repo.update()
   end
 
-  @doc """
-  Deletes a tenant.
-
-  ## Examples
-
-      iex> delete_tenant(tenant)
-      {:ok, %Tenant{}}
-
-      iex> delete_tenant(tenant)
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def delete_tenant(%Tenant{} = tenant) do
-    Repo.delete(tenant)
-  end
-
   @spec delete_tenant_by_external_id(String.t()) :: boolean()
   def delete_tenant_by_external_id(id) do
     from(t in Tenant, where: t.external_id == ^id)
