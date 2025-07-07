@@ -124,8 +124,14 @@ defmodule UltravisorWeb.TenantController do
                 else
                   params
                 end
+                |> put_in(["tenant", "external_id"], id)
 
-              create(conn, %{"tenant" => Map.put(params, "external_id", id)})
+              with {:ok, %TenantModel{} = tenant} <- Tenants.create_tenant(params) do
+                conn
+                |> put_status(:created)
+                |> put_resp_header("location", ~p"/api/tenants/#{tenant}")
+                |> render(:show, tenant: tenant)
+              end
           end
 
         {:ok, tenant} ->
