@@ -37,9 +37,6 @@ defmodule Ultravisor.DbHandler do
   def checkout(pid, sock, caller, timeout \\ 15_000),
     do: :gen_statem.call(pid, {:checkout, sock, caller}, timeout)
 
-  @spec checkin(pid()) :: :ok
-  def checkin(pid), do: :gen_statem.cast(pid, :checkin)
-
   @spec get_state_and_mode(pid()) :: {:ok, {state, Ultravisor.mode()}} | {:error, term()}
   def get_state_and_mode(pid) do
     {:ok, :gen_statem.call(pid, :get_state_and_mode, 5_000)}
