@@ -71,9 +71,9 @@ defmodule Ultravisor.TenantsTest do
       assert tenant == @subject.get_tenant!(tenant.id) |> Repo.preload(:users)
     end
 
-    test "delete_tenant/1 deletes the tenant" do
+    test "delete_tenant_by_external_id/1 deletes the tenant" do
       tenant = tenant_fixture()
-      assert {:ok, %Tenant{}} = @subject.delete_tenant(tenant)
+      assert @subject.delete_tenant_by_external_id(tenant.external_id)
       assert_raise Ecto.NoResultsError, fn -> @subject.get_tenant!(tenant.id) end
     end
 
