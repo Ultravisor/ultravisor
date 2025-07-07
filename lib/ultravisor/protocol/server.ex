@@ -62,18 +62,13 @@ defmodule Ultravisor.Protocol.Server do
     }
   end
 
-  def decode_pkt(<<char::integer-8, pkt_len::integer-32, rest::binary>>, decode_payload \\ true) do
+  def decode_pkt(<<char::integer-8, pkt_len::integer-32, rest::binary>>) do
     tag = tag(char)
     payload_len = pkt_len - 4
 
     <<bin_payload::binary-size(payload_len), rest2::binary>> = rest
 
-    payload =
-      if decode_payload do
-        decode_payload(tag, bin_payload)
-      else
-        nil
-      end
+    payload = decode_payload(tag, bin_payload)
 
     {:ok, %Pkt{tag: tag, len: pkt_len + 1, payload: payload}, rest2}
   end
