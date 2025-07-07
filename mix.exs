@@ -53,6 +53,7 @@ defmodule Ultravisor.MixProject do
         ~r/^UltravisorWeb\..*Controller$/,
         ~r/^UltravisorWeb\.OpenApiSchemas/,
         UltravisorWeb,
+        Ultravisor.Config,
         {:_, :child_spec, 1},
         {:_, :start_link, 1},
         {:_, :__using__, 1}
