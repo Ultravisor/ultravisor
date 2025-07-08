@@ -89,6 +89,8 @@ defmodule Ultravisor.ClientHandler.StatsTest do
 
       # Cleanup initial data related to sign in
       assert_receive {^telemetry, {:client, _, %{tenant: ^external_id}}, _}
+      assert_receive {^telemetry, {:client, _, %{tenant: ^external_id}}, _}
+      assert_receive {^telemetry, {:client, _, %{tenant: ^external_id}}, _}
 
       other_conn =
         start_supervised!(
