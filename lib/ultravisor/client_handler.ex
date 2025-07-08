@@ -27,7 +27,7 @@ defmodule Ultravisor.ClientHandler do
   require Logger
   require Ultravisor.Protocol.Server, as: Server
 
-  import Ultravisor, only: [conn_id: 1]
+  import Ultravisor, only: [conn_id: 1, conn_id: 2]
 
   alias Ultravisor.{
     DbHandler,
@@ -88,7 +88,6 @@ defmodule Ultravisor.ClientHandler do
       trans: trans,
       db_pid: nil,
       tenant: nil,
-      user: nil,
       pool: nil,
       manager: nil,
       query_start: nil,
@@ -353,18 +352,21 @@ defmodule Ultravisor.ClientHandler do
             do: Server.error_message("XX000", reason),
             else: Server.exchange_message(:final, "e=#{reason}")
 
-        key = {:secrets_check, data.tenant, data.user}
+        tenant = conn_id(data.id, :tenant)
+        user = conn_id(data.id, :user)
+
+        key = {:secrets_check, tenant, user}
 
         if method != :password and reason == "Wrong password" and
              Cachex.get(Ultravisor.Cache, key) == {:ok, nil} do
-          case auth_secrets(info, data.user, key, 15_000) do
+          case auth_secrets(info, user, key, 15_000) do
             {:ok, {method2, secrets2}} = value ->
               if method != method2 or Map.delete(secrets.(), :client_key) != secrets2.() do
                 Logger.warning("ClientHandler: Update secrets and terminate pool")
 
                 Cachex.update(
                   Ultravisor.Cache,
-                  {:secrets, data.tenant, data.user},
+                  {:secrets, tenant, user},
                   {:cached, value}
                 )
 
@@ -491,7 +493,7 @@ defmodule Ultravisor.ClientHandler do
     args = %{
       id: data.id,
       auth: data.auth,
-      user: data.user,
+      user: conn_id(data.id, :user),
       tenant: {:single, data.tenant},
       replica_type: :write,
       mode: :proxy,
@@ -887,7 +889,6 @@ defmodule Ultravisor.ClientHandler do
     %{
       data
       | tenant: info.tenant.external_id,
-        user: user,
         timeout: info.user.pool_checkout_timeout,
         ps: info.tenant.default_parameter_status,
         proxy_type: proxy_type,
