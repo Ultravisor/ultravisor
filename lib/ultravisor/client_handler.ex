@@ -109,8 +109,7 @@ defmodule Ultravisor.ClientHandler do
       tenant_availability_zone: nil,
       local: local,
       active_count: 0,
-      app_name: nil,
-      subscribe_retries: 0
+      app_name: nil
     }
 
     :gen_statem.enter_loop(__MODULE__, [hibernate_after: 5_000], :exchange, data)
@@ -401,14 +400,15 @@ defmodule Ultravisor.ClientHandler do
         conn_type =
           if data.mode == :proxy,
             do: :connect_db,
-            else: :subscribe
+            else: {:subscribe, 0}
 
         {:keep_state, %{data | auth_secrets: {method, secrets}, auth: auth},
          {:next_event, :internal, conn_type}}
     end
   end
 
-  def handle_event(:internal, :subscribe, state, data) do
+  def handle_event(:internal, {:subscribe, retries}, state, data)
+      when retries < @subscribe_retries do
     Logger.metadata(state: state)
     Logger.debug("ClientHandler: Subscribe to tenant #{inspect(data.id)}")
 
@@ -471,13 +471,18 @@ defmodule Ultravisor.ClientHandler do
 
           other ->
             Logger.error("ClientHandler: Subscribe proxy error: #{inspect(other)}")
-            timeout_subscribe_or_terminate(data)
+            {:keep_state, data, {:timeout, @timeout_subscribe, {:subscribe, retries + 1}}}
         end
 
       error ->
         Logger.error("ClientHandler: Subscribe error: #{inspect(error)}")
-        timeout_subscribe_or_terminate(data)
+        {:keep_state, data, {:timeout, @timeout_subscribe, {:subscribe, retries + 1}}}
     end
+  end
+
+  def handle_event(:internal, {:subscribe, retries}, _state, _data) do
+    Logger.error("ClientHandler: Terminate after #{retries} retries")
+    {:stop, {:shutdown, :subscribe_retries}}
   end
 
   def handle_event(:internal, :connect_db, state, data) do
@@ -512,9 +517,9 @@ defmodule Ultravisor.ClientHandler do
     {:next_state, :idle, data, handle_actions(data)}
   end
 
-  def handle_event(:timeout, :subscribe, state, _) do
+  def handle_event(:timeout, {:subscribe, retries}, state, _) do
     Logger.metadata(state: state)
-    {:keep_state_and_data, {:next_event, :internal, :subscribe}}
+    {:keep_state_and_data, {:next_event, :internal, {:subscribe, retries}}}
   end
 
   def handle_event(:timeout, :wait_ps, state, data) do
@@ -604,7 +609,7 @@ defmodule Ultravisor.ClientHandler do
 
     case {state, reason} do
       {_, :shutdown} -> {:stop, {:shutdown, :manager_shutdown}}
-      {:idle, _} -> {:keep_state_and_data, {:next_event, :internal, :subscribe}}
+      {:idle, _} -> {:keep_state_and_data, {:next_event, :internal, {:subscribe, 0}}}
       {:busy, _} -> {:stop, {:shutdown, :manager_down}}
     end
   end
@@ -1171,19 +1176,6 @@ defmodule Ultravisor.ClientHandler do
     end
 
     HandlerHelpers.sock_send(elem(data.db_pid, 2), bin)
-  end
-
-  @spec timeout_subscribe_or_terminate(map()) :: :gen_statem.handle_event_result()
-  def timeout_subscribe_or_terminate(%{subscribe_retries: subscribe_retries} = data) do
-    if subscribe_retries < @subscribe_retries do
-      Logger.warning("ClientHandler: Retry subscribe #{inspect(subscribe_retries)}")
-
-      {:keep_state, %{data | subscribe_retries: subscribe_retries + 1},
-       {:timeout, @timeout_subscribe, :subscribe}}
-    else
-      Logger.error("ClientHandler: Terminate after retries")
-      {:stop, {:shutdown, :subscribe_retries}}
-    end
   end
 
   @spec reset_active_count(map()) :: 0
