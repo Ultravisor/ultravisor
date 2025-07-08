@@ -48,6 +48,7 @@ defmodule Ultravisor.MixProject do
         ~r/^UltravisorWeb\..*Controller$/,
         ~r/^UltravisorWeb\.OpenApiSchemas/,
         UltravisorWeb,
+        {:_, :child_spec, 1},
         {:_, :start_link, 1},
         {:_, :__using__, 1}
       ]
@@ -87,21 +88,21 @@ defmodule Ultravisor.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.7.2"},
+      {:phoenix, "~> 1.8"},
       {:phoenix_ecto, "~> 4.4"},
       {:ecto_sql, "~> 3.10"},
       {:postgrex, ">= 0.0.0"},
       {:phoenix_live_view, "~> 1.0"},
       {:phoenix_live_dashboard, "~> 0.7"},
       {:telemetry_poller, "~> 1.0"},
-      {:peep, "~> 4.0", override: true},
+      {:peep, "~> 4.1", override: true},
       {:plug_cowboy, "~> 2.5"},
       {:joken, "~> 2.6.0"},
       {:cloak_ecto, "~> 1.3.0"},
       {:prom_ex, "~> 1.10"},
       {:open_api_spex, "~> 3.16"},
       {:libcluster, "~> 3.5"},
-      {:libcluster_postgres, "~> 0.1.3"},
+      {:libcluster_postgres, "~> 0.2.0"},
       {:cachex, "~> 4.0"},
       {:inet_cidr, "~> 1.0.0"},
       {:observer_cli, "~> 1.7"},
@@ -116,7 +117,6 @@ defmodule Ultravisor.MixProject do
       {:poolboy, git: "https://github.com/supabase/poolboy", tag: "v0.0.1"},
       {:syn, "~> 3.3"},
       {:pgo, "~> 0.13"},
-      {:rustler, "~> 0.36.1"},
       {:ranch, "~> 2.0", override: true},
 
       # Linting
@@ -133,8 +133,6 @@ defmodule Ultravisor.MixProject do
       {:excoveralls, ">= 0.0.0", only: [:dev, :test]},
       {:stream_data, "~> 1.0", only: [:dev, :test]},
       {:req, "~> 0.5", only: [:test]},
-      # Override needed due to eflambe
-      {:meck, "~> 1.0", only: [:dev, :test], override: true},
       {:junit_formatter, "~> 3.4", only: [:test]},
       {:repatch, "~> 1.5", only: [:test]}
     ]
