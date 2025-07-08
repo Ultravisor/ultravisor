@@ -65,6 +65,14 @@ config :ultravisor, UltravisorWeb.Endpoint,
     ]
   ]
 
+if System.get_env("DEBUG", "false") != "false" do
+  config :logger,
+    compile_time_purge_matching: [
+      [module: Ultravisor.ClientHandler, level_lower_than: :info],
+      [module: Ultravisor.DbHandler, level_lower_than: :info]
+    ]
+end
+
 # Configures Elixir's Logger
 config :logger, :default_formatter,
   level: :debug,
