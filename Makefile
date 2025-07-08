@@ -64,28 +64,30 @@ db_rebuild:
 	docker-compose -f ./docker-compose.db.yml build
 	make db_start
 
-PGBENCH_USER ?= postgres.sys
-PGBENCH_PORT ?= 6543
-PGBENCH_RATE ?= 5000
-PGBENCH_DURATION ?= 60
-PGBENCH_CLIENTS ?= 1000
+user ?= postgres.sys
+port ?= 6543
+duration ?= 60
+clients ?= 32
+protocol ?= extended
 
 pgbench_init:
-	PGPASSWORD=postgres pgbench -i -h 127.0.0.1 -p 6432 -U postgres -d postgres
-
-pgbench_short:
-	PGPASSWORD=postgres pgbench -M extended --transactions 5 --jobs 4 --client 1 -h localhost -p 6543 -U postgres.sys postgres
-
-pgbench_long:
-	PGPASSWORD=postgres pgbench -M extended --transactions 100 --jobs 10 --client 60 -h localhost -p 7654 -U transaction.localhost postgres
+	PGPASSWORD=postgres pgbench -i -h localhost -p 6432 -U postgres -d postgres
 
 pgbench:
 	PGPASSWORD="postgres" pgbench \
-		   postgres://${PGBENCH_USER}@localhost:${PGBENCH_PORT}/postgres?sslmode=disable \
-		   -Srn -T ${PGBENCH_DURATION} \
-		   -j 8 -c ${PGBENCH_CLIENTS} \
-		   -P 10 -M extended \
-		   --rate ${PGBENCH_RATE}
+		   postgres://${user}@localhost:${port}/postgres?sslmode=disable \
+		   --select-only \
+		   --report-per-command \
+		   --no-vacuum \
+		   --time ${duration} \
+		   --jobs=4 \
+		   --client=${clients} \
+		   --progress=10 \
+		   --protocol=${protocol}
+
+pgbouncer:
+	cd $(PWD)/bench/pgbouncer && \
+		pgbouncer pgbouncer.conf
 
 clean:
 	rm -rf _build && rm -rf deps
@@ -109,8 +111,8 @@ dev_start_rel:
 	_build/prod/rel/ultravisor/bin/ultravisor start_iex
 
 prod_rel:
-	MIX_ENV=prod METRICS_DISABLED=true mix compile && \
-	MIX_ENV=prod METRICS_DISABLED=true mix release ultravisor
+	MIX_ENV=prod mix compile && \
+	MIX_ENV=prod mix release ultravisor
 
 prod_start_rel:
 	MIX_ENV=prod \
