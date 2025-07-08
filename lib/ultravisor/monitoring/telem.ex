@@ -9,7 +9,7 @@ defmodule Ultravisor.Monitoring.Telem do
 
   require Logger
 
-  import Ultravisor, only: [conn_id: 0, conn_id: 1]
+  import Ultravisor, only: [conn_id: 0]
 
   @type net_stats() :: {non_neg_integer(), non_neg_integer()}
 
@@ -25,29 +25,13 @@ defmodule Ultravisor.Monitoring.Telem do
           recv_oct: recv_oct - prev_recv
         }
 
-        conn_id(
-          type: ptype,
-          tenant: tenant,
-          user: user,
-          mode: mode,
-          db_name: db_name,
-          search_path: search_path
-        ) = id
-
         :telemetry.execute(
           [:ultravisor, type, :network, :stat],
           stats,
-          %{
-            tenant: tenant,
-            user: user,
-            mode: mode,
-            type: ptype,
-            db_name: db_name,
-            search_path: search_path
-          }
+          Ultravisor.conn_id_to_map(id)
         )
 
-        {:ok, {send_oct, recv_oct}}
+        {:ok, {recv_oct, send_oct}}
 
       {:error, reason} ->
         Logger.error("Failed to get socket stats: #{inspect(reason)}")
