@@ -100,7 +100,6 @@ defmodule Ultravisor.ClientHandler do
       mode: opts.mode,
       stats: %{},
       idle_timeout: 0,
-      db_name: nil,
       last_query: nil,
       heartbeat_interval: 0,
       connection_start: System.monotonic_time(),
@@ -894,7 +893,6 @@ defmodule Ultravisor.ClientHandler do
         proxy_type: proxy_type,
         id: id,
         heartbeat_interval: info.tenant.client_heartbeat_interval * 1000,
-        db_name: db_name,
         mode: mode,
         auth: auth,
         tenant_availability_zone: info.tenant.availability_zone
