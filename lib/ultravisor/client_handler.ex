@@ -109,7 +109,6 @@ defmodule Ultravisor.ClientHandler do
       tenant_availability_zone: nil,
       local: local,
       active_count: 0,
-      peer_ip: peer_ip,
       app_name: nil,
       subscribe_retries: 0
     }
