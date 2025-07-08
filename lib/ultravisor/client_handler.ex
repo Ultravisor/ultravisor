@@ -42,7 +42,7 @@ defmodule Ultravisor.ClientHandler do
   end
 
   @impl true
-  def callback_mode, do: [:handle_event_function]
+  def callback_mode, do: [:handle_event_function, :state_enter]
 
   @spec db_status(pid(), :ready_for_query | :read_sql_error, binary()) :: :ok
   def db_status(pid, status, bin), do: :gen_statem.cast(pid, {:db_status, status, bin})
@@ -110,6 +110,17 @@ defmodule Ultravisor.ClientHandler do
   end
 
   @impl true
+  def handle_event(:enter, _old, new, data) do
+    :logger.update_process_metadata(%{state: new})
+
+    {_, stats} =
+      if is_nil(data.id) or data.local,
+        do: {nil, data.stats},
+        else: Telem.network_usage(:client, data.sock, data.id, data.stats)
+
+    {:next_state, new, %{data | stats: stats}}
+  end
+
   def handle_event(:info, {passive, _socket}, _, data)
       when passive in [:ssl_passive, :tcp_passive] do
     HandlerHelpers.setopts(data.sock, active: @switch_active_count)
@@ -118,7 +129,6 @@ defmodule Ultravisor.ClientHandler do
   end
 
   def handle_event(:info, {_proto, _, <<"GET", _::binary>>}, :exchange, data) do
-    Logger.metadata(state: :exchange)
     Logger.debug("ClientHandler: Client is trying to request HTTP")
 
     HandlerHelpers.sock_send(
@@ -130,8 +140,7 @@ defmodule Ultravisor.ClientHandler do
   end
 
   # cancel request
-  def handle_event(:info, {_, _, Server.cancel_message(pid, key)}, state, _) do
-    Logger.metadata(state: state)
+  def handle_event(:info, {_, _, Server.cancel_message(pid, key)}, _state, _) do
     Logger.debug("ClientHandler: Got cancel query for #{inspect({pid, key})}")
     :ok = HandlerHelpers.send_cancel_query(pid, key)
     {:stop, {:shutdown, :cancel_query}}
@@ -139,7 +148,6 @@ defmodule Ultravisor.ClientHandler do
 
   # send cancel request to db
   def handle_event(:info, :cancel_query, :busy, data) do
-    Logger.metadata(state: :busy)
     key = {conn_id(data.id, :tenant), data.db_pid}
     Logger.debug("ClientHandler: Cancel query for #{inspect(key)}")
     {_pool, db_pid, _db_sock} = data.db_pid
@@ -158,7 +166,6 @@ defmodule Ultravisor.ClientHandler do
   end
 
   def handle_event(:info, {:tcp, _, <<_::64>>}, :exchange, %{sock: sock} = data) do
-    Logger.metadata(state: :exchange)
     Logger.debug("ClientHandler: Client is trying to connect with SSL")
 
     downstream_cert = Helpers.downstream_cert()
@@ -197,14 +204,11 @@ defmodule Ultravisor.ClientHandler do
   end
 
   def handle_event(:info, {_, _, bin}, :exchange, _) when byte_size(bin) > 1024 do
-    Logger.metadata(state: :exchange)
     Logger.error("ClientHandler: Startup packet too large #{byte_size(bin)}")
     {:stop, {:shutdown, :startup_packet_too_large}}
   end
 
   def handle_event(:info, {_, _, bin}, :exchange, data) do
-    Logger.metadata(state: :exchange)
-
     case Server.decode_startup_packet(bin) do
       {:ok, hello} ->
         Logger.debug("ClientHandler: Client startup message: #{inspect(hello)}")
@@ -248,7 +252,6 @@ defmodule Ultravisor.ClientHandler do
         :exchange,
         %{sock: sock} = data
       ) do
-    Logger.metadata(state: :exchange)
     sni_hostname = HandlerHelpers.try_get_sni(sock)
 
     case Tenants.get_user_cache(type, user, tenant_or_alias, sni_hostname) do
@@ -338,10 +341,9 @@ defmodule Ultravisor.ClientHandler do
   def handle_event(
         :internal,
         {:handle, {method, secrets}, info},
-        state,
+        _state,
         %{sock: sock} = data
       ) do
-    Logger.metadata(state: state)
     Logger.debug("ClientHandler: Handle exchange, auth method: #{inspect(method)}")
 
     case handle_exchange(sock, {method, secrets}) do
@@ -411,9 +413,8 @@ defmodule Ultravisor.ClientHandler do
     end
   end
 
-  def handle_event(:internal, {:subscribe, retries}, state, data)
+  def handle_event(:internal, {:subscribe, retries}, _state, data)
       when retries < @subscribe_retries do
-    Logger.metadata(state: state)
     Logger.debug("ClientHandler: Subscribe to tenant #{inspect(data.id)}")
 
     with {:ok, sup} <-
@@ -489,8 +490,7 @@ defmodule Ultravisor.ClientHandler do
     {:stop, {:shutdown, :subscribe_retries}}
   end
 
-  def handle_event(:internal, :connect_db, state, data) do
-    Logger.metadata(state: state)
+  def handle_event(:internal, :connect_db, _state, data) do
     Logger.debug("ClientHandler: Trying to connect to DB")
 
     args = %{
@@ -511,8 +511,7 @@ defmodule Ultravisor.ClientHandler do
     {:keep_state, %{data | db_pid: {nil, db_pid, db_sock}, mode: :proxy}}
   end
 
-  def handle_event(:internal, {:greetings, ps}, state, %{sock: sock} = data) do
-    Logger.metadata(state: state)
+  def handle_event(:internal, {:greetings, ps}, _state, %{sock: sock} = data) do
     {header, <<pid::32, key::32>> = payload} = Server.backend_key_data()
     msg = [ps, [header, payload], Server.ready_for_query()]
     :ok = HandlerHelpers.listen_cancel_query(pid, key)
@@ -521,14 +520,11 @@ defmodule Ultravisor.ClientHandler do
     {:next_state, :idle, data, handle_actions(data)}
   end
 
-  def handle_event(:timeout, {:subscribe, retries}, state, _) do
-    Logger.metadata(state: state)
+  def handle_event(:timeout, {:subscribe, retries}, _state, _) do
     {:keep_state_and_data, {:next_event, :internal, {:subscribe, retries}}}
   end
 
-  def handle_event(:timeout, :wait_ps, state, data) do
-    Logger.metadata(state: state)
-
+  def handle_event(:timeout, :wait_ps, _state, data) do
     Logger.error(
       "ClientHandler: Wait parameter status timeout, send default #{inspect(data.ps)}}"
     )
@@ -537,14 +533,12 @@ defmodule Ultravisor.ClientHandler do
     {:keep_state_and_data, {:next_event, :internal, {:greetings, ps}}}
   end
 
-  def handle_event(:timeout, :idle_terminate, state, data) do
-    Logger.metadata(state: state)
+  def handle_event(:timeout, :idle_terminate, _state, data) do
     Logger.warning("ClientHandler: Terminate an idle connection by #{data.idle_timeout} timeout")
     {:stop, {:shutdown, :idle_terminate}}
   end
 
-  def handle_event(:timeout, :heartbeat_check, state, data) do
-    Logger.metadata(state: state)
+  def handle_event(:timeout, :heartbeat_check, _state, data) do
     Logger.debug("ClientHandler: Send heartbeat to client")
     HandlerHelpers.sock_send(data.sock, Server.application_name())
     {:keep_state_and_data, {:timeout, data.heartbeat_interval, :heartbeat_check}}
@@ -552,8 +546,6 @@ defmodule Ultravisor.ClientHandler do
 
   def handle_event(kind, {proto, socket, msg}, state, data)
       when proto in @proto and is_binary(msg) do
-    Logger.metadata(state: state)
-
     with {:next_state, next_state, new_data, actions} <- handle_data(kind, msg, state, data) do
       new_actions =
         actions
@@ -570,28 +562,23 @@ defmodule Ultravisor.ClientHandler do
     end
   end
 
-  def handle_event(:info, {:parameter_status, :updated}, state, _) do
-    Logger.metadata(state: state)
+  def handle_event(:info, {:parameter_status, :updated}, _state, _) do
     Logger.warning("ClientHandler: Parameter status is updated")
     {:stop, {:shutdown, :parameter_status_updated}}
   end
 
   def handle_event(:info, {:parameter_status, ps}, :exchange, _) do
-    Logger.metadata(state: :exchange)
     {:keep_state_and_data, {:next_event, :internal, {:greetings, ps}}}
   end
 
   def handle_event(:info, {:ssl_error, sock, reason}, _, %{sock: {_, sock}}) do
-    Logger.metadata(state: :exchange)
     Logger.error("ClientHandler: TLS error #{inspect(reason)}")
     :keep_state_and_data
   end
 
   # client closed connection
-  def handle_event(_, {closed, _}, state, data)
+  def handle_event(_, {closed, _}, _state, data)
       when closed in [:tcp_closed, :ssl_closed] do
-    Logger.metadata(state: state)
-
     Logger.debug(
       "ClientHandler: #{closed} socket closed for #{inspect(conn_id(data.id, :tenant))}"
     )
@@ -600,8 +587,7 @@ defmodule Ultravisor.ClientHandler do
   end
 
   # linked DbHandler went down
-  def handle_event(:info, {:EXIT, db_pid, reason}, state, data) do
-    Logger.metadata(state: state)
+  def handle_event(:info, {:EXIT, db_pid, reason}, _state, data) do
     Logger.error("ClientHandler: DbHandler #{inspect(db_pid)} exited #{inspect(reason)}")
     HandlerHelpers.sock_send(data.sock, Server.error_message("XX000", "DbHandler exited"))
     {:stop, {:shutdown, :db_handler_exit}}
@@ -609,8 +595,6 @@ defmodule Ultravisor.ClientHandler do
 
   # pool's manager went down
   def handle_event(:info, {:DOWN, ref, _, _, reason}, state, %{manager: ref} = data) do
-    Logger.metadata(state: state)
-
     Logger.error(
       "ClientHandler: Manager #{inspect(data.manager)} went down #{inspect(reason)} state #{inspect(state)}"
     )
@@ -622,16 +606,13 @@ defmodule Ultravisor.ClientHandler do
     end
   end
 
-  def handle_event(:info, {:disconnect, reason}, state, _data) do
-    Logger.metadata(state: state)
+  def handle_event(:info, {:disconnect, reason}, _state, _data) do
     Logger.warning("ClientHandler: Disconnected due to #{inspect(reason)}")
     {:stop, {:shutdown, {:disconnect, reason}}}
   end
 
   # emulate handle_cast
   def handle_event(:cast, {:db_status, status, bin}, :busy, data) do
-    Logger.metadata(state: :busy)
-
     case status do
       :ready_for_query ->
         Logger.debug("ClientHandler: Client is ready")
@@ -640,14 +621,9 @@ defmodule Ultravisor.ClientHandler do
 
         db_pid = handle_db_pid(data.mode, data.pool, data.db_pid)
 
-        {_, stats} =
-          if data.local,
-            do: {nil, data.stats},
-            else: Telem.network_usage(:client, data.sock, data.id, data.stats)
-
         Telem.client_query_time(data.query_start, data.id)
 
-        {:next_state, :idle, %{data | db_pid: db_pid, stats: stats}, handle_actions(data)}
+        {:next_state, :idle, %{data | db_pid: db_pid}, handle_actions(data)}
 
       :read_sql_error ->
         Logger.error(
@@ -665,17 +641,14 @@ defmodule Ultravisor.ClientHandler do
     end
   end
 
-  def handle_event(:info, {sock_error, _sock, msg}, state, _data)
+  def handle_event(:info, {sock_error, _sock, msg}, _state, _data)
       when sock_error in [:tcp_error, :ssl_error] do
-    Logger.metadata(state: state)
     Logger.error("ClientHandler: Socket error: #{inspect(msg)}")
 
     {:stop, {:shutdown, {:socket_error, msg}}}
   end
 
-  def handle_event(type, content, state, _data) do
-    Logger.metadata(state: state)
-
+  def handle_event(type, content, _state, _data) do
     msg = [
       {"type", type},
       {"content", content}
@@ -689,11 +662,9 @@ defmodule Ultravisor.ClientHandler do
   @impl true
   def terminate(
         {:timeout, {_, _, [_, {:checkout, _, _}, _]}},
-        state,
+        _state,
         data
       ) do
-    Logger.metadata(state: state)
-
     msg =
       case data.mode do
         :session ->
@@ -708,9 +679,7 @@ defmodule Ultravisor.ClientHandler do
     :ok
   end
 
-  def terminate(reason, state, %{db_pid: {_, pid, _}}) do
-    Logger.metadata(state: state)
-
+  def terminate(reason, _state, %{db_pid: {_, pid, _}}) do
     db_info =
       with {:ok, {state, mode} = resp} <- DbHandler.get_state_and_mode(pid) do
         if state == :busy or mode == :session, do: DbHandler.stop(pid)
@@ -724,8 +693,7 @@ defmodule Ultravisor.ClientHandler do
     :ok
   end
 
-  def terminate(reason, state, _data) do
-    Logger.metadata(state: state)
+  def terminate(reason, _state, _data) do
     Logger.debug("ClientHandler: socket closed with reason #{inspect(reason)}")
     :ok
   end
@@ -734,7 +702,7 @@ defmodule Ultravisor.ClientHandler do
 
   @spec handle_exchange(Ultravisor.sock(), {atom(), fun()}) ::
           {:ok, binary() | nil} | {:error, String.t()}
-  def handle_exchange({_, socket} = sock, {:auth_query_md5 = method, secrets}) do
+  defp handle_exchange({_, socket} = sock, {:auth_query_md5 = method, secrets}) do
     salt = :crypto.strong_rand_bytes(4)
     :ok = HandlerHelpers.sock_send(sock, Server.md5_request(salt))
 
@@ -751,7 +719,7 @@ defmodule Ultravisor.ClientHandler do
     end
   end
 
-  def handle_exchange({_, socket} = sock, {method, secrets}) do
+  defp handle_exchange({_, socket} = sock, {method, secrets}) do
     :ok = HandlerHelpers.sock_send(sock, Server.scram_request())
 
     with {:ok,
@@ -1023,16 +991,6 @@ defmodule Ultravisor.ClientHandler do
 
     {message, sings}
   end
-
-  @spec try_get_sni(Ultravisor.sock()) :: String.t() | nil
-  def try_get_sni({:ssl, sock}) do
-    case :ssl.connection_information(sock, [:sni_hostname]) do
-      {:ok, [sni_hostname: sni]} -> List.to_string(sni)
-      _ -> nil
-    end
-  end
-
-  def try_get_sni(_), do: nil
 
   defp db_pid_meta({_, {_, pid, _}} = _key) do
     rkey = Ultravisor.Registry.PoolPids
