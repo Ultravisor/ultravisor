@@ -119,7 +119,7 @@ defmodule Ultravisor.ClientHandler do
 
     HandlerHelpers.sock_send(
       data.sock,
-      "HTTP/1.1 204 OK\r\nx-app-version: #{Application.spec(:ultravisor, :vsn)}\r\n\r\n"
+      ["HTTP/1.1 204 OK\r\nx-app-version: ", Application.spec(:ultravisor, :vsn), "\r\n\r\n"]
     )
 
     {:stop, {:shutdown, :http_request}}
