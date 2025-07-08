@@ -87,7 +87,6 @@ defmodule Ultravisor.ClientHandler do
       sock: {:gen_tcp, sock},
       trans: trans,
       db_pid: nil,
-      tenant: nil,
       pool: nil,
       manager: nil,
       query_start: nil,
@@ -137,7 +136,7 @@ defmodule Ultravisor.ClientHandler do
   # send cancel request to db
   def handle_event(:info, :cancel_query, :busy, data) do
     Logger.metadata(state: :busy)
-    key = {data.tenant, data.db_pid}
+    key = {conn_id(data.id, :tenant), data.db_pid}
     Logger.debug("ClientHandler: Cancel query for #{inspect(key)}")
     {_pool, db_pid, _db_sock} = data.db_pid
 
@@ -494,7 +493,7 @@ defmodule Ultravisor.ClientHandler do
       id: data.id,
       auth: data.auth,
       user: conn_id(data.id, :user),
-      tenant: {:single, data.tenant},
+      tenant: {:single, conn_id(data.id, :tenant)},
       replica_type: :write,
       mode: :proxy,
       proxy: true,
@@ -588,7 +587,11 @@ defmodule Ultravisor.ClientHandler do
   def handle_event(_, {closed, _}, state, data)
       when closed in [:tcp_closed, :ssl_closed] do
     Logger.metadata(state: state)
-    Logger.debug("ClientHandler: #{closed} socket closed for #{inspect(data.tenant)}")
+
+    Logger.debug(
+      "ClientHandler: #{closed} socket closed for #{inspect(conn_id(data.id, :tenant))}"
+    )
+
     {:stop, {:shutdown, :socket_closed}}
   end
 
@@ -888,8 +891,7 @@ defmodule Ultravisor.ClientHandler do
 
     %{
       data
-      | tenant: info.tenant.external_id,
-        timeout: info.user.pool_checkout_timeout,
+      | timeout: info.user.pool_checkout_timeout,
         ps: info.tenant.default_parameter_status,
         proxy_type: proxy_type,
         id: id,
