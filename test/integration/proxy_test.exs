@@ -293,43 +293,6 @@ defmodule Ultravisor.Integration.ProxyTest do
             }} = parse_uri(url) |> single_connection()
   end
 
-  test "active_count doesn't block" do
-    db_conf = Application.get_env(:ultravisor, Repo)
-    port = Application.get_env(:ultravisor, :proxy_port_session)
-
-    connection_opts =
-      Keyword.merge(db_conf,
-        username: db_conf[:username] <> "." <> @tenant,
-        port: port
-      )
-
-    assert {:ok, pid} = single_connection(connection_opts)
-
-    id =
-      conn_id(
-        tenant: @tenant,
-        user: db_conf[:username],
-        mode: :session,
-        db_name: db_conf[:database]
-      )
-
-    [{client_pid, _}] = Registry.lookup(Ultravisor.Registry.TenantClients, id)
-
-    P.SimpleConnection.call(pid, {:query, "select 1;"})
-    {_, %{active_count: active_count}} = :sys.get_state(client_pid)
-    assert active_count >= 1
-
-    Enum.each(0..200, fn _ ->
-      P.SimpleConnection.call(pid, {:query, "select 1;"})
-    end)
-
-    assert [
-             %Postgrex.Result{
-               command: :select
-             }
-           ] = P.SimpleConnection.call(pid, {:query, "select 1;"})
-  end
-
   defp single_connection(db_conf, c_port \\ nil) when is_list(db_conf) do
     port = c_port || db_conf[:port]
 

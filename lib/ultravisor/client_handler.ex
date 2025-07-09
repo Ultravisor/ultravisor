@@ -77,7 +77,7 @@ defmodule Ultravisor.ClientHandler do
         # keepalive: true,
         # nodelay: true,
         # nopush: true,
-        active: true
+        active: @switch_active_count
       )
 
     Logger.debug("ClientHandler is: #{inspect(self())}")
@@ -96,7 +96,7 @@ defmodule Ultravisor.ClientHandler do
       auth_secrets: nil,
       proxy_type: nil,
       mode: opts.mode,
-      stats: %{},
+      stats: {0, 0},
       idle_timeout: 0,
       last_query: nil,
       heartbeat_interval: 0,
@@ -105,7 +105,6 @@ defmodule Ultravisor.ClientHandler do
       auth: %{},
       tenant_availability_zone: nil,
       local: local,
-      active_count: 0,
       app_name: nil
     }
 
@@ -113,6 +112,13 @@ defmodule Ultravisor.ClientHandler do
   end
 
   @impl true
+  def handle_event(:info, {passive, _socket}, _, data)
+      when passive in [:ssl_passive, :tcp_passive] do
+    HandlerHelpers.setopts(data.sock, active: @switch_active_count)
+
+    :keep_state_and_data
+  end
+
   def handle_event(:info, {_proto, _, <<"GET", _::binary>>}, :exchange, data) do
     Logger.metadata(state: :exchange)
     Logger.debug("ClientHandler: Client is trying to request HTTP")
@@ -174,7 +180,7 @@ defmodule Ultravisor.ClientHandler do
       case :ssl.handshake(elem(sock, 1), opts) do
         {:ok, ssl_sock} ->
           socket = {:ssl, ssl_sock}
-          :ok = HandlerHelpers.setopts(socket, active: true)
+          :ok = HandlerHelpers.setopts(socket, active: @switch_active_count)
           {:keep_state, %{data | sock: socket, ssl: true}}
 
         error ->
@@ -643,9 +649,7 @@ defmodule Ultravisor.ClientHandler do
 
         Telem.client_query_time(data.query_start, data.id)
 
-        {:next_state, :idle,
-         %{data | db_pid: db_pid, stats: stats, active_count: reset_active_count(data)},
-         handle_actions(data)}
+        {:next_state, :idle, %{data | db_pid: db_pid, stats: stats}, handle_actions(data)}
 
       :read_sql_error ->
         Logger.error(
@@ -845,12 +849,12 @@ defmodule Ultravisor.ClientHandler do
   end
 
   defp db_checkout(_, _, data) do
-    start = System.monotonic_time(:microsecond)
+    start = System.monotonic_time()
     db_pid = :poolboy.checkout(data.pool, true, data.timeout)
     Process.link(db_pid)
     db_sock = DbHandler.checkout(db_pid, data.sock, self())
     same_box = if node(db_pid) == node(), do: :local, else: :remote
-    Telem.pool_checkout_time(System.monotonic_time(:microsecond) - start, data.id, same_box)
+    Telem.pool_checkout_time(System.monotonic_time() - start, data.id, same_box)
     {data.pool, db_pid, db_sock}
   end
 
@@ -1071,20 +1075,20 @@ defmodule Ultravisor.ClientHandler do
       do: :ok = sock_send_maybe_active_once(msg, data),
       else: :ok = HandlerHelpers.sock_send(data.sock, Server.ready_for_query())
 
-    {:keep_state, %{data | active_count: reset_active_count(data)}, handle_actions(data)}
+    {:keep_state, data, handle_actions(data)}
   end
 
   defp handle_data(:info, <<?S, 4::32, _::binary>> = msg, _, data) do
     Logger.debug("ClientHandler: Receive sync while not idle")
     :ok = sock_send_maybe_active_once(msg, data)
-    {:keep_state, %{data | active_count: reset_active_count(data)}, handle_actions(data)}
+    {:keep_state, data, handle_actions(data)}
   end
 
   # handle Flush message
   defp handle_data(:info, <<?H, 4::32, _::binary>> = msg, _, data) do
     Logger.debug("ClientHandler: Receive flush while not idle")
     :ok = sock_send_maybe_active_once(msg, data)
-    {:keep_state, %{data | active_count: reset_active_count(data)}, handle_actions(data)}
+    {:keep_state, data, handle_actions(data)}
   end
 
   # incoming query with a single pool
@@ -1118,7 +1122,7 @@ defmodule Ultravisor.ClientHandler do
 
     case sock_send_maybe_active_once(bin, data) do
       :ok ->
-        {:keep_state, %{data | active_count: data.active_count + 1}}
+        {:keep_state, data}
 
       error ->
         Logger.error("ClientHandler: error while sending query: #{inspect(error)}")
@@ -1166,22 +1170,10 @@ defmodule Ultravisor.ClientHandler do
 
   def maybe_change_log(_), do: :ok
 
+  @compile {:inline, sock_send_maybe_active_once: 2}
+
   @spec sock_send_maybe_active_once(binary(), map()) :: :ok | {:error, term()}
-  def sock_send_maybe_active_once(bin, data) do
-    Logger.debug("ClientHandler: Send maybe active once")
-    active_count = data.active_count
-
-    if active_count > @switch_active_count do
-      Logger.debug("ClientHandler: Activate socket #{inspect(active_count)}")
-      HandlerHelpers.active_once(data.sock)
-    end
-
+  defp sock_send_maybe_active_once(bin, data) do
     HandlerHelpers.sock_send(elem(data.db_pid, 2), bin)
-  end
-
-  @spec reset_active_count(map()) :: 0
-  def reset_active_count(data) do
-    HandlerHelpers.activate(data.sock)
-    0
   end
 end

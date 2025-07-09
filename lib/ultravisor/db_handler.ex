@@ -74,15 +74,14 @@ defmodule Ultravisor.DbHandler do
         nonce: nil,
         messages: "",
         server_proof: nil,
-        stats: %{},
-        client_stats: %{},
+        stats: {0, 0},
+        client_stats: {0, 0},
         mode: args.mode,
         replica_type: args.replica_type,
         reply: nil,
         caller: args[:caller] || nil,
         client_sock: args[:client_sock] || nil,
         proxy: args[:proxy] || false,
-        active_count: 0,
         reconnect_retries: 0
       }
 
@@ -94,6 +93,13 @@ defmodule Ultravisor.DbHandler do
   def callback_mode, do: [:handle_event_function]
 
   @impl true
+  def handle_event(:info, {passive, _socket}, _, data)
+      when passive in [:ssl_passive, :tcp_passive] do
+    HandlerHelpers.setopts(data.sock, active: @switch_active_count)
+
+    :keep_state_and_data
+  end
+
   def handle_event(:internal, _, :connect, %{auth: auth} = data) do
     Logger.debug("DbHandler: Try to connect to DB")
 
@@ -109,7 +115,7 @@ defmodule Ultravisor.DbHandler do
         # keepalive: true,
         # nopush: true,
         nodelay: true,
-        active: false
+        active: @switch_active_count
       ]
 
     maybe_reconnect_callback = fn reason ->
@@ -299,8 +305,6 @@ defmodule Ultravisor.DbHandler do
     Logger.debug("DbHandler: Got write replica message  #{inspect(bin)}")
 
     if String.ends_with?(bin, Server.ready_for_query()) do
-      HandlerHelpers.activate(data.sock)
-
       {_, stats} =
         if data.proxy,
           do: {nil, data.stats},
@@ -311,7 +315,7 @@ defmodule Ultravisor.DbHandler do
       data =
         if data.mode == :transaction do
           ClientHandler.db_status(data.caller, :ready_for_query, bin)
-          %{data | stats: stats, caller: nil, client_sock: nil, active_count: 0}
+          %{data | stats: stats, caller: nil, client_sock: nil}
         else
           HandlerHelpers.sock_send(data.client_sock, bin)
 
@@ -320,16 +324,13 @@ defmodule Ultravisor.DbHandler do
               do: {nil, data.client_stats},
               else: Telem.network_usage(:client, data.client_sock, data.id, data.client_stats)
 
-          %{data | stats: stats, active_count: 0, client_stats: client_stats}
+          %{data | stats: stats, client_stats: client_stats}
         end
 
       {:next_state, :idle, data, {:next_event, :internal, :check_anon_buffer}}
     else
-      if data.active_count > @switch_active_count,
-        do: HandlerHelpers.active_once(data.sock)
-
       HandlerHelpers.sock_send(data.client_sock, bin)
-      {:keep_state, %{data | active_count: data.active_count + 1}}
+      {:keep_state, data}
     end
   end
 
@@ -489,11 +490,11 @@ defmodule Ultravisor.DbHandler do
 
   @spec activate(Ultravisor.sock()) :: :ok | {:error, term}
   defp activate({:gen_tcp, sock}) do
-    :inet.setopts(sock, active: true)
+    :inet.setopts(sock, active: @switch_active_count)
   end
 
   defp activate({:ssl, sock}) do
-    :ssl.setopts(sock, active: true)
+    :ssl.setopts(sock, active: @switch_active_count)
   end
 
   defp get_user(auth) do
