@@ -11,16 +11,18 @@ defmodule Ultravisor.Monitoring.Telem do
 
   import Ultravisor, only: [conn_id: 0, conn_id: 1]
 
-  @spec network_usage(:client | :db, Ultravisor.sock(), Ultravisor.id(), map()) ::
-          {:ok | :error, map()}
-  def network_usage(type, {mod, socket}, id, stats) do
+  @type net_stats() :: {non_neg_integer(), non_neg_integer()}
+
+  @spec network_usage(:client | :db, Ultravisor.sock(), Ultravisor.id(), net_stats()) ::
+          {:ok | :error, net_stats()}
+  def network_usage(type, {mod, socket}, id, {prev_recv, prev_send} = stats) do
     mod = if mod == :ssl, do: :ssl, else: :inet
 
     case mod.getstat(socket, [:recv_oct, :send_oct]) do
       {:ok, [{:recv_oct, recv_oct}, {:send_oct, send_oct}]} ->
         stats = %{
-          send_oct: send_oct - Map.get(stats, :send_oct, 0),
-          recv_oct: recv_oct - Map.get(stats, :recv_oct, 0)
+          send_oct: send_oct - prev_send,
+          recv_oct: recv_oct - prev_recv
         }
 
         conn_id(
@@ -45,7 +47,7 @@ defmodule Ultravisor.Monitoring.Telem do
           }
         )
 
-        {:ok, %{recv_oct: recv_oct, send_oct: send_oct}}
+        {:ok, {send_oct, recv_oct}}
 
       {:error, reason} ->
         Logger.error("Failed to get socket stats: #{inspect(reason)}")
