@@ -142,17 +142,6 @@ if path = System.get_env("ULTRAVISOR_LOG_FILE_PATH") do
     ]
 end
 
-if System.get_env("ULTRAVISOR_LOG_FORMAT") == "json" do
-  config :logger, :default_handler,
-    formatter:
-      {Ultravisor.Logger.LogflareFormatter,
-       %{
-         # metadata: metadata,
-         top_level: [:project],
-         context: [:hostname]
-       }}
-end
-
 if path = System.get_env("ULTRAVISOR_ACCESS_LOG_FILE_PATH") do
   config :ultravisor, :logger, [
     {:handler, :access_log, :logger_std_h,
