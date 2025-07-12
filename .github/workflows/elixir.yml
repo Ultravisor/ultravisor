@@ -119,18 +119,6 @@ jobs:
         with:
           path: deps
           key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
-      - name: Cache native
-        uses: actions/cache@v4
-        with:
-          path: |
-            _build/${{ env.MIX_ENV }}/lib/supavisor/native
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-build-native-${{ hashFiles(format('{0}{1}', github.workspace, '/native/**/Cargo.lock')) }}
-          restore-keys: |
-            ${{ runner.os }}-build-native-
       - name: Compile deps
         run: mix deps.compile
       - name: Compile
@@ -177,18 +165,6 @@ jobs:
         with:
           path: deps
           key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
-      - name: Cache native
-        uses: actions/cache@v4
-        with:
-          path: |
-            _build/${{ env.MIX_ENV }}/lib/supavisor/native
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-build-native-${{ hashFiles(format('{0}{1}', github.workspace, '/native/**/Cargo.lock')) }}
-          restore-keys: |
-            ${{ runner.os }}-build-native-
       - name: Compile deps
         run: mix deps.compile
       - name: Compile
@@ -228,18 +204,6 @@ jobs:
         with:
           path: deps
           key: ${{ runner.os }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
-      - name: Cache native
-        uses: actions/cache@v4
-        with:
-          path: |
-            _build/${{ env.MIX_ENV }}/lib/supavisor/native
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-build-native-${{ hashFiles(format('{0}{1}', github.workspace, '/native/**/Cargo.lock')) }}
-          restore-keys: |
-            ${{ runner.os }}-build-native-
       - name: Compile deps
         run: mix deps.compile
       - name: Compile
