@@ -8,6 +8,9 @@ SPDX-License-Identifier: EUPL-1.2
 
 # Ultravisor - Postgres connection pooler
 
+[![Elixir tests](https://github.com/Ultravisor/ultravisor/actions/workflows/elixir.yml/badge.svg)](https://github.com/Ultravisor/ultravisor/actions/workflows/elixir.yml)
+[![codecov](https://codecov.io/gh/Ultravisor/ultravisor/graph/badge.svg?token=XC5YG41599)](https://codecov.io/gh/Ultravisor/ultravisor)
+
 - [Overview](#overview)
 - [Motivation](#motivation)
 - [Architecture](#architecture)
