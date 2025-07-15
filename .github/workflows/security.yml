@@ -18,7 +18,7 @@ on:
     - cron: "0 0 * * *"
 
 permissions:
-  attestation: write
+  attestations: write
   security-events: write
 
 jobs:
