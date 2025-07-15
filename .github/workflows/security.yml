@@ -17,6 +17,10 @@ on:
     # Every day at midnight UTC
     - cron: "0 0 * * *"
 
+permissions:
+  attestation: write
+  security-events: write
+
 jobs:
   deps:
     name: Fetch deps
