@@ -45,7 +45,11 @@ jobs:
     - name: Install dependencies
       run: mix deps.get --check-locked
     - name: Submit dependencies to GitHub
+      continue-on-error: true
       uses: erlef/mix-dependency-submission@v1
+    - name: Review action
+      uses: actions/dependency-review-action@v4
+      if: "${{ github.event_name == 'pull_request_target' }}"
 
   audit:
     name: Check dependencies for vulnerabilities
@@ -98,6 +102,7 @@ jobs:
       run: mix sobelow --config > results.sarif
     - name: Upload SARIF file
       uses: github/codeql-action/upload-sarif@v3
+      continue-on-error: true
       with:
         sarif_file: results.sarif
         category: sobelow
