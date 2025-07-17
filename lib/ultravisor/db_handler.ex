@@ -14,13 +14,11 @@ defmodule Ultravisor.DbHandler do
 
   @behaviour :gen_statem
 
-  alias Ultravisor.{
-    ClientHandler,
-    HandlerHelpers,
-    Helpers,
-    Monitoring.Telem,
-    Protocol.Server
-  }
+  alias Ultravisor.ClientHandler
+  alias Ultravisor.HandlerHelpers
+  alias Ultravisor.Helpers
+  alias Ultravisor.Monitoring.Telem
+  alias Ultravisor.Protocol.Server
 
   @type state :: :connect | :authentication | :idle | :busy
 

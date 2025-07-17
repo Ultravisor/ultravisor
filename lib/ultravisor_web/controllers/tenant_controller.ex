@@ -10,21 +10,17 @@ defmodule UltravisorWeb.TenantController do
 
   require Logger
 
-  alias Ultravisor.{
-    Helpers,
-    Repo,
-    Tenants
-  }
+  alias Ultravisor.Helpers
+  alias Ultravisor.Repo
+  alias Ultravisor.Tenants
 
   alias Tenants.Tenant, as: TenantModel
 
-  alias UltravisorWeb.OpenApiSchemas.{
-    Created,
-    Empty,
-    NotFound,
-    Tenant,
-    TenantCreate
-  }
+  alias UltravisorWeb.OpenApiSchemas.Created
+  alias UltravisorWeb.OpenApiSchemas.Empty
+  alias UltravisorWeb.OpenApiSchemas.NotFound
+  alias UltravisorWeb.OpenApiSchemas.Tenant
+  alias UltravisorWeb.OpenApiSchemas.TenantCreate
 
   action_fallback(UltravisorWeb.FallbackController)
 

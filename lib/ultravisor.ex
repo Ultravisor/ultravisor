@@ -10,11 +10,9 @@ defmodule Ultravisor do
   require Logger
   require Record
 
-  alias Ultravisor.{
-    Helpers,
-    Manager,
-    Tenants
-  }
+  alias Ultravisor.Helpers
+  alias Ultravisor.Manager
+  alias Ultravisor.Tenants
 
   @type sock :: tcp_sock() | ssl_sock()
   @type ssl_sock :: {:ssl, :ssl.sslsocket()}

@@ -29,13 +29,11 @@ defmodule Ultravisor.ClientHandler do
 
   import Ultravisor, only: [conn_id: 1, conn_id: 2]
 
-  alias Ultravisor.{
-    DbHandler,
-    HandlerHelpers,
-    Helpers,
-    Monitoring.Telem,
-    Tenants
-  }
+  alias Ultravisor.DbHandler
+  alias Ultravisor.HandlerHelpers
+  alias Ultravisor.Helpers
+  alias Ultravisor.Monitoring.Telem
+  alias Ultravisor.Tenants
 
   @impl true
   def start_link(ref, transport, opts) do

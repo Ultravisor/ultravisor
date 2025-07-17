@@ -15,7 +15,8 @@ defmodule Ultravisor.Monitoring.PromEx do
   require Logger
 
   alias PromEx.Plugins
-  alias Ultravisor.PromEx.Plugins.{OsMon, Tenant}
+  alias Ultravisor.PromEx.Plugins.OsMon
+  alias Ultravisor.PromEx.Plugins.Tenant
 
   defmodule Store do
     @moduledoc """
