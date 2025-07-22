@@ -77,6 +77,7 @@ defmodule Ultravisor.MetricsCleaner do
   end
 
   defp to_list(map) when is_map(map), do: Map.values(map)
+  defp to_list(tuple) when is_tuple(tuple), do: Tuple.to_list(tuple)
   defp to_list(other), do: List.wrap(other)
 
   @tenant_registry_table :syn_registry_by_name_tenants
