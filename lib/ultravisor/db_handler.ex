@@ -104,6 +104,7 @@ defmodule Ultravisor.DbHandler do
     sock_opts =
       [
         auth.ip_version,
+        buffer: 8192,
         mode: :binary,
         packet: :raw,
         # recbuf: 8192,
@@ -113,7 +114,7 @@ defmodule Ultravisor.DbHandler do
         # keepalive: true,
         # nopush: true,
         nodelay: true,
-        active: @switch_active_count
+        active: false
       ]
 
     maybe_reconnect_callback = fn reason ->
@@ -135,7 +136,7 @@ defmodule Ultravisor.DbHandler do
 
             case send_startup(sock, auth, tenant, search_path) do
               :ok ->
-                :ok = activate(sock)
+                HandlerHelpers.setopts(sock, active: @switch_active_count)
                 {:next_state, :authentication, %{data | sock: sock}}
 
               {:error, reason} ->
@@ -387,7 +388,7 @@ defmodule Ultravisor.DbHandler do
       {"data", data}
     ]
 
-    Logger.debug("DbHandler: Undefined msg: #{inspect(msg, pretty: true)}")
+    Logger.error("DbHandler: Undefined msg: #{inspect(msg, pretty: true)}")
 
     :keep_state_and_data
   end
@@ -484,15 +485,6 @@ defmodule Ultravisor.DbHandler do
   @spec sock_send(Ultravisor.sock(), iodata) :: :ok | {:error, term}
   defp sock_send({mod, sock}, data) do
     mod.send(sock, data)
-  end
-
-  @spec activate(Ultravisor.sock()) :: :ok | {:error, term}
-  defp activate({:gen_tcp, sock}) do
-    :inet.setopts(sock, active: @switch_active_count)
-  end
-
-  defp activate({:ssl, sock}) do
-    :ssl.setopts(sock, active: @switch_active_count)
   end
 
   defp get_user(auth) do
