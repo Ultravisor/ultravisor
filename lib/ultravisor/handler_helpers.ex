@@ -28,12 +28,6 @@ defmodule Ultravisor.HandlerHelpers do
     mod.setopts(sock, opts)
   end
 
-  @spec active_once(Ultravisor.sock()) :: :ok | {:error, term}
-  def active_once(sock), do: setopts(sock, active: :once)
-
-  @spec activate(Ultravisor.sock()) :: :ok | {:error, term}
-  def activate(sock), do: setopts(sock, active: true)
-
   @spec try_ssl_handshake(Ultravisor.tcp_sock(), boolean) ::
           {:ok, Ultravisor.sock()} | {:error, term()}
   def try_ssl_handshake(sock, true) do
