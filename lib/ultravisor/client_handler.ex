@@ -1145,11 +1145,11 @@ defmodule Ultravisor.ClientHandler do
   end
 
   @spec app_name(any()) :: String.t()
-  def app_name(name) when is_binary(name), do: name
+  defp app_name(name) when is_binary(name), do: name
 
-  def app_name(nil), do: "Ultravisor"
+  defp app_name(nil), do: "Ultravisor"
 
-  def app_name(name) do
+  defp app_name(name) do
     Logger.debug("ClientHandler: Invalid application name #{inspect(name)}")
     "Ultravisor"
   end
