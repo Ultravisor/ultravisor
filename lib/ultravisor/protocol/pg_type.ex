@@ -8,6 +8,7 @@ defmodule Ultravisor.Protocol.PgType do
   @moduledoc """
   A module to map PostgreSQL data types to their corresponding Elixir atoms
   """
+  # credo:disable-for-next-line /CyclomaticComplexity/
   def type(type) do
     case type do
       16 -> :booloid
