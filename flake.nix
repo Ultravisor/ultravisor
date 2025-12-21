@@ -45,7 +45,7 @@
           devenv-up = self'.devShells.default.config.procfileScript;
 
           ultravisor = let
-            erl = pkgs.beam_nox.packages.erlang_27;
+            erl = pkgs.beam_nox.packages.erlang_28;
           in
             erl.callPackage ./nix/package.nix {};
 
@@ -57,31 +57,14 @@
 
           modules = [
             {
-              git-hooks.hooks = {
-                alejandra.enable = true;
-                typos = {
-                  enable = true;
-                  excludes = [
-                    "test/integration/"
-                  ];
-                };
-                check-yaml.enable = true;
-                # yamlfmt.enable = true;
-              };
-            }
-            {
               languages.elixir = {
                 enable = true;
-                package = pkgs.beam.packages.erlang_27.elixir_1_18;
+                package = pkgs.beam.packages.erlang_28.elixir_1_19;
               };
+
               packages = [
                 pkgs.lexical
               ];
-
-              git-hooks.hooks = {
-                mix-format.enable = true;
-                # credo.enable = true;
-              };
 
               # env.DYLD_INSERT_LIBRARIES = "${pkgs.mimalloc}/lib/libmimalloc.dylib";
             }
@@ -92,7 +75,7 @@
 
               services.postgres = {
                 enable = true;
-                package = pkgs.postgresql_15;
+                package = pkgs.postgresql_18;
                 initialScript = ''
                   ${builtins.readFile ./dev/postgres/00-setup.sql}
 
@@ -102,6 +85,7 @@
                 port = 6432;
                 settings = {
                   max_prepared_transactions = 262143;
+                  random_page_cost = 1.1;
                 };
               };
 
