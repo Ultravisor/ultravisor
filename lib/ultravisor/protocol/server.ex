@@ -74,6 +74,7 @@ defmodule Ultravisor.Protocol.Server do
     {:ok, %Pkt{tag: tag, len: pkt_len + 1, payload: payload}, rest2}
   end
 
+  # credo:disable-for-next-line /CyclomaticComplexity/
   def tag(char) do
     case char do
       ?R -> :authentication
@@ -104,6 +105,7 @@ defmodule Ultravisor.Protocol.Server do
     end
   end
 
+  # credo:disable-for-next-line /CyclomaticComplexity/
   def decode_payload(:authentication, payload) do
     case payload do
       <<0::integer-32>> ->
