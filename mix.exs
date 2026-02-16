@@ -21,8 +21,13 @@ defmodule Ultravisor.MixProject do
       docs: docs(),
       unused: unused(),
       dialyzer: [plt_add_apps: [:mix]],
-      test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
+      test_coverage: [tool: ExCoveralls]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
         coveralls: :test,
         "coveralls.html": :test,
         "coveralls.github": :test,

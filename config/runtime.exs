@@ -166,6 +166,3 @@ if path = System.get_env("ULTRAVISOR_ACCESS_LOG_FILE_PATH") do
      }}
   ]
 end
-
-config :logger,
-  backends: [:console]
