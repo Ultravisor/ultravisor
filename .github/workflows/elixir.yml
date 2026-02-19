@@ -34,8 +34,8 @@ jobs:
         id: beam
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
+          otp-version: '28'
+          elixir-version: '1.19'
       - name: Cache Mix
         uses: actions/cache@v4
         with:
@@ -57,8 +57,8 @@ jobs:
         id: beam
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
+          otp-version: '28'
+          elixir-version: '1.19'
       - name: Cache Mix
         uses: actions/cache@v4
         with:
@@ -78,8 +78,8 @@ jobs:
         id: beam
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
+          otp-version: '28'
+          elixir-version: '1.19'
       - name: Cache Mix
         uses: actions/cache@v4
         with:
@@ -112,8 +112,8 @@ jobs:
         id: beam
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
+          otp-version: '28'
+          elixir-version: '1.19'
       - name: Cache Mix
         uses: actions/cache@v4
         with:
@@ -154,8 +154,8 @@ jobs:
         id: beam
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
+          otp-version: '28'
+          elixir-version: '1.19'
       - uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
@@ -197,8 +197,8 @@ jobs:
         id: beam
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.2.1'
-          elixir-version: '1.18.2'
+          otp-version: '28'
+          elixir-version: '1.19'
       - name: Cache Mix
         uses: actions/cache@v4
         with:
