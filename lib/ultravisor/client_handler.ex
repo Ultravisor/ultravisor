@@ -758,8 +758,7 @@ defmodule Ultravisor.ClientHandler do
           %{
             tag: :password_message,
             payload: {:scram_sha_256, %{"n" => user, "r" => nonce, "c" => channel}}
-          },
-          _} <-
+          }, _} <-
            receive_next(
              socket,
              "Timeout while waiting for the first password message"
@@ -769,8 +768,7 @@ defmodule Ultravisor.ClientHandler do
           %{
             tag: :password_message,
             payload: {:first_msg_response, %{"p" => p}}
-          },
-          _} <-
+          }, _} <-
            receive_next(
              socket,
              "Timeout while waiting for the second password message"

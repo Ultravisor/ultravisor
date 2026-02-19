@@ -48,7 +48,9 @@ defmodule Ultravisor.TenantsTest do
         allow_list: ["71.209.249.38/32"]
       }
 
-      assert {:ok, %Tenant{users: [%User{} = user]} = tenant} = @subject.create_tenant(valid_attrs)
+      assert {:ok, %Tenant{users: [%User{} = user]} = tenant} =
+               @subject.create_tenant(valid_attrs)
+
       assert tenant.db_database == "some db_database"
       assert tenant.db_host == "some db_host"
       assert tenant.db_port == 42
