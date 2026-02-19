@@ -20,7 +20,7 @@ defmodule Ultravisor.MixProject do
       releases: releases(),
       docs: docs(),
       unused: unused(),
-      dialyzer: [plt_add_apps: [:mix]],
+      dialyzer: [plt_add_apps: [:mix], flags: [:no_opaque]],
       test_coverage: [tool: ExCoveralls]
     ]
   end
