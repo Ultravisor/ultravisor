@@ -9,6 +9,8 @@ defmodule Ultravisor.Integration.ProxyTest do
 
   require Logger
 
+  require Ultravisor.ClientHandler, as: CH
+
   import Ultravisor, only: [conn_id: 1]
 
   alias Postgrex, as: P
@@ -217,7 +219,7 @@ defmodule Ultravisor.Integration.ProxyTest do
       |> :ets.tab2list()
 
     assert {state, map} = :sys.get_state(client_pid)
-    assert %{db_pid: db_pid} = map
+    assert CH.data(db_pid: db_pid) = map
 
     assert {:idle, nil} = {state, db_pid}
     :gen_statem.stop(pid)
