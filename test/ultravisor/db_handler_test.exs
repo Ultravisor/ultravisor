@@ -8,6 +8,7 @@ defmodule Ultravisor.DbHandlerTest do
   use ExUnit.Case, async: true
 
   import Ultravisor, only: [conn_id: 1]
+  import Ultravisor.DbHandler, only: [data: 1]
 
   alias Ultravisor.DbHandler, as: Db
 
@@ -49,16 +50,23 @@ defmodule Ultravisor.DbHandlerTest do
 
       {:ok, :connect, data, {_, next_event, _}} = Db.init(args)
       assert next_event == :internal
-      assert data.sock == nil
-      assert data.caller == nil
-      assert data.sent == false
-      assert data.auth == args.auth
-      assert data.tenant == args.tenant
-      assert data.buffer == []
-      assert data.db_state == nil
-      assert data.parameter_status == %{}
-      assert data.nonce == nil
-      assert data.server_proof == nil
+
+      assert data(
+               sock: nil,
+               caller: nil,
+               sent: false,
+               auth: auth,
+               tenant: tenant,
+               buffer: [],
+               db_state: nil,
+               parameter_status: parameter_status,
+               nonce: nil,
+               server_proof: nil
+             ) = data
+
+      assert auth == args.auth
+      assert tenant == args.tenant
+      assert parameter_status == %{}
     end
   end
 
@@ -81,15 +89,20 @@ defmodule Ultravisor.DbHandlerTest do
       }
 
       state =
-        Db.handle_event(:internal, nil, :connect, %{
-          auth: auth,
-          sock: {:gen_tcp, nil},
-          id: @id,
-          proxy: false
-        })
+        Db.handle_event(
+          :internal,
+          nil,
+          :connect,
+          data(
+            auth: auth,
+            sock: {:gen_tcp, nil},
+            id: @id,
+            proxy: false
+          )
+        )
 
       assert {:next_state, :authentication,
-              %{
+              data(
                 auth: %{
                   application_name: "some application name",
                   database: "some database",
@@ -103,7 +116,7 @@ defmodule Ultravisor.DbHandlerTest do
                 sock: {:gen_tcp, _},
                 id: @id,
                 proxy: false
-              }} = state
+              )} = state
     end
 
     test "db is not available" do
@@ -126,13 +139,18 @@ defmodule Ultravisor.DbHandlerTest do
       }
 
       state =
-        Db.handle_event(:internal, nil, :connect, %{
-          auth: auth,
-          sock: nil,
-          id: @id,
-          proxy: false,
-          reconnect_retries: 5
-        })
+        Db.handle_event(
+          :internal,
+          nil,
+          :connect,
+          data(
+            auth: auth,
+            sock: nil,
+            id: @id,
+            proxy: false,
+            reconnect_retries: 5
+          )
+        )
 
       assert state == {:keep_state_and_data, {:state_timeout, 2_500, :connect}}
     end
@@ -150,16 +168,17 @@ defmodule Ultravisor.DbHandlerTest do
 
       content = {:tcp, b, bin}
 
-      data = %{
-        auth: %{
-          password: fn -> "some_password" end,
-          user: "some_user",
-          method: :password
-        },
-        sock: {:gen_tcp, a}
-      }
+      data =
+        data(
+          auth: %{
+            password: fn -> "some_password" end,
+            user: "some_user",
+            method: :password
+          },
+          sock: {:gen_tcp, a}
+        )
 
-      assert {:keep_state, ^data} = Db.handle_event(:info, content, :authentication, data)
+      assert :keep_state_and_data = Db.handle_event(:info, content, :authentication, data)
 
       assert {:ok, message} = :gen_tcp.recv(b, 0)
 

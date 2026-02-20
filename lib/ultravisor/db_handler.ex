@@ -11,6 +11,7 @@ defmodule Ultravisor.DbHandler do
   """
 
   require Logger
+  require Record
 
   @behaviour :gen_statem
 
@@ -28,6 +29,34 @@ defmodule Ultravisor.DbHandler do
   @proto [:tcp, :ssl]
   @switch_active_count Application.compile_env(:ultravisor, :switch_active_count)
   @reconnect_retries Application.compile_env(:ultravisor, :reconnect_retries)
+
+  # TODO: Make it private
+  Record.defrecord(:data, [
+    :id,
+    :sock,
+    :sent,
+    :auth,
+    :user,
+    :tenant,
+    :buffer,
+    :anon_buffer,
+    :db_state,
+    :parameter_status,
+    :nonce,
+    :messages,
+    :server_proof,
+    :stats,
+    :client_stats,
+    :mode,
+    :replica_type,
+    :reply,
+    :caller,
+    :client_sock,
+    :proxy,
+    :reconnect_retries
+  ])
+
+  @typep t() :: record(:data)
 
   def start_link(config),
     do: :gen_statem.start_link(__MODULE__, config, hibernate_after: 5_000)
@@ -58,7 +87,7 @@ defmodule Ultravisor.DbHandler do
     Logger.metadata(project: tenant, user: args.user, mode: args.mode)
 
     data =
-      %{
+      data(
         id: args.id,
         sock: nil,
         sent: false,
@@ -81,7 +110,7 @@ defmodule Ultravisor.DbHandler do
         client_sock: args[:client_sock] || nil,
         proxy: args[:proxy] || false,
         reconnect_retries: 0
-      }
+      )
 
     Telem.handler_action(:db_handler, :started, args.id)
     {:ok, :connect, data, {:next_event, :internal, :connect}}
@@ -91,15 +120,22 @@ defmodule Ultravisor.DbHandler do
   def callback_mode, do: [:handle_event_function]
 
   @impl true
-  def handle_event(:info, {passive, _socket}, _, data)
+  def handle_event(:info, {passive, _socket}, _, data(sock: sock))
       when passive in [:ssl_passive, :tcp_passive] do
-    HandlerHelpers.setopts(data.sock, active: @switch_active_count)
+    HandlerHelpers.setopts(sock, active: @switch_active_count)
 
     :keep_state_and_data
   end
 
-  def handle_event(:internal, _, :connect, %{auth: auth} = data) do
+  def handle_event(
+        :internal,
+        _,
+        :connect,
+        data(id: id, client_sock: client_sock) = data
+      ) do
     Logger.debug("DbHandler: Try to connect to DB")
+
+    data(auth: auth, reconnect_retries: reconnect_retries, proxy: proxy) = data
 
     sock_opts =
       [
@@ -118,12 +154,12 @@ defmodule Ultravisor.DbHandler do
       ]
 
     maybe_reconnect_callback = fn reason ->
-      if data.reconnect_retries > @reconnect_retries and data.client_sock != nil,
+      if reconnect_retries > @reconnect_retries and client_sock != nil,
         do: {:stop, {:failed_to_connect, reason}},
         else: {:keep_state_and_data, {:state_timeout, reconnect_timeout(data), :connect}}
     end
 
-    Telem.handler_action(:db_handler, :db_connection, data.id)
+    Telem.handler_action(:db_handler, :db_connection, id)
 
     case :gen_tcp.connect(auth.host, auth.port, sock_opts) do
       {:ok, sock} ->
@@ -131,13 +167,13 @@ defmodule Ultravisor.DbHandler do
 
         case try_ssl_handshake({:gen_tcp, sock}, auth) do
           {:ok, sock} ->
-            tenant = if data.proxy, do: Ultravisor.tenant(data.id)
-            search_path = Ultravisor.search_path(data.id)
+            tenant = if proxy, do: Ultravisor.tenant(id)
+            search_path = Ultravisor.search_path(id)
 
             case send_startup(sock, auth, tenant, search_path) do
               :ok ->
                 HandlerHelpers.setopts(sock, active: @switch_active_count)
-                {:next_state, :authentication, %{data | sock: sock}}
+                {:next_state, :authentication, data(data, sock: sock)}
 
               {:error, reason} ->
                 Logger.error("DbHandler: Send startup error #{inspect(reason)}")
@@ -158,14 +194,14 @@ defmodule Ultravisor.DbHandler do
     end
   end
 
-  def handle_event(:state_timeout, :connect, _state, data) do
-    retry = data.reconnect_retries
+  def handle_event(:state_timeout, :connect, _state, data(reconnect_retries: retry) = data) do
     Logger.warning("DbHandler: Reconnect #{retry} to DB")
 
-    {:keep_state, %{data | reconnect_retries: retry + 1}, {:next_event, :internal, :connect}}
+    {:keep_state, data(data, reconnect_retries: retry + 1), {:next_event, :internal, :connect}}
   end
 
-  def handle_event(:info, {proto, _, bin}, :authentication, data) when proto in @proto do
+  def handle_event(:info, {proto, _, bin}, :authentication, data(id: id) = data)
+      when proto in @proto do
     dec_pkt = Server.decode(bin)
     Logger.debug("DbHandler: dec_pkt, #{inspect(dec_pkt, pretty: true)}")
 
@@ -173,10 +209,10 @@ defmodule Ultravisor.DbHandler do
 
     case resp do
       {:authentication_sasl, nonce} ->
-        {:keep_state, %{data | nonce: nonce}}
+        {:keep_state, data(data, nonce: nonce)}
 
       {:authentication_server_first_message, server_proof} ->
-        {:keep_state, %{data | server_proof: server_proof}}
+        {:keep_state, data(data, server_proof: server_proof)}
 
       %{authentication_server_final_message: _server_final} ->
         :keep_state_and_data
@@ -188,7 +224,7 @@ defmodule Ultravisor.DbHandler do
         :keep_state_and_data
 
       :authentication_md5 ->
-        {:keep_state, data}
+        :keep_state_and_data
 
       {:error_response, ["SFATAL", "VFATAL", "C28P01", reason, _, _, _]} ->
         handle_authentication_error(data, reason)
@@ -206,14 +242,16 @@ defmodule Ultravisor.DbHandler do
           "DbHandler: DB ready_for_query: #{inspect(acc.db_state)} #{inspect(ps, pretty: true)}"
         )
 
-        if data.proxy do
+        data(proxy: proxy, caller: caller) = data
+
+        if proxy do
           bin_ps = Server.encode_parameter_status(ps)
-          send(data.caller, {:parameter_status, bin_ps})
+          send(caller, {:parameter_status, bin_ps})
         else
-          Ultravisor.set_parameter_status(data.id, ps)
+          Ultravisor.set_parameter_status(id, ps)
         end
 
-        {:next_state, :idle, %{data | parameter_status: ps, reconnect_retries: 0},
+        {:next_state, :idle, data(data, parameter_status: ps, reconnect_retries: 0),
          {:next_event, :internal, :check_buffer}}
 
       other ->
@@ -222,24 +260,35 @@ defmodule Ultravisor.DbHandler do
     end
   end
 
-  def handle_event(:internal, :check_buffer, :idle, %{reply: from} = data) when from != nil do
+  def handle_event(:internal, :check_buffer, :idle, data(sock: sock, reply: from) = data)
+      when from != nil do
     Logger.debug("DbHandler: Check buffer")
-    {:next_state, :busy, %{data | reply: nil}, {:reply, from, data.sock}}
+    {:next_state, :busy, data(data, reply: nil), {:reply, from, sock}}
   end
 
-  def handle_event(:internal, :check_buffer, :idle, %{buffer: buff, caller: caller} = data)
+  def handle_event(
+        :internal,
+        :check_buffer,
+        :idle,
+        data(sock: sock, buffer: buff, caller: caller) = data
+      )
       when is_pid(caller) do
     if buff != [] do
       Logger.debug("DbHandler: Buffer is not empty, try to send #{IO.iodata_length(buff)} bytes")
       buff = Enum.reverse(buff)
-      :ok = sock_send(data.sock, buff)
+      :ok = sock_send(sock, buff)
     end
 
-    {:next_state, :busy, %{data | buffer: []}}
+    {:next_state, :busy, data(data, buffer: [])}
   end
 
   # check if it needs to apply queries from the anon buffer
-  def handle_event(:internal, :check_anon_buffer, _, %{anon_buffer: buff, caller: nil} = data) do
+  def handle_event(
+        :internal,
+        :check_anon_buffer,
+        _,
+        data(sock: sock, anon_buffer: buff, caller: nil) = data
+      ) do
     Logger.debug("DbHandler: Check anon buffer")
 
     if buff != [] do
@@ -248,10 +297,10 @@ defmodule Ultravisor.DbHandler do
       )
 
       buff = Enum.reverse(buff)
-      :ok = sock_send(data.sock, buff)
+      :ok = sock_send(sock, buff)
     end
 
-    {:keep_state, %{data | anon_buffer: []}}
+    {:keep_state, data(data, anon_buffer: [])}
   end
 
   def handle_event(:internal, :check_anon_buffer, _, _) do
@@ -260,12 +309,12 @@ defmodule Ultravisor.DbHandler do
   end
 
   # the process received message from db without linked caller
-  def handle_event(:info, {proto, _, bin}, _, %{caller: nil}) when proto in @proto do
+  def handle_event(:info, {proto, _, bin}, _, data(caller: nil)) when proto in @proto do
     Logger.debug("DbHandler: Got db response #{inspect(bin)} when caller was nil")
     :keep_state_and_data
   end
 
-  def handle_event(:info, {proto, _, bin}, _, %{replica_type: :read} = data)
+  def handle_event(:info, {proto, _, bin}, _, data(id: id, replica_type: :read) = data)
       when proto in @proto do
     Logger.debug("DbHandler: Got read replica message #{inspect(bin)}")
     pkts = Server.decode(bin)
@@ -290,61 +339,78 @@ defmodule Ultravisor.DbHandler do
       end
 
     if resp != :continue do
-      :ok = ClientHandler.db_status(data.caller, resp, bin)
-      {_, stats} = Telem.network_usage(:db, data.sock, data.id, data.stats)
-      {:keep_state, %{data | stats: stats, caller: handler_caller(data)}}
+      data(caller: caller, sock: sock, stats: stats) = data
+
+      :ok = ClientHandler.db_status(caller, resp, bin)
+      {_, stats} = Telem.network_usage(:db, sock, id, stats)
+      {:keep_state, data(data, stats: stats, caller: handler_caller(data))}
     else
       :keep_state_and_data
     end
   end
 
   # forward the message to the client
-  def handle_event(:info, {proto, _, bin}, _, %{caller: caller, reply: nil} = data)
+  def handle_event(:info, {proto, _, bin}, _, data(id: id, caller: caller, reply: nil) = data)
       when is_pid(caller) and proto in @proto do
     Logger.debug("DbHandler: Got write replica message  #{inspect(bin)}")
 
     if String.ends_with?(bin, Server.ready_for_query()) do
+      data(
+        sock: sock,
+        client_sock: client_sock,
+        mode: mode,
+        proxy: proxy,
+        stats: stats,
+        client_stats: client_stats
+      ) = data
+
       {_, stats} =
-        if data.proxy,
-          do: {nil, data.stats},
-          else: Telem.network_usage(:db, data.sock, data.id, data.stats)
+        if proxy,
+          do: {nil, stats},
+          else: Telem.network_usage(:db, sock, id, stats)
 
       # in transaction mode, we need to notify the client when the transaction is finished,
       # after which it will unlink the direct db connection process from itself.
       data =
-        if data.mode == :transaction do
-          ClientHandler.db_status(data.caller, :ready_for_query, bin)
-          %{data | stats: stats, caller: nil, client_sock: nil}
+        if mode == :transaction do
+          ClientHandler.db_status(caller, :ready_for_query, bin)
+          data(data, stats: stats, caller: nil, client_sock: nil)
         else
-          HandlerHelpers.sock_send(data.client_sock, bin)
+          HandlerHelpers.sock_send(client_sock, bin)
 
           {_, client_stats} =
-            if data.proxy,
-              do: {nil, data.client_stats},
-              else: Telem.network_usage(:client, data.client_sock, data.id, data.client_stats)
+            if proxy,
+              do: {nil, client_stats},
+              else: Telem.network_usage(:client, client_sock, id, client_stats)
 
-          %{data | stats: stats, client_stats: client_stats}
+          data(data, stats: stats, client_stats: client_stats)
         end
 
       {:next_state, :idle, data, {:next_event, :internal, :check_anon_buffer}}
     else
-      HandlerHelpers.sock_send(data.client_sock, bin)
+      HandlerHelpers.sock_send(data(data, :client_sock), bin)
       {:keep_state, data}
     end
   end
 
-  def handle_event({:call, from}, {:checkout, sock, caller}, state, data) do
+  def handle_event(
+        {:call, from},
+        {:checkout, client_sock, caller},
+        state,
+        data(sock: sock) = data
+      ) do
     Logger.debug("DbHandler: checkout call when state was #{state}")
 
     # store the reply ref and send it when the state is idle
     if state in [:idle, :busy],
-      do: {:keep_state, %{data | client_sock: sock, caller: caller}, {:reply, from, data.sock}},
-      else: {:keep_state, %{data | client_sock: sock, caller: caller, reply: from}}
+      do:
+        {:keep_state, data(data, client_sock: client_sock, caller: caller), {:reply, from, sock}},
+      else: {:keep_state, data(data, client_sock: client_sock, caller: caller, reply: from)}
   end
 
-  def handle_event({:call, from}, :ps, _, data) do
+  def handle_event({:call, from}, :ps, _, data(parameter_status: parameter_status)) do
     Logger.debug("DbHandler: get parameter status")
-    {:keep_state_and_data, {:reply, from, data.parameter_status}}
+    {:keep_state_and_data, {:reply, from, parameter_status}}
   end
 
   def handle_event(_, {closed, _}, :busy, data) when closed in @sock_closed do
@@ -360,27 +426,27 @@ defmodule Ultravisor.DbHandler do
   end
 
   # linked client_handler went down
-  def handle_event(_, {:EXIT, pid, reason}, state, data) do
+  def handle_event(_, {:EXIT, pid, reason}, state, data(mode: mode, sock: sock) = data) do
     if reason != :normal do
       Logger.error(
         "DbHandler: ClientHandler #{inspect(pid)} went down with reason #{inspect(reason)}"
       )
     end
 
-    if state == :busy or data.mode == :session do
-      sock_send(data.sock, Server.terminate_message())
-      :gen_tcp.close(elem(data.sock, 1))
-      {:stop, {:client_handler_down, data.mode}}
+    if state == :busy or mode == :session do
+      sock_send(sock, Server.terminate_message())
+      :gen_tcp.close(elem(sock, 1))
+      {:stop, {:client_handler_down, mode}}
     else
-      {:keep_state, %{data | caller: nil, buffer: []}}
+      {:keep_state, data(data, caller: nil, buffer: [])}
     end
   end
 
   def handle_event({:call, from}, :get_state_and_mode, state, data) do
-    {:keep_state_and_data, {:reply, from, {state, data.mode}}}
+    {:keep_state_and_data, {:reply, from, {state, data(data, :mode)}}}
   end
 
-  def handle_event(type, content, state, data) do
+  def handle_event(type, content, state, data() = data) do
     msg = [
       {"type", type},
       {"content", content},
@@ -394,22 +460,22 @@ defmodule Ultravisor.DbHandler do
   end
 
   @impl true
-  def terminate(:shutdown, _state, data) do
-    Telem.handler_action(:db_handler, :stopped, data.id)
+  def terminate(:shutdown, _state, data(id: id)) do
+    Telem.handler_action(:db_handler, :stopped, id)
     :ok
   end
 
-  def terminate(reason, state, data) do
-    Telem.handler_action(:db_handler, :stopped, data.id)
+  def terminate(reason, state, data(id: id, client_sock: client_sock)) do
+    Telem.handler_action(:db_handler, :stopped, id)
 
-    if data.client_sock != nil do
+    if client_sock != nil do
       message =
         case reason do
           {:encode_and_forward, msg} -> Server.encode_error_message(msg)
           _ -> Server.error_message("XX000", inspect(reason))
         end
 
-      HandlerHelpers.sock_send(data.client_sock, message)
+      HandlerHelpers.sock_send(client_sock, message)
     end
 
     Logger.error(
@@ -505,8 +571,8 @@ defmodule Ultravisor.DbHandler do
     end
   end
 
-  @spec handler_caller(map()) :: pid() | nil
-  defp handler_caller(%{mode: :session} = data), do: data.caller
+  @spec handler_caller(t()) :: pid() | nil
+  defp handler_caller(data(caller: caller, mode: :session)), do: caller
   defp handler_caller(_), do: nil
 
   @spec check_ready(binary()) ::
@@ -531,28 +597,32 @@ defmodule Ultravisor.DbHandler do
     end
   end
 
-  @spec handle_auth_pkts(map(), map(), map()) :: any()
+  @spec handle_auth_pkts(map(), map(), t()) :: any()
   defp handle_auth_pkts(%{tag: :parameter_status, payload: {k, v}}, acc, _),
     do: update_in(acc, [:ps], fn ps -> Map.put(ps || %{}, k, v) end)
 
   defp handle_auth_pkts(%{tag: :ready_for_query, payload: db_state}, acc, _),
     do: {:ready_for_query, Map.put(acc, :db_state, db_state)}
 
-  defp handle_auth_pkts(%{tag: :backend_key_data, payload: payload}, acc, data) do
+  defp handle_auth_pkts(%{tag: :backend_key_data, payload: payload}, acc, data(auth: auth)) do
     key = self()
-    conn = %{host: data.auth.host, port: data.auth.port, ip_ver: data.auth.ip_version}
+    conn = %{host: auth.host, port: auth.port, ip_ver: auth.ip_version}
     Registry.register(Ultravisor.Registry.PoolPids, key, Map.merge(payload, conn))
     Logger.debug("DbHandler: Backend #{inspect(key)} data: #{inspect(payload)}")
     Map.put(acc, :backend_key_data, payload)
   end
 
-  defp handle_auth_pkts(%{payload: {:authentication_sasl_password, methods_b}}, _, data) do
+  defp handle_auth_pkts(
+         %{payload: {:authentication_sasl_password, methods_b}},
+         _,
+         data(auth: auth, sock: sock)
+       ) do
     nonce =
       case Server.decode_string(methods_b) do
         {:ok, req_method, _} ->
           Logger.debug("DbHandler: SASL method #{inspect(req_method)}")
           nonce = :pgo_scram.get_nonce(16)
-          user = get_user(data.auth)
+          user = get_user(auth)
           client_first = :pgo_scram.get_client_first(user, nonce)
           client_first_size = IO.iodata_length(client_first)
 
@@ -564,7 +634,7 @@ defmodule Ultravisor.DbHandler do
           ]
 
           bin = :pgo_protocol.encode_scram_response_message(sasl_initial_response)
-          :ok = HandlerHelpers.sock_send(data.sock, bin)
+          :ok = HandlerHelpers.sock_send(sock, bin)
           nonce
 
         other ->
@@ -578,24 +648,23 @@ defmodule Ultravisor.DbHandler do
   defp handle_auth_pkts(
          %{payload: {:authentication_server_first_message, server_first}},
          _,
-         data
+         data(auth: auth, nonce: nonce, sock: sock)
        )
-       when data.auth.require_user == false do
-    nonce = data.nonce
+       when auth.require_user == false do
     server_first_parts = Helpers.parse_server_first(server_first, nonce)
 
     {client_final_message, server_proof} =
       Helpers.get_client_final(
         :auth_query,
-        data.auth.secrets.(),
+        auth.secrets.(),
         server_first_parts,
         nonce,
-        data.auth.secrets.().user,
+        auth.secrets.().user,
         "biws"
       )
 
     bin = :pgo_protocol.encode_scram_response_message(client_final_message)
-    :ok = HandlerHelpers.sock_send(data.sock, bin)
+    :ok = HandlerHelpers.sock_send(sock, bin)
 
     {:authentication_server_first_message, server_proof}
   end
@@ -603,21 +672,20 @@ defmodule Ultravisor.DbHandler do
   defp handle_auth_pkts(
          %{payload: {:authentication_server_first_message, server_first}},
          _,
-         data
+         data(auth: auth, nonce: nonce, sock: sock)
        ) do
-    nonce = data.nonce
     server_first_parts = :pgo_scram.parse_server_first(server_first, nonce)
 
     {client_final_message, server_proof} =
       :pgo_scram.get_client_final(
         server_first_parts,
         nonce,
-        data.auth.user,
-        data.auth.secrets.().password
+        auth.user,
+        auth.secrets.().password
       )
 
     bin = :pgo_protocol.encode_scram_response_message(client_final_message)
-    :ok = HandlerHelpers.sock_send(data.sock, bin)
+    :ok = HandlerHelpers.sock_send(sock, bin)
 
     {:authentication_server_first_message, server_proof}
   end
@@ -636,19 +704,23 @@ defmodule Ultravisor.DbHandler do
        ),
        do: Map.put(acc, :authentication_ok, true)
 
-  defp handle_auth_pkts(%{payload: {:authentication_md5_password, salt}} = dec_pkt, _, data) do
+  defp handle_auth_pkts(
+         %{payload: {:authentication_md5_password, salt}} = dec_pkt,
+         _,
+         data(auth: auth, sock: sock)
+       ) do
     Logger.debug("DbHandler: dec_pkt, #{inspect(dec_pkt, pretty: true)}")
 
     digest =
-      if data.auth.method == :password do
-        Helpers.md5([data.auth.password.(), data.auth.user])
+      if auth.method == :password do
+        Helpers.md5([auth.password.(), auth.user])
       else
-        data.auth.secrets.().secret
+        auth.secrets.().secret
       end
 
     payload = ["md5", Helpers.md5([digest, salt]), 0]
     bin = [?p, <<IO.iodata_length(payload) + 4::signed-32>>, payload]
-    :ok = HandlerHelpers.sock_send(data.sock, bin)
+    :ok = HandlerHelpers.sock_send(sock, bin)
     :authentication_md5
   end
 
@@ -657,27 +729,27 @@ defmodule Ultravisor.DbHandler do
 
   defp handle_auth_pkts(_e, acc, _data), do: acc
 
-  @spec handle_authentication_error(map(), String.t()) :: any()
-  defp handle_authentication_error(%{proxy: false} = data, reason) do
-    tenant = Ultravisor.tenant(data.id)
+  @spec handle_authentication_error(t(), String.t()) :: any()
+  defp handle_authentication_error(data(id: id, user: user, proxy: false), reason) do
+    tenant = Ultravisor.tenant(id)
 
     :erpc.multicast([node() | Node.list()], fn ->
-      Cachex.del(Ultravisor.Cache, {:secrets, tenant, data.user})
-      Cachex.del(Ultravisor.Cache, {:secrets_check, tenant, data.user})
+      Cachex.del(Ultravisor.Cache, {:secrets, tenant, user})
+      Cachex.del(Ultravisor.Cache, {:secrets_check, tenant, user})
 
-      Registry.dispatch(Ultravisor.Registry.TenantClients, data.id, fn entries ->
+      Registry.dispatch(Ultravisor.Registry.TenantClients, id, fn entries ->
         for {client_handler, _meta} <- entries,
             do: send(client_handler, {:disconnect, reason})
       end)
     end)
 
-    Ultravisor.stop(data.id)
+    Ultravisor.stop(id)
   end
 
-  defp handle_authentication_error(%{proxy: true}, _reason), do: :ok
+  defp handle_authentication_error(data(proxy: true), _reason), do: :ok
 
-  @spec reconnect_timeout(map()) :: pos_integer()
-  defp reconnect_timeout(%{proxy: true}),
+  @spec reconnect_timeout(t()) :: pos_integer()
+  defp reconnect_timeout(data(proxy: true)),
     do: @reconnect_timeout_proxy
 
   defp reconnect_timeout(_),
