@@ -7,6 +7,8 @@
 defmodule Ultravisor.ClientHandlerTest do
   use ExUnit.Case, async: true
 
+  require Ultravisor.ClientHandler, as: CH
+
   @subject Ultravisor.ClientHandler
 
   test "handle ssl_error" do
@@ -27,7 +29,7 @@ defmodule Ultravisor.ClientHandlerTest do
           ~c"TLS server: In state connection received CLIENT ALERT: Fatal - User Canceled\n"}
        }}
 
-    data = %{sock: {:ssl, sock}}
+    data = CH.data(sock: {:ssl, sock})
 
     assert :keep_state_and_data ==
              @subject.handle_event(:info, error, nil, data)
