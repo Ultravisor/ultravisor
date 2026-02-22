@@ -17,9 +17,11 @@ config :ultravisor,
   ecto_repos: [Ultravisor.Repo],
   version: Mix.Project.config()[:version],
   env: Mix.env(),
-  switch_active_count: System.get_env("SWITCH_ACTIVE_COUNT", "100") |> String.to_integer(),
-  reconnect_retries: System.get_env("RECONNECT_RETRIES", "5") |> String.to_integer(),
-  subscribe_retries: System.get_env("SUBSCRIBE_RETRIES", "20") |> String.to_integer()
+  client_active_count:
+    System.get_env("ULTRAVISOR_CLIENT_ACTIVE_COUNT", "100") |> String.to_integer(),
+  db_active_count: System.get_env("ULTRAVISOR_DB_ACTIVE_COUNT", "500") |> String.to_integer(),
+  reconnect_retries: System.get_env("ULTRAVISOR_RECONNECT_RETRIES", "5") |> String.to_integer(),
+  subscribe_retries: System.get_env("ULTRAVISOR_SUBSCRIBE_RETRIES", "20") |> String.to_integer()
 
 config :prom_ex, storage_adapter: Ultravisor.Monitoring.PromEx.Store
 
