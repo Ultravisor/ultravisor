@@ -17,7 +17,7 @@ defmodule Ultravisor.ClientHandler do
 
   @proto [:tcp, :ssl]
 
-  @switch_active_count Application.compile_env(:ultravisor, :switch_active_count)
+  @switch_active_count Application.compile_env(:ultravisor, :client_active_count)
   @subscribe_retries Application.compile_env(:ultravisor, :subscribe_retries)
 
   @timeout_subscribe 500
