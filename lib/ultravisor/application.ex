@@ -137,11 +137,14 @@ defmodule Ultravisor.Application do
 
   defp metrics do
     if Application.get_env(:ultravisor, :metrics_enabled, true) do
-      [PromEx, Ultravisor.MetricsCleaner]
+      [
+        PromEx,
+        Ultravisor.MetricsCleaner
+      ]
     else
       Logger.warning("Metrics gathering is disabled")
       []
-    end
+    end ++ [{Task, fn -> :telemetry.persist() end}]
   end
 
   defp topologies do
