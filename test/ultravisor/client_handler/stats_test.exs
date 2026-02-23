@@ -129,7 +129,7 @@ defmodule Ultravisor.ClientHandler.StatsTest do
           id: :postgrex_this
         )
 
-      stop_supervised!(:postgrex_this)
+      # stop_supervised!(:postgrex_this)
 
       # Connect via other node and issue a query
       other_conn =
