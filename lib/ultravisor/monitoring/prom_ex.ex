@@ -38,18 +38,13 @@ defmodule Ultravisor.Monitoring.PromEx do
     @impl true
     def child_spec(name, metrics) do
       global_tags = :logger.get_primary_config().metadata
-      global_tags_keys = Map.keys(global_tags)
 
       Peep.child_spec(
         name: name,
-        metrics: Enum.map(metrics, &extend_tags(&1, global_tags_keys)),
+        metrics: metrics,
         global_tags: global_tags,
         storage: :striped
       )
-    end
-
-    defp extend_tags(%{tags: tags} = metric, global_tags) do
-      %{metric | tags: tags ++ global_tags}
     end
   end
 

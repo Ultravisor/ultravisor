@@ -10,7 +10,7 @@ defmodule Ultravisor.PromEx.Plugins.Tenant do
   use PromEx.Plugin
   require Logger
 
-  @tags [:tenant, :user, :mode, :type, :db_name, :search_path]
+  @tags &Function.identity/1
 
   @impl true
   def polling_metrics(opts) do
