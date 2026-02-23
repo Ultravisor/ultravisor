@@ -17,9 +17,6 @@
 ## Set number of ETS tables
 +e 5000
 
-## Set number of processes
-+P 1000000
-
 -kernel inet_dist_listen_min 20000
 -kernel inet_dist_listen_max 21000
 +zdbbl 2097151
