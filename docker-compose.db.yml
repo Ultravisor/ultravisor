@@ -8,7 +8,7 @@ version: "3"
 
 services:
   db:
-    image: supabase/postgres:14.1.0.106
+    image: postgres:18.2
     container_name: ultravisor-db
     ports:
       - "6432:5432"
@@ -16,7 +16,7 @@ services:
       - ./dev/postgres:/docker-entrypoint-initdb.d/
       # Uncomment to set MD5 authentication method on uninitialized databases
       # - ./dev/postgres/md5/etc/postgresql/pg_hba.conf:/etc/postgresql/pg_hba.conf
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf -c max_prepared_transactions=2000
+    # command: postgres -c config_file=/etc/postgresql/postgresql.conf -c max_prepared_transactions=2000
     environment:
       POSTGRES_HOST: /var/run/postgresql
       POSTGRES_PASSWORD: postgres
