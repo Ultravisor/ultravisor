@@ -183,12 +183,10 @@ defmodule Ultravisor.Integration.ProxyTest do
     assert {:error,
             %Postgrex.Error{
               postgres: %{
-                code: :internal_error,
-                message:
-                  "MaxClientsInSessionMode: max clients reached - in Session mode max clients are limited to pool_size",
+                message: "MaxClientConnectionsError: Max client connections reached",
                 unknown: "FATAL",
                 severity: "FATAL",
-                pg_code: "XX000"
+                pg_code: "UV005"
               }
             }} = single_connection(connection_opts)
   end

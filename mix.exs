@@ -13,7 +13,10 @@ defmodule Ultravisor.MixProject do
       version: version(),
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
-      compilers: [:unused] ++ Mix.compilers(),
+      compilers:
+        [
+          # :unused
+        ] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
@@ -123,7 +126,7 @@ defmodule Ultravisor.MixProject do
 
       # pooller
       # {:poolboy, "~> 1.5.2"},
-      {:poolboy, git: "https://github.com/supabase/poolboy", tag: "v0.0.1"},
+      {:poolboy, github: "hauleth/poolboy"},
       {:syn, "~> 3.3"},
       {:pgo, "~> 0.13"},
       {:ranch, "~> 2.0", override: true},
