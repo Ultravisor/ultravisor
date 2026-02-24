@@ -525,6 +525,13 @@ defmodule Ultravisor.ClientHandler do
         Logger.error("ClientHandler: Subscribe error: #{inspect(error)}")
         {:keep_state, data, {:timeout, @timeout_subscribe, {:subscribe, retries + 1}}}
     end
+  rescue
+    exception ->
+      msg = Error.encode(exception, __STACKTRACE__)
+      data(sock: sock) = data
+      HandlerHelpers.sock_send(sock, msg)
+
+      reraise exception, __STACKTRACE__
   end
 
   def handle_event(:internal, {:subscribe, retries}, _state, _data) do
@@ -691,25 +698,6 @@ defmodule Ultravisor.ClientHandler do
   end
 
   @impl true
-  def terminate(
-        {:timeout, {_, _, [_, {:checkout, _, _}, _]}},
-        _state,
-        data(sock: sock, mode: mode)
-      ) do
-    msg =
-      case mode do
-        :session ->
-          "MaxClientsInSessionMode: max clients reached - in Session mode max clients are limited to pool_size"
-
-        :transaction ->
-          "Unable to check out process from the pool due to timeout"
-      end
-
-    Logger.error("ClientHandler: #{msg}")
-    HandlerHelpers.sock_send(sock, Server.error_message("XX000", msg))
-    :ok
-  end
-
   def terminate(reason, _state, data(db_pid: {_, pid, _})) do
     db_info =
       with {:ok, {state, mode} = resp} <- DbHandler.get_state_and_mode(pid) do
@@ -832,9 +820,16 @@ defmodule Ultravisor.ClientHandler do
   defp db_checkout(:on_connect, data(mode: :transaction)), do: nil
 
   defp db_checkout(_, data) do
-    data(id: id, sock: sock, pool: pool, timeout: timeout) = data
+    data(id: id, sock: sock, pool: pool, mode: mode, timeout: timeout) = data
     start = System.monotonic_time()
-    db_pid = :poolboy.checkout(pool, true, timeout)
+
+    db_pid =
+      case :poolboy.checkout(pool, timeout) do
+        {:ok, db_pid} -> db_pid
+        _ when mode == :transaction -> raise Errors.CheckoutTimeoutError
+        _ when mode == :session -> raise Errors.MaxClientConnectionsError
+      end
+
     Process.link(db_pid)
     db_sock = DbHandler.checkout(db_pid, sock)
     same_box = if node(db_pid) == node(), do: :local, else: :remote
