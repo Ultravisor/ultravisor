@@ -1,0 +1,5 @@
+[[users]]
+name = "postgres.sys"
+database = "postgres"
+password = "postgres"
+pooler_mode = "transaction"

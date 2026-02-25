@@ -1,0 +1,11 @@
+[general]
+port = 6545
+default_pool_size = 90
+openmetrics_port = 9090
+tls_verify = "disabled"
+
+[[databases]]
+name = "postgres"
+host = "127.0.0.1"
+port = 6432
+user = "postgres"

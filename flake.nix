@@ -71,6 +71,8 @@
             {
               packages = [
                 pkgs.pgbouncer
+                pkgs.pgdog
+                pkgs.xan
               ];
 
               services.postgres = {

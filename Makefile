@@ -89,6 +89,11 @@ pgbouncer:
 	cd $(PWD)/bench/pgbouncer && \
 		pgbouncer pgbouncer.conf
 
+pgdog:
+	pgdog \
+		--config $(PWD)/bench/pgdog/config.toml \
+		--users  $(PWD)/bench/pgdog/users.toml
+
 clean:
 	rm -rf _build && rm -rf deps
 
