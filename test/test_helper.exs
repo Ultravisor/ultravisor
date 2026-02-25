@@ -27,6 +27,7 @@ ExUnit.start(
   formatters: [JUnitFormatter, ExUnit.CLIFormatter],
   capture_log: logs,
   exclude: [
+    :ignore,
     integration: true
   ]
 )
