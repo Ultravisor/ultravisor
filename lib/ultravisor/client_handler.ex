@@ -1141,9 +1141,10 @@ defmodule Ultravisor.ClientHandler do
       error ->
         Logger.error("ClientHandler: error while sending query: #{inspect(error)}")
 
-        HandlerHelpers.sock_send(
+        HandlerHelpers.send_error(
           sock,
-          Server.error_message("XX000", "Error while sending query")
+          "XX000",
+          "Error while sending query"
         )
 
         {:stop, {:shutdown, :send_query_error}}
