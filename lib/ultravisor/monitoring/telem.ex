@@ -127,6 +127,18 @@ defmodule Ultravisor.Monitoring.Telem do
   def __sys_mon_report__(%{sys_mon: event}) do
     %{kind: kind, info: info, meta: meta} = event
 
+    meta =
+      case meta do
+        %{gc_pid: pid} ->
+          Map.put(meta, :label, :proc_lib.get_label(pid))
+
+        %{pid: pid} ->
+          Map.put(meta, :label, :proc_lib.get_label(pid))
+
+        _ ->
+          meta
+      end
+
     {"ErlSysMon message: ~p ~p ~p", [kind, info, meta]}
   end
 end
