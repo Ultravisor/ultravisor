@@ -55,14 +55,6 @@ defmodule Ultravisor.Protocol.Server do
     Enum.reverse(acc)
   end
 
-  def packet(tag, pkt_len, payload) do
-    %Pkt{
-      tag: tag,
-      len: pkt_len + 1,
-      payload: decode_payload(tag, payload)
-    }
-  end
-
   def decode_pkt(<<char::integer-8, pkt_len::integer-32, rest::binary>>) do
     tag = tag(char)
     payload_len = pkt_len - 4
@@ -106,7 +98,7 @@ defmodule Ultravisor.Protocol.Server do
   end
 
   # credo:disable-for-next-line /CyclomaticComplexity/
-  def decode_payload(:authentication, payload) do
+  defp decode_payload(:authentication, payload) do
     case payload do
       <<0::integer-32>> ->
         :authentication_ok
@@ -146,18 +138,18 @@ defmodule Ultravisor.Protocol.Server do
     end
   end
 
-  def decode_payload(:parameter_status, payload) do
-    case String.split(payload, <<0>>, trim: true) do
+  defp decode_payload(:parameter_status, payload) do
+    case String.split(payload, <<0>>, trim: true, parts: 3) do
       [k, v] -> {k, v}
       _ -> :undefined
     end
   end
 
-  def decode_payload(:backend_key_data, <<pid::integer-32, key::integer-32>>) do
+  defp decode_payload(:backend_key_data, <<pid::integer-32, key::integer-32>>) do
     %{pid: pid, key: key}
   end
 
-  def decode_payload(:ready_for_query, payload) do
+  defp decode_payload(:ready_for_query, payload) do
     case payload do
       <<"I">> -> :idle
       <<"T">> -> :transaction
@@ -165,31 +157,31 @@ defmodule Ultravisor.Protocol.Server do
     end
   end
 
-  def decode_payload(:parse_complete, "") do
+  defp decode_payload(:parse_complete, "") do
     :parse_complete
   end
 
-  def decode_payload(:parameter_description, <<count::integer-16, rest::binary>>) do
+  defp decode_payload(:parameter_description, <<count::integer-16, rest::binary>>) do
     {count, decode_parameter_description(rest, [])}
   end
 
-  def decode_payload(:row_description, <<count::integer-16, rest::binary>>) do
+  defp decode_payload(:row_description, <<count::integer-16, rest::binary>>) do
     decode_row_description(count, rest, [])
   end
 
-  def decode_payload(:data_row, _payload) do
+  defp decode_payload(:data_row, _payload) do
     nil
   end
 
   # https://www.postgresql.org/docs/current/protocol-error-fields.html
-  def decode_payload(:error_response, payload) do
+  defp decode_payload(:error_response, payload) do
     :binary.split(payload, <<0>>, [:global, :trim_all])
   end
 
-  def decode_payload(
-        :password_message,
-        <<"SCRAM-SHA-256", 0, _::32, channel::binary-3, bin::binary>>
-      ) do
+  defp decode_payload(
+         :password_message,
+         <<"SCRAM-SHA-256", 0, _::32, channel::binary-3, bin::binary>>
+       ) do
     case kv_to_map(bin) do
       {:ok, map} ->
         channel =
@@ -205,26 +197,26 @@ defmodule Ultravisor.Protocol.Server do
     end
   end
 
-  def decode_payload(:password_message, "md5" <> _ = bin) do
+  defp decode_payload(:password_message, "md5" <> _ = bin) do
     case :binary.split(bin, <<0>>) do
       [digest, ""] -> {:md5, digest}
       _ -> :undefined
     end
   end
 
-  def decode_payload(:password_message, bin) do
+  defp decode_payload(:password_message, bin) do
     case kv_to_map(bin) do
       {:ok, map} -> {:first_msg_response, map}
       {:error, _} -> :undefined
     end
   end
 
-  def decode_payload(_, _) do
+  defp decode_payload(_, _) do
     :undefined
   end
 
   @spec kv_to_map(String.t()) :: {:ok, map()} | {:error, String.t()}
-  def kv_to_map(bin) do
+  defp kv_to_map(bin) do
     Regex.scan(~r/(\w+)=([^,]*)/, bin)
     |> Map.new(fn [_, k, v] -> {k, v} end)
     |> case do
@@ -233,9 +225,9 @@ defmodule Ultravisor.Protocol.Server do
     end
   end
 
-  def decode_row_description(0, "", acc), do: Enum.reverse(acc)
+  defp decode_row_description(0, "", acc), do: Enum.reverse(acc)
 
-  def decode_row_description(count, rest, acc) do
+  defp decode_row_description(count, rest, acc) do
     case decode_string(rest) do
       {:ok, field_name,
        <<table_oid::integer-32, attr_num::integer-16, data_type_oid::integer-32,
@@ -262,15 +254,15 @@ defmodule Ultravisor.Protocol.Server do
     end
   end
 
-  def decode_format_code(0) do
+  defp decode_format_code(0) do
     {:ok, :text}
   end
 
-  def decode_format_code(1) do
+  defp decode_format_code(1) do
     {:ok, :binary}
   end
 
-  def decode_format_code(_) do
+  defp decode_format_code(_) do
     {:error, :unknown_format_code}
   end
 
@@ -354,20 +346,6 @@ defmodule Ultravisor.Protocol.Server do
     [<<?P, payload_len::integer-32>>, payload]
   end
 
-  def test_extended_query do
-    [
-      encode("select * from todos where id = 40;"),
-      [<<68, 0, 0, 0, 6, 83>>, [], <<0>>],
-      flush()
-    ]
-  end
-
-  def select_1_response do
-    <<84, 0, 0, 0, 33, 0, 1, 63, 99, 111, 108, 117, 109, 110, 63, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      23, 0, 4, 255, 255, 255, 255, 0, 0, 68, 0, 0, 0, 11, 0, 1, 0, 0, 0, 1, 49, 67, 0, 0, 0, 13,
-      83, 69, 76, 69, 67, 84, 32, 49, 0, 90, 0, 0, 0, 5, 73>>
-  end
-
   def authentication_ok do
     @authentication_ok
   end
@@ -407,7 +385,7 @@ defmodule Ultravisor.Protocol.Server do
   end
 
   # The startup packet payload is a list of key/value pairs, separated by null bytes
-  def decode_startup_packet_payload(payload) do
+  defp decode_startup_packet_payload(payload) do
     fields = String.split(payload, <<0>>, trim: true)
 
     # If the number of fields is odd, then the payload is malformed
@@ -447,23 +425,6 @@ defmodule Ultravisor.Protocol.Server do
 
   def decode_startup_packet(_) do
     {:error, :bad_startup_payload}
-  end
-
-  def encode_startup_packet(payload) do
-    bin =
-      Enum.reduce(payload, "", fn
-        # remove options
-        {"options", _}, acc ->
-          acc
-
-        {"application_name" = k, v}, acc ->
-          <<k::binary, 0, v::binary, " via Ultravisor", 0>> <> acc
-
-        {k, v}, acc ->
-          <<k::binary, 0, v::binary, 0>> <> acc
-      end)
-
-    <<byte_size(bin) + 9::32, 0, 3, 0, 0, bin::binary, 0>>
   end
 
   @spec has_read_only_error?(list) :: boolean
