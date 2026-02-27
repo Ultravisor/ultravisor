@@ -112,6 +112,8 @@ defmodule Ultravisor.DbHandler do
         reconnect_retries: 0
       )
 
+    :proc_lib.set_label({__MODULE__, args.id})
+
     Telem.handler_action(:db_handler, :started, args.id)
     {:ok, :connect, data, {:next_event, :internal, :connect}}
   end
