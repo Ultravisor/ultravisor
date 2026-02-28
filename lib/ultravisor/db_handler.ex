@@ -27,7 +27,7 @@ defmodule Ultravisor.DbHandler do
   @reconnect_timeout_proxy 500
   @sock_closed [:tcp_closed, :ssl_closed]
   @proto [:tcp, :ssl]
-  @switch_active_count Application.compile_env(:ultravisor, :switch_active_count)
+  @switch_active_count Application.compile_env(:ultravisor, :db_active_count)
   @reconnect_retries Application.compile_env(:ultravisor, :reconnect_retries)
 
   # TODO: Make it private
