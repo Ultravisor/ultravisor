@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Łukasz Niemier <~@hauleth.dev>
+#
+# SPDX-License-Identifier: EUPL-1.2
+
 [[users]]
 name = "postgres.sys"
 database = "postgres"

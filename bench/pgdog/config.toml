@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Łukasz Niemier <~@hauleth.dev>
+#
+# SPDX-License-Identifier: EUPL-1.2
+
 [general]
 port = 6545
 default_pool_size = 90
