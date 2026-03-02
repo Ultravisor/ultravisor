@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Łukasz Niemier <~@hauleth.dev>
+#
+# SPDX-License-Identifier: EUPL-1.2
+
 defmodule Ultravisor.Support.Metrics do
   import ExUnit.Assertions
 
