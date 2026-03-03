@@ -18,7 +18,7 @@ defmodule Ultravisor do
   @type ssl_sock :: {:ssl, :ssl.sslsocket()}
   @type tcp_sock :: {:gen_tcp, :gen_tcp.socket()}
   @type workers :: %{manager: pid, pool: pid}
-  @type secrets :: {:password | :auth_query, fun()}
+  @type secrets :: {:password | :auth_query | :auth_query_md5, fun()}
   @type mode :: :transaction | :session | :native | :proxy
   @type subscribe_opts :: %{workers: workers, ps: list, idle_timeout: integer}
 
