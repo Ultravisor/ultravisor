@@ -56,7 +56,8 @@ defmodule Ultravisor.MixProject do
         Ultravisor.Config,
         {:_, :child_spec, 1},
         {:_, :start_link, 1},
-        {:_, :__using__, 1}
+        {:_, :__using__, 1},
+        fn _, meta -> meta.doc_meta[:comptime] end
       ]
     ]
   end

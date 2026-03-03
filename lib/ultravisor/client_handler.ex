@@ -37,6 +37,9 @@ defmodule Ultravisor.ClientHandler do
   alias Ultravisor.Monitoring.Telem
   alias Ultravisor.Tenants
 
+  alias Ultravisor.Protocol.Error
+  alias Ultravisor.Protocol.Errors
+
   # TODO: remove all tests that rely on this structure and replace them with
   # something more appropriate
   Record.defrecord(:data, [
@@ -589,6 +592,13 @@ defmodule Ultravisor.ClientHandler do
   def handle_event(kind, {proto, _socket, msg}, state, data)
       when proto in @proto and is_binary(msg) do
     handle_data(kind, msg, state, data)
+  rescue
+    exception ->
+      msg = Error.encode(exception, __STACKTRACE__)
+      data(sock: sock) = data
+      HandlerHelpers.sock_send(sock, msg)
+
+      reraise exception, __STACKTRACE__
   end
 
   def handle_event(:info, {:parameter_status, :updated}, _state, _) do
@@ -1108,7 +1118,7 @@ defmodule Ultravisor.ClientHandler do
   end
 
   # forward query to db
-  defp handle_data(_, bin, :busy, data(sock: sock, db_pid: db_pid) = data) do
+  defp handle_data(_, bin, :busy, data(db_pid: db_pid) = data) do
     Logger.debug("ClientHandler: Forward query to db #{inspect(bin)} #{inspect(db_pid)}")
 
     case forward_to_db(bin, data) do
@@ -1118,13 +1128,7 @@ defmodule Ultravisor.ClientHandler do
       error ->
         Logger.error("ClientHandler: error while sending query: #{inspect(error)}")
 
-        HandlerHelpers.send_error(
-          sock,
-          "XX000",
-          "Error while sending query"
-        )
-
-        {:stop, {:shutdown, :send_query_error}}
+        raise Errors.QuerySendError, error: error
     end
   end
 
