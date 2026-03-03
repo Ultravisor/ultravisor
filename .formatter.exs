@@ -7,5 +7,9 @@
 [
   import_deps: [:ecto, :phoenix, :open_api_spex],
   inputs: ["*.{ex,exs}", "priv/*/seeds.exs", "{config,lib}/**/*.{ex,exs}"],
-  subdirectories: ["priv/*/migrations", "test"]
+  subdirectories: ["priv/*/migrations", "test"],
+  locals_without_parens: [
+    deferror: 2,
+    deferror: 3
+  ]
 ]
