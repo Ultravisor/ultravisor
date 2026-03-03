@@ -250,7 +250,7 @@ defmodule Ultravisor.ClientHandler do
         Logger.debug("ClientHandler: Client startup message: #{inspect(hello)}")
         {type, {user, tenant_or_alias, db_name}} = HandlerHelpers.parse_user_info(hello.payload)
 
-        if Helpers.validate_name(user) and Helpers.validate_name(db_name) do
+        if Helpers.valid_name?(user) and Helpers.valid_name?(db_name) do
           log_level = maybe_change_log(hello)
           search_path = hello.payload["options"]["--search_path"]
           event = {:hello, {type, {user, tenant_or_alias, db_name, search_path}}}

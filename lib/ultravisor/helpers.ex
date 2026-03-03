@@ -380,8 +380,8 @@ defmodule Ultravisor.Helpers do
   # we use default Postgres value of `64`
   @max_length Application.compile_env(:ultravisor, :namedatalen, 64) - 1
 
-  @spec validate_name(String.t()) :: boolean()
-  def validate_name(name) do
+  @spec valid_name?(binary()) :: boolean()
+  def valid_name?(name) do
     byte_size(name) in 1..@max_length and String.printable?(name)
   end
 end
