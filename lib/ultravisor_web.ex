@@ -24,7 +24,7 @@ defmodule UltravisorWeb do
 
   def controller do
     quote do
-      use Phoenix.Controller, namespace: UltravisorWeb, formats: [:json]
+      use Phoenix.Controller, formats: [:json]
 
       use Phoenix.VerifiedRoutes,
         endpoint: UltravisorWeb.Endpoint,
