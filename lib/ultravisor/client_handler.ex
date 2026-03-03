@@ -29,13 +29,12 @@ defmodule Ultravisor.ClientHandler do
 
   require Ultravisor.Protocol.Server, as: Server
 
-  import Ultravisor, only: [conn_id: 1, conn_id: 2]
+  import Ultravisor, only: [conn_id: 2]
 
   alias Ultravisor.DbHandler
   alias Ultravisor.HandlerHelpers
   alias Ultravisor.Helpers
   alias Ultravisor.Monitoring.Telem
-  alias Ultravisor.Tenants
 
   alias Ultravisor.Protocol.Error
   alias Ultravisor.Protocol.Errors
@@ -110,7 +109,7 @@ defmodule Ultravisor.ClientHandler do
         # keepalive: true,
         # nodelay: true,
         # nopush: true,
-        active: @switch_active_count
+        active: :once
       )
 
     Logger.debug("ClientHandler is: #{inspect(self())}")
@@ -163,17 +162,6 @@ defmodule Ultravisor.ClientHandler do
     :keep_state_and_data
   end
 
-  def handle_event(:info, {_proto, _, <<"GET", _::binary>>}, :exchange, data) do
-    Logger.debug("ClientHandler: Client is trying to request HTTP")
-
-    HandlerHelpers.sock_send(
-      data(data, :sock),
-      ["HTTP/1.1 204 OK\r\nx-app-version: ", Application.spec(:ultravisor, :vsn), "\r\n\r\n"]
-    )
-
-    {:stop, {:shutdown, :http_request}}
-  end
-
   # cancel request
   def handle_event(:info, {_, _, Server.cancel_message(pid, key)}, _state, _) do
     Logger.debug("ClientHandler: Got cancel query for #{inspect({pid, key})}")
@@ -201,250 +189,42 @@ defmodule Ultravisor.ClientHandler do
     :keep_state_and_data
   end
 
-  def handle_event(:info, {:tcp, _, <<_::64>>}, :exchange, data(id: id, sock: sock) = data) do
-    Logger.debug("ClientHandler: Client is trying to connect with SSL")
-
-    downstream_cert = Helpers.downstream_cert()
-    downstream_key = Helpers.downstream_key()
-
-    # SSL negotiation, S/N/Error
-    if !!downstream_cert and !!downstream_key do
-      :ok = HandlerHelpers.setopts(sock, active: false)
-      :ok = HandlerHelpers.sock_send(sock, "S")
-
-      opts = [
-        verify: :verify_none,
-        certfile: downstream_cert,
-        keyfile: downstream_key
-      ]
-
-      case :ssl.handshake(elem(sock, 1), opts) do
-        {:ok, ssl_sock} ->
-          socket = {:ssl, ssl_sock}
-          :ok = HandlerHelpers.setopts(socket, active: @switch_active_count)
-          {:keep_state, data(data, sock: socket, ssl: true)}
-
-        error ->
-          Logger.error("ClientHandler: SSL handshake error: #{inspect(error)}")
-          Telem.client_join(:fail, id)
-          {:stop, {:shutdown, :ssl_handshake_error}}
-      end
-    else
-      Logger.error(
-        "ClientHandler: User requested SSL connection but no downstream cert/key found"
-      )
-
-      :ok = HandlerHelpers.sock_send(sock, "N")
-      :keep_state_and_data
-    end
-  end
-
-  def handle_event(:info, {_, _, bin}, :exchange, _) when byte_size(bin) > 1024 do
-    Logger.error("ClientHandler: Startup packet too large #{byte_size(bin)}")
-    {:stop, {:shutdown, :startup_packet_too_large}}
-  end
-
-  def handle_event(:info, {_, _, bin}, :exchange, data(sock: sock) = data) do
-    case Server.decode_startup_packet(bin) do
-      {:ok, hello} ->
-        Logger.debug("ClientHandler: Client startup message: #{inspect(hello)}")
-        {type, {user, tenant_or_alias, db_name}} = HandlerHelpers.parse_user_info(hello.payload)
-
-        if Helpers.valid_name?(user) and Helpers.valid_name?(db_name) do
-          log_level = maybe_change_log(hello)
-          search_path = hello.payload["options"]["--search_path"]
-          event = {:hello, {type, {user, tenant_or_alias, db_name, search_path}}}
-          app_name = app_name(hello.payload["application_name"])
-
-          {:keep_state, data(data, log_level: log_level, app_name: app_name),
-           {:next_event, :internal, event}}
-        else
-          reason = "Invalid format for user or db_name"
-
-          Logger.error("ClientHandler: #{inspect(reason)} #{inspect({user, db_name})}")
-
-          Telem.client_join(:fail, tenant_or_alias)
-
-          HandlerHelpers.send_error(
-            sock,
-            "XX000",
-            "Authentication error, reason: #{inspect(reason)}"
-          )
-
-          {:stop, {:shutdown, :invalid_format}}
-        end
-
-      {:error, error} ->
-        Logger.error("ClientHandler: Client startup message error: #{inspect(error)}")
-
-        Telem.client_join(:fail, data(data, :id))
-        {:stop, {:shutdown, :startup_packet_error}}
-    end
-  end
-
-  def handle_event(
-        :internal,
-        {:hello, {type, {user, tenant_or_alias, db_name, search_path}}},
-        :exchange,
-        data(sock: sock) = data
-      ) do
-    sni_hostname = HandlerHelpers.try_get_sni(sock)
-
-    case Tenants.get_user_cache(type, user, tenant_or_alias, sni_hostname) do
-      {:ok, info} ->
-        db_name = db_name || info.tenant.db_database
-
-        id =
-          conn_id(
-            type: type,
-            tenant: tenant_or_alias,
-            user: user,
-            mode: data(data, :mode),
-            db_name: db_name,
-            search_path: search_path
-          )
-
-        mode = Ultravisor.mode(id)
-
-        Logger.metadata(
-          project: tenant_or_alias,
-          user: user,
-          mode: mode,
-          type: type,
-          db_name: db_name,
-          app_name: data(data, :app_name)
-        )
-
-        {:ok, addr} = HandlerHelpers.addr_from_sock(sock)
-
-        cond do
-          not data(data, :local) and info.tenant.enforce_ssl and not data(data, :ssl) ->
-            Logger.error(
-              "ClientHandler: Tenant is not allowed to connect without SSL, user #{user}"
-            )
-
-            :ok = HandlerHelpers.send_error(sock, "XX000", "SSL connection is required")
-            Telem.client_join(:fail, id)
-            {:stop, {:shutdown, :ssl_required}}
-
-          HandlerHelpers.filter_cidrs(info.tenant.allow_list, addr) == [] ->
-            message = "Address not in tenant allow_list: " <> inspect(addr)
-            Logger.error("ClientHandler: #{message}")
-            :ok = HandlerHelpers.send_error(sock, "XX000", message)
-
-            Telem.client_join(:fail, id)
-            {:stop, {:shutdown, :address_not_allowed}}
-
-          true ->
-            new_data = update_user_data(data, info, user, id, db_name, mode)
-
-            key = {:secrets, tenant_or_alias, user}
-
-            case auth_secrets(info, user, key, :timer.hours(24)) do
-              {:ok, auth_secrets} ->
-                Logger.debug("ClientHandler: Authentication method: #{inspect(auth_secrets)}")
-
-                {:keep_state, new_data, {:next_event, :internal, {:handle, auth_secrets, info}}}
-
-              {:error, reason} ->
-                Logger.error(
-                  "ClientHandler: Authentication auth_secrets error: #{inspect(reason)}"
-                )
-
-                :ok =
-                  HandlerHelpers.send_error(
-                    sock,
-                    "XX000",
-                    "Authentication error, reason: #{inspect(reason)}"
-                  )
-
-                Telem.client_join(:fail, id)
-                {:stop, {:shutdown, :auth_secrets_error}}
-            end
-        end
-
-      {:error, reason} ->
-        Logger.error(
-          "ClientHandler: User not found: #{inspect(reason)} #{inspect({type, user, tenant_or_alias})}"
-        )
-
-        :ok = HandlerHelpers.send_error(sock, "XX000", "Tenant or user not found")
-        Telem.client_join(:fail, data(data, :id))
-        {:stop, {:shutdown, :user_not_found}}
-    end
-  end
-
-  def handle_event(
-        :internal,
-        {:handle, {method, secrets}, info},
-        _state,
-        data(id: id, sock: sock) = data
-      ) do
-    Logger.debug("ClientHandler: Handle exchange, auth method: #{inspect(method)}")
-
-    case handle_exchange(sock, {method, secrets}) do
-      {:error, reason} ->
-        Logger.error(
-          "ClientHandler: Exchange error: #{inspect(reason)} when method #{inspect(method)}"
-        )
-
-        msg =
-          if method == :auth_query_md5,
-            do: Server.error_message("XX000", reason),
-            else: Server.exchange_message(:final, "e=#{reason}")
-
-        conn_id(tenant: tenant, user: user) = id
-
-        key = {:secrets_check, tenant, user}
-
-        if method != :password and reason == "Wrong password" and
-             Cachex.get(Ultravisor.Cache, key) == {:ok, nil} do
-          case auth_secrets(info, user, key, 15_000) do
-            {:ok, {method2, secrets2}} = value ->
-              if method != method2 or Map.delete(secrets.(), :client_key) != secrets2.() do
-                Logger.warning("ClientHandler: Update secrets and terminate pool")
-
-                Cachex.update(
-                  Ultravisor.Cache,
-                  {:secrets, tenant, user},
-                  {:cached, value}
-                )
-
-                Ultravisor.stop(id)
-              else
-                Logger.debug("ClientHandler: Cache the same #{inspect(key)}")
-              end
-
-            other ->
-              Logger.error("ClientHandler: Auth secrets check error: #{inspect(other)}")
-          end
-        else
-          Logger.debug("ClientHandler: Cache hit for #{inspect(key)}")
-        end
-
-        HandlerHelpers.sock_send(sock, msg)
-        Telem.client_join(:fail, id)
-        {:stop, {:shutdown, :exchange_error}}
-
-      {:ok, client_key} ->
-        secrets =
-          if client_key,
-            do: fn -> Map.put(secrets.(), :client_key, client_key) end,
-            else: secrets
-
-        Logger.debug("ClientHandler: Exchange success")
+  def handle_event(:info, {_proto, _, _data} = msg, :exchange, data) do
+    case Ultravisor.ClientHandler.Exchange.handle(msg, data) do
+      {:ok, conn_type, data(id: id, sock: sock) = data} ->
         :ok = HandlerHelpers.sock_send(sock, Server.authentication_ok())
         Telem.client_join(:ok, id)
+        HandlerHelpers.setopts(sock, active: @switch_active_count)
+        {:keep_state, data, {:next_event, :internal, conn_type}}
 
-        auth = Map.merge(data(data, :auth), %{secrets: secrets, method: method})
+      {:upgrade, ssl_sock} ->
+        HandlerHelpers.setopts(ssl_sock, active: :once)
+        {:keep_state, data(data, sock: ssl_sock, ssl: true)}
 
-        conn_type =
-          if data(data, :mode) == :proxy,
-            do: :connect_db,
-            else: {:subscribe, 0}
+      {:no_upgrade, sock} ->
+        HandlerHelpers.setopts(sock, active: :once)
+        {:keep_state, data(data, sock: sock, ssl: false)}
 
-        {:keep_state, data(data, auth_secrets: {method, secrets}, auth: auth),
-         {:next_event, :internal, conn_type}}
+      {:error, :http_request} ->
+        Logger.debug("ClientHandler: Client is trying to request HTTP")
+
+        HandlerHelpers.sock_send(
+          data(data, :sock),
+          ["HTTP/1.1 204 OK\r\nx-app-version: ", Application.spec(:ultravisor, :vsn), "\r\n\r\n"]
+        )
+
+        {:stop, {:shutdown, :http_request}}
+
+      {:error, %_{} = error, _data} ->
+        msg = Ultravisor.Protocol.Error.encode(error)
+
+        HandlerHelpers.sock_send(data(data, :sock), msg)
+
+        {:stop, {:shutdown, error}}
+
+      {:error, other, data(id: id)} ->
+        Telem.client_join(:fail, id)
+        {:stop, {:shutdown, other}}
     end
   end
 
@@ -724,97 +504,6 @@ defmodule Ultravisor.ClientHandler do
 
   ## Internal functions
 
-  @spec handle_exchange(Ultravisor.sock(), {atom(), fun()}) ::
-          {:ok, binary() | nil} | {:error, String.t()}
-  defp handle_exchange({_, socket} = sock, {:auth_query_md5 = method, secrets}) do
-    salt = :crypto.strong_rand_bytes(4)
-    :ok = HandlerHelpers.sock_send(sock, Server.md5_request(salt))
-
-    with {:ok,
-          %{
-            tag: :password_message,
-            payload: {:md5, client_md5}
-          }, _} <- receive_next(socket, "Timeout while waiting for the md5 exchange"),
-         {:ok, key} <- authenticate_exchange(method, client_md5, secrets.().secret, salt) do
-      {:ok, key}
-    else
-      {:error, message} -> {:error, message}
-      other -> {:error, "Unexpected message #{inspect(other)}"}
-    end
-  end
-
-  defp handle_exchange({_, socket} = sock, {method, secrets}) do
-    :ok = HandlerHelpers.sock_send(sock, Server.scram_request())
-
-    with {:ok,
-          %{
-            tag: :password_message,
-            payload: {:scram_sha_256, %{"n" => user, "r" => nonce, "c" => channel}}
-          }, _} <-
-           receive_next(
-             socket,
-             "Timeout while waiting for the first password message"
-           ),
-         {:ok, signatures} = reply_first_exchange(sock, method, secrets, channel, nonce, user),
-         {:ok,
-          %{
-            tag: :password_message,
-            payload: {:first_msg_response, %{"p" => p}}
-          }, _} <-
-           receive_next(
-             socket,
-             "Timeout while waiting for the second password message"
-           ),
-         {:ok, key} <- authenticate_exchange(method, secrets, signatures, p) do
-      message = "v=#{Base.encode64(signatures.server)}"
-      :ok = HandlerHelpers.sock_send(sock, Server.exchange_message(:final, message))
-      {:ok, key}
-    else
-      {:error, message} -> {:error, message}
-      other -> {:error, "Unexpected message #{inspect(other)}"}
-    end
-  end
-
-  defp receive_next(socket, timeout_message) do
-    receive do
-      {_proto, ^socket, bin} ->
-        Server.decode_pkt(bin)
-
-      other ->
-        {:error, "Unexpected message in receive_next/2 #{inspect(other)}"}
-    after
-      15_000 -> {:error, timeout_message}
-    end
-  end
-
-  defp reply_first_exchange(sock, method, secrets, channel, nonce, user) do
-    {message, signatures} = exchange_first(method, secrets, nonce, user, channel)
-    :ok = HandlerHelpers.sock_send(sock, Server.exchange_message(:first, message))
-    {:ok, signatures}
-  end
-
-  defp authenticate_exchange(:password, _secrets, signatures, p) do
-    if p == signatures.client,
-      do: {:ok, nil},
-      else: {:error, "Wrong password"}
-  end
-
-  defp authenticate_exchange(:auth_query, secrets, signatures, p) do
-    client_key = :crypto.exor(Base.decode64!(p), signatures.client)
-
-    if Helpers.hash(client_key) == secrets.().stored_key do
-      {:ok, client_key}
-    else
-      {:error, "Wrong password"}
-    end
-  end
-
-  defp authenticate_exchange(:auth_query_md5, client_hash, server_hash, salt) do
-    if "md5" <> Helpers.md5([server_hash, salt]) == client_hash,
-      do: {:ok, nil},
-      else: {:error, "Wrong password"}
-  end
-
   @spec db_checkout(:on_connect | :on_query, t()) ::
           {pid, pid, Ultravisor.sock()} | nil
   defp db_checkout(_, data(mode: mode, db_pid: {pool, db_pid, db_sock}))
@@ -855,155 +544,6 @@ defmodule Ultravisor.ClientHandler do
 
   defp db_checkin(:session, _, db_pid), do: db_pid
   defp db_checkin(:proxy, _, db_pid), do: db_pid
-
-  defp update_user_data(data, info, user, id, db_name, mode) do
-    auth = %{
-      application_name: data(data, :app_name) || "Ultravisor",
-      database: db_name,
-      host: to_charlist(info.tenant.db_host),
-      sni_hostname:
-        if(info.tenant.sni_hostname != nil, do: to_charlist(info.tenant.sni_hostname)),
-      port: info.tenant.db_port,
-      user: user,
-      password: info.user.db_password,
-      require_user: info.tenant.require_user,
-      upstream_ssl: info.tenant.upstream_ssl,
-      upstream_tls_ca: info.tenant.upstream_tls_ca,
-      upstream_verify: info.tenant.upstream_verify
-    }
-
-    data(data,
-      timeout: info.user.pool_checkout_timeout,
-      ps: info.tenant.default_parameter_status,
-      id: id,
-      heartbeat_interval: info.tenant.client_heartbeat_interval * 1000,
-      mode: mode,
-      auth: auth,
-      tenant_availability_zone: info.tenant.availability_zone
-    )
-  end
-
-  @spec auth_secrets(map, String.t(), term(), non_neg_integer()) ::
-          {:ok, Ultravisor.secrets()} | {:error, term()}
-  ## password secrets
-  def auth_secrets(%{user: user, tenant: %{require_user: true}}, _, _, _) do
-    secrets = %{db_user: user.db_user, password: user.db_password, alias: user.db_user_alias}
-
-    {:ok, {:password, fn -> secrets end}}
-  end
-
-  ## auth_query secrets
-  def auth_secrets(info, db_user, key, ttl) do
-    fetch = fn _key ->
-      case get_secrets(info, db_user) do
-        {:ok, _} = resp -> {:commit, {:cached, resp}, expire: ttl}
-        {:error, _} = resp -> {:ignore, resp}
-      end
-    end
-
-    case Cachex.fetch(Ultravisor.Cache, key, fetch) do
-      {:ok, {:cached, value}} -> value
-      {:commit, {:cached, value}} -> value
-      {:ignore, resp} -> resp
-    end
-  end
-
-  @spec get_secrets(map, String.t()) :: {:ok, {:auth_query, fun()}} | {:error, term()}
-  def get_secrets(%{user: user, tenant: tenant}, db_user) do
-    ssl_opts =
-      if tenant.upstream_ssl and tenant.upstream_verify == :peer do
-        [
-          verify: :verify_peer,
-          cacerts: [Helpers.upstream_cert(tenant.upstream_tls_ca)],
-          server_name_indication: String.to_charlist(tenant.db_host),
-          customize_hostname_check: [{:match_fun, fn _, _ -> true end}]
-        ]
-      else
-        [
-          verify: :verify_none
-        ]
-      end
-
-    {:ok, conn} =
-      Postgrex.start_link(
-        hostname: tenant.db_host,
-        port: tenant.db_port,
-        database: tenant.db_database,
-        password: user.db_password,
-        username: user.db_user,
-        parameters: [application_name: "Ultravisor auth_query"],
-        ssl: tenant.upstream_ssl,
-        socket_options: [
-          Helpers.ip_version(tenant.ip_version, tenant.db_host)
-        ],
-        queue_target: 1_000,
-        queue_interval: 5_000,
-        ssl_opts: ssl_opts
-      )
-
-    try do
-      Logger.debug(
-        "ClientHandler: Connected to db #{tenant.db_host} #{tenant.db_port} #{tenant.db_database} #{user.db_user}"
-      )
-
-      resp =
-        with {:ok, secret} <- Helpers.get_user_secret(conn, tenant.auth_query, db_user) do
-          t = if secret.digest == :md5, do: :auth_query_md5, else: :auth_query
-          {:ok, {t, fn -> Map.put(secret, :alias, user.db_user_alias) end}}
-        end
-
-      Logger.info("ClientHandler: Get secrets finished")
-      resp
-    rescue
-      exception ->
-        Logger.error("ClientHandler: Couldn't fetch user secrets from #{tenant.db_host}")
-        reraise exception, __STACKTRACE__
-    after
-      GenServer.stop(conn, :normal, 5_000)
-    end
-  end
-
-  @spec exchange_first(:password | :auth_query, fun(), binary(), binary(), binary()) ::
-          {binary(), map()}
-  defp exchange_first(:password, secret, nonce, user, channel) do
-    message = Server.exchange_first_message(nonce)
-    server_first_parts = Helpers.parse_server_first(message, nonce)
-
-    {client_final_message, server_proof} =
-      Helpers.get_client_final(
-        :password,
-        secret.().password,
-        server_first_parts,
-        nonce,
-        user,
-        channel
-      )
-
-    sings = %{
-      client: List.last(client_final_message),
-      server: server_proof
-    }
-
-    {message, sings}
-  end
-
-  defp exchange_first(:auth_query, secret, nonce, user, channel) do
-    secret = secret.()
-    message = Server.exchange_first_message(nonce, secret.salt)
-    server_first_parts = Helpers.parse_server_first(message, nonce)
-
-    sings =
-      Helpers.signatures(
-        secret.stored_key,
-        secret.server_key,
-        server_first_parts,
-        nonce,
-        user,
-        channel
-      )
-
-    {message, sings}
-  end
 
   defp db_pid_meta({_, {_, pid, _}} = _key) do
     rkey = Ultravisor.Registry.PoolPids
@@ -1103,28 +643,6 @@ defmodule Ultravisor.ClientHandler do
 
     if idle > 0, do: [{:timeout, idle, :idle_terminate} | heartbeat], else: heartbeat
   end
-
-  @spec app_name(any()) :: String.t()
-  defp app_name(name) when is_binary(name), do: name
-
-  defp app_name(nil), do: "Ultravisor"
-
-  defp app_name(name) do
-    Logger.debug("ClientHandler: Invalid application name #{inspect(name)}")
-    "Ultravisor"
-  end
-
-  @spec maybe_change_log(map()) :: atom() | nil
-  def maybe_change_log(%{"payload" => %{"options" => options}}) do
-    level = options["log_level"] && String.to_existing_atom(options["log_level"])
-
-    if level in [:debug, :info, :notice, :warning, :error] do
-      Helpers.set_log_level(level)
-      level
-    end
-  end
-
-  def maybe_change_log(_), do: :ok
 
   @compile {:inline, forward_to_db: 2}
 
