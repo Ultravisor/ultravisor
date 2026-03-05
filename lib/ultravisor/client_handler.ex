@@ -1064,19 +1064,19 @@ defmodule Ultravisor.ClientHandler do
              data: term()
 
   # handle Terminate message
-  defp handle_data(:info, <<?X, 4::32>>, :idle, data(local: true)) do
+  defp handle_data(:info, Server.terminate(), :idle, data(local: true)) do
     Logger.info("ClientHandler: Terminate received from proxy client")
     :keep_state_and_data
   end
 
-  defp handle_data(:info, <<?X, 4::32>>, :idle, _data) do
+  defp handle_data(:info, Server.terminate(), :idle, _data) do
     Logger.info("ClientHandler: Terminate received from client")
     {:stop, {:shutdown, :terminate_received}}
   end
 
   defp handle_data(
          :info,
-         <<?S, 4::32>> <> _ = msg,
+         Server.sync() = msg,
          :idle,
          data(sock: sock, db_pid: db_pid) = data
        ) do
@@ -1092,14 +1092,14 @@ defmodule Ultravisor.ClientHandler do
     {:keep_state, data, handle_actions(data)}
   end
 
-  defp handle_data(:info, <<?S, 4::32, _::binary>> = msg, _, data) do
+  defp handle_data(:info, Server.sync() = msg, _, data) do
     Logger.debug("ClientHandler: Receive sync while not idle")
     :ok = sock_send_maybe_active_once(msg, data)
     {:keep_state, data, handle_actions(data)}
   end
 
   # handle Flush message
-  defp handle_data(:info, <<?H, 4::32, _::binary>> = msg, _, data) do
+  defp handle_data(:info, Server.flush() = msg, _, data) do
     Logger.debug("ClientHandler: Receive flush while not idle")
     :ok = sock_send_maybe_active_once(msg, data)
     {:keep_state, data, handle_actions(data)}
