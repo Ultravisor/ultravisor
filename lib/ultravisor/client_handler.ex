@@ -1099,9 +1099,9 @@ defmodule Ultravisor.ClientHandler do
   end
 
   # handle Flush message
-  defp handle_data(:info, Server.flush() = msg, _, data) do
+  defp handle_data(:info, Server.flush(), _, data) do
     Logger.debug("ClientHandler: Receive flush while not idle")
-    :ok = sock_send_maybe_active_once(msg, data)
+    :ok = sock_send_maybe_active_once(Server.flush(), data)
     {:keep_state, data, handle_actions(data)}
   end
 
