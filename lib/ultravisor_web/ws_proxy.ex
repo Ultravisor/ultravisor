@@ -11,7 +11,8 @@ defmodule UltravisorWeb.WsProxy do
   """
 
   require Logger
-  alias Ultravisor.Protocol.Server
+  require Ultravisor.Protocol.Server, as: Server
+
   @behaviour Plug
 
   def call(conn, state) do

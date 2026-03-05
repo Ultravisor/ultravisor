@@ -13,13 +13,14 @@ defmodule Ultravisor.DbHandler do
   require Logger
   require Record
 
+  require Ultravisor.Protocol.Server, as: Server
+
   @behaviour :gen_statem
 
   alias Ultravisor.ClientHandler
   alias Ultravisor.HandlerHelpers
   alias Ultravisor.Helpers
   alias Ultravisor.Monitoring.Telem
-  alias Ultravisor.Protocol.Server
 
   @type state :: :connect | :authentication | :idle | :busy
 
@@ -566,7 +567,7 @@ defmodule Ultravisor.DbHandler do
   @spec receive_ready_for_query() :: :ok | :timeout_error
   defp receive_ready_for_query do
     receive do
-      {_proto, _socket, <<?Z, 5::32, ?I>>} ->
+      {_proto, _socket, Server.ready_for_query()} ->
         :ok
     after
       15_000 -> :timeout_error

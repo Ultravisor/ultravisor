@@ -41,6 +41,35 @@ defmodule Ultravisor.Protocol.Server do
     end
   end
 
+  # SSLRequest message
+  @spec ssl_request() :: binary()
+  defmacro ssl_request, do: quote(do: unquote(@ssl_request))
+
+  @spec ready_for_query() :: binary()
+  defmacro ready_for_query, do: quote(do: unquote(@ready_for_query))
+
+  @spec application_name() :: binary
+  def application_name, do: @application_name
+
+  @spec terminate_message() :: binary
+  def terminate_message, do: @terminate_message
+
+  def authentication_ok, do: @authentication_ok
+
+  defmacro flush, do: quote(do: <<?H, 4::integer-32>>)
+
+  defmacro sync, do: quote(do: <<?S, 4::integer-32>>)
+
+  defmacro terminate, do: quote(do: unquote(@terminate_message))
+
+  @spec scram_request() :: iodata
+  def scram_request, do: @scram_request
+
+  @spec md5_request(<<_::32>>) :: iodata
+  def md5_request(salt) do
+    [<<?R, 12::32, 5::32>>, salt]
+  end
+
   @spec decode(iodata()) :: [Pkt.t()] | []
   def decode(data) do
     decode(data, [])
@@ -277,16 +306,6 @@ defmodule Ultravisor.Protocol.Server do
     end
   end
 
-  @spec scram_request() :: iodata
-  def scram_request do
-    @scram_request
-  end
-
-  @spec md5_request(<<_::32>>) :: iodata
-  def md5_request(salt) do
-    [<<?R, 12::32, 5::32>>, salt]
-  end
-
   @spec exchange_first_message(binary, binary | boolean, pos_integer) :: binary
   def exchange_first_message(nonce, salt \\ false, iterations \\ 4096) do
     secret =
@@ -332,22 +351,10 @@ defmodule Ultravisor.Protocol.Server do
     decode_parameter_description(rest, [oid | acc])
   end
 
-  def flush do
-    <<?H, 4::integer-32>>
-  end
-
-  def sync do
-    <<?S, 4::integer-32>>
-  end
-
   def encode(query) do
     payload = [[], <<0>>, query, <<0>>, <<0, 0>>, []]
     payload_len = IO.iodata_length(payload) + 4
     [<<?P, payload_len::integer-32>>, payload]
-  end
-
-  def authentication_ok do
-    @authentication_ok
   end
 
   @spec encode_parameter_status(map) :: iodata()
@@ -371,17 +378,6 @@ defmodule Ultravisor.Protocol.Server do
     payload = <<pid::integer-32, key::binary>>
     len = IO.iodata_length(payload) + 4
     {<<?K, len::32>>, payload}
-  end
-
-  @spec ready_for_query() :: binary()
-  def ready_for_query do
-    @ready_for_query
-  end
-
-  # SSLRequest message
-  @spec ssl_request() :: binary()
-  def ssl_request do
-    @ssl_request
   end
 
   # The startup packet payload is a list of key/value pairs, separated by null bytes
@@ -434,10 +430,4 @@ defmodule Ultravisor.Protocol.Server do
       _ -> false
     end)
   end
-
-  @spec application_name() :: binary
-  def application_name, do: @application_name
-
-  @spec terminate_message() :: binary
-  def terminate_message, do: @terminate_message
 end
