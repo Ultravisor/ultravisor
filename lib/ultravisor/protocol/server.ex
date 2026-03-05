@@ -385,7 +385,7 @@ defmodule Ultravisor.Protocol.Server do
   end
 
   # The startup packet payload is a list of key/value pairs, separated by null bytes
-  defp decode_startup_packet_payload(payload) do
+  def decode_startup_packet_payload(payload) do
     fields = String.split(payload, <<0>>, trim: true)
 
     # If the number of fields is odd, then the payload is malformed
