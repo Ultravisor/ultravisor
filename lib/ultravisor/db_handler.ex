@@ -285,31 +285,7 @@ defmodule Ultravisor.DbHandler do
     {:next_state, :busy, data(data, buffer: [])}
   end
 
-  # check if it needs to apply queries from the anon buffer
-  def handle_event(
-        :internal,
-        :check_anon_buffer,
-        _,
-        data(sock: sock, anon_buffer: buff, caller: nil) = data
-      ) do
-    Logger.debug("DbHandler: Check anon buffer")
-
-    if buff != [] do
-      Logger.debug(
-        "DbHandler: Anon buffer is not empty, try to send #{IO.iodata_length(buff)} bytes"
-      )
-
-      buff = Enum.reverse(buff)
-      :ok = sock_send(sock, buff)
-    end
-
-    {:keep_state, data(data, anon_buffer: [])}
-  end
-
-  def handle_event(:internal, :check_anon_buffer, _, _) do
-    Logger.debug("DbHandler: Anon buffer is empty")
-    :keep_state_and_data
-  end
+  def handle_event(:internal, :check_buffer, _state, _data), do: :keep_state_and_data
 
   # the process received message from db without linked caller
   def handle_event(:info, {proto, _, bin}, _, data(caller: nil)) when proto in @proto do
@@ -389,7 +365,7 @@ defmodule Ultravisor.DbHandler do
           data(data, stats: stats, client_stats: client_stats)
         end
 
-      {:next_state, :idle, data, {:next_event, :internal, :check_anon_buffer}}
+      {:next_state, :idle, check_anon_buffer(data)}
     else
       HandlerHelpers.sock_send(data(data, :client_sock), bin)
       {:keep_state, data}
@@ -757,4 +733,18 @@ defmodule Ultravisor.DbHandler do
 
   defp reconnect_timeout(_),
     do: @reconnect_timeout
+
+  defp check_anon_buffer(data(sock: sock, anon_buffer: buff, caller: nil) = data)
+       when buff != [] do
+    Logger.debug(
+      "DbHandler: Anon buffer is not empty, try to send #{IO.iodata_length(buff)} bytes"
+    )
+
+    buff = Enum.reverse(buff)
+    :ok = sock_send(sock, buff)
+
+    data(data, anon_buffer: [])
+  end
+
+  defp check_anon_buffer(data), do: data
 end
