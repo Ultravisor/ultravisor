@@ -77,7 +77,7 @@ defmodule Ultravisor.ClientHandler do
   @impl true
   def callback_mode, do: [:handle_event_function, :state_enter]
 
-  @spec db_status(pid(), :ready_for_query | :read_sql_error, binary()) :: :ok
+  @spec db_status(pid(), :ready_for_query, binary()) :: :ok
   def db_status(pid, status, bin), do: :gen_statem.cast(pid, {:db_status, status, bin})
 
   @impl true
@@ -472,7 +472,7 @@ defmodule Ultravisor.ClientHandler do
          {:ok, opts} <- Ultravisor.subscribe(sup, id) do
       manager_ref = Process.monitor(opts.workers.manager)
       data = data(data, manager: opts.workers.manager, pool: opts.workers.pool)
-      db_pid = db_checkout(:both, :on_connect, data)
+      db_pid = db_checkout(:on_connect, data)
       data = data(data, manager: manager_ref, db_pid: db_pid, idle_timeout: opts.idle_timeout)
 
       Registry.register(@clients_registry, id, [])
@@ -542,7 +542,6 @@ defmodule Ultravisor.ClientHandler do
       auth: auth,
       user: conn_id(id, :user),
       tenant: {:single, conn_id(id, :tenant)},
-      replica_type: :write,
       mode: :proxy,
       proxy: true,
       log_level: log_level,
@@ -670,20 +669,6 @@ defmodule Ultravisor.ClientHandler do
         Telem.client_query_time(query_start, id)
 
         {:next_state, :idle, data(data, db_pid: db_pid), handle_actions(data)}
-
-      :read_sql_error ->
-        Logger.error(
-          "ClientHandler: read only sql transaction, rerunning the query to write pool"
-        )
-
-        # release the read pool
-        _ = db_checkin(mode, pool, db_pid)
-
-        ts = System.monotonic_time()
-        db_pid = db_checkout(:write, :on_query, data)
-
-        {:keep_state, data(data, db_pid: db_pid, query_start: ts),
-         {:next_event, :internal, {:tcp, nil, data(data, :last_query)}}}
     end
   end
 
@@ -837,30 +822,16 @@ defmodule Ultravisor.ClientHandler do
       else: {:error, "Wrong password"}
   end
 
-  @spec db_checkout(:write | :read | :both, :on_connect | :on_query, t()) ::
+  @spec db_checkout(:on_connect | :on_query, t()) ::
           {pid, pid, Ultravisor.sock()} | nil
-  defp db_checkout(_, _, data(mode: mode, db_pid: {pool, db_pid, db_sock}))
+  defp db_checkout(_, data(mode: mode, db_pid: {pool, db_pid, db_sock}))
        when is_pid(db_pid) and mode in [:session, :proxy] do
     {pool, db_pid, db_sock}
   end
 
-  defp db_checkout(_, :on_connect, data(mode: :transaction)), do: nil
+  defp db_checkout(:on_connect, data(mode: :transaction)), do: nil
 
-  defp db_checkout(query_type, _, data) when query_type in [:write, :read] do
-    data(id: id, pool: pool, timeout: timeout) = data
-
-    pool =
-      pool[query_type]
-      |> Enum.random()
-
-    {time, db_pid} = :timer.tc(:poolboy, :checkout, [pool, true, timeout])
-    Process.link(db_pid)
-    same_box = if node(db_pid) == node(), do: :local, else: :remote
-    Telem.pool_checkout_time(time, id, same_box)
-    {pool, db_pid}
-  end
-
-  defp db_checkout(_, _, data) do
+  defp db_checkout(_, data) do
     data(id: id, sock: sock, pool: pool, timeout: timeout) = data
     start = System.monotonic_time()
     db_pid = :poolboy.checkout(pool, true, timeout)
@@ -1090,7 +1061,7 @@ defmodule Ultravisor.ClientHandler do
   # incoming query with a single pool
   defp handle_data(:info, bin, :idle, data(pool: pid) = data) when is_pid(pid) do
     Logger.debug("ClientHandler: Receive query #{inspect(bin)}")
-    db_pid = db_checkout(:both, :on_query, data)
+    db_pid = db_checkout(:on_query, data)
     data = data(data, db_pid: db_pid, query_start: System.monotonic_time())
 
     :ok = forward_to_db(bin, data)
@@ -1106,10 +1077,8 @@ defmodule Ultravisor.ClientHandler do
 
   # incoming query with read/write pools
   defp handle_data(:info, bin, :idle, data) do
-    query_type = :write
-
     ts = System.monotonic_time()
-    db_pid = db_checkout(query_type, :on_query, data)
+    db_pid = db_checkout(:on_query, data)
     data = data(data, db_pid: db_pid, query_start: ts, last_query: "")
 
     :ok = forward_to_db(bin, data)
