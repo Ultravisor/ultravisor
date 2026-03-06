@@ -552,7 +552,7 @@ defmodule Ultravisor.ClientHandler do
     }
 
     {:ok, db_pid} = DbHandler.start_link(args)
-    db_sock = :gen_statem.call(db_pid, {:checkout, sock, self()})
+    db_sock = DbHandler.checkout(db_pid, sock, self())
     {:keep_state, data(data, db_pid: {nil, db_pid, db_sock}, mode: :proxy)}
   end
 
