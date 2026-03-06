@@ -1120,16 +1120,9 @@ defmodule Ultravisor.ClientHandler do
   # forward query to db
   defp handle_data(_, bin, :busy, data(db_pid: db_pid) = data) do
     Logger.debug("ClientHandler: Forward query to db #{inspect(bin)} #{inspect(db_pid)}")
+    :ok = forward_to_db(bin, data)
 
-    case forward_to_db(bin, data) do
-      :ok ->
-        :keep_state_and_data
-
-      error ->
-        Logger.error("ClientHandler: error while sending query: #{inspect(error)}")
-
-        raise Errors.QuerySendError, error: error
-    end
+    :keep_state_and_data
   end
 
   @spec handle_actions(t()) :: [{:timeout, non_neg_integer, atom}]
@@ -1168,6 +1161,14 @@ defmodule Ultravisor.ClientHandler do
 
   @spec forward_to_db(binary(), t()) :: :ok | {:error, term()}
   defp forward_to_db(bin, data(db_pid: db_pid)) do
-    HandlerHelpers.sock_send(elem(db_pid, 2), bin)
+    case HandlerHelpers.sock_send(elem(db_pid, 2), bin) do
+      :ok ->
+        :ok
+
+      {:error, error} ->
+        Logger.error("ClientHandler: error while sending query: #{inspect(error)}")
+
+        raise Errors.QuerySendError, error: error
+    end
   end
 end
