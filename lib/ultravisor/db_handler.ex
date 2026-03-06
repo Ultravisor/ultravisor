@@ -44,7 +44,6 @@ defmodule Ultravisor.DbHandler do
     :stats,
     :client_stats,
     :mode,
-    :replica_type,
     :reply,
     :caller,
     :client_sock,
@@ -95,7 +94,6 @@ defmodule Ultravisor.DbHandler do
         stats: {0, 0},
         client_stats: {0, 0},
         mode: args.mode,
-        replica_type: args.replica_type,
         reply: nil,
         caller: args[:caller] || nil,
         client_sock: args[:client_sock] || nil,
@@ -113,7 +111,12 @@ defmodule Ultravisor.DbHandler do
   def callback_mode, do: [:handle_event_function]
 
   @impl true
-  def handle_event(:info, {passive, _socket}, _, data(sock: sock))
+  def handle_event(
+        :info,
+        {passive, _socket},
+        _,
+        data(sock: sock)
+      )
       when passive in [:ssl_passive, :tcp_passive] do
     HandlerHelpers.setopts(sock, active: @switch_active_count)
 
@@ -251,41 +254,6 @@ defmodule Ultravisor.DbHandler do
   def handle_event(:info, {proto, _, bin}, _, data(caller: nil)) when proto in @proto do
     Logger.debug("DbHandler: Got db response #{inspect(bin)} when caller was nil")
     :keep_state_and_data
-  end
-
-  def handle_event(:info, {proto, _, bin}, _, data(id: id, replica_type: :read) = data)
-      when proto in @proto do
-    Logger.debug("DbHandler: Got read replica message #{inspect(bin)}")
-    pkts = Server.decode(bin)
-
-    resp =
-      cond do
-        Server.has_read_only_error?(pkts) ->
-          Logger.error("DbHandler: read only error")
-
-          with [_] <- pkts do
-            # need to flush ready_for_query if it's not in same packet
-            :ok = receive_ready_for_query()
-          end
-
-          :read_sql_error
-
-        List.last(pkts).tag == :ready_for_query ->
-          :ready_for_query
-
-        true ->
-          :continue
-      end
-
-    if resp != :continue do
-      data(caller: caller, sock: sock, stats: stats) = data
-
-      :ok = ClientHandler.db_status(caller, resp, bin)
-      {_, stats} = Telem.network_usage(:db, sock, id, stats)
-      {:keep_state, data(data, stats: stats, caller: handler_caller(data))}
-    else
-      :keep_state_and_data
-    end
   end
 
   # forward the message to the client
@@ -463,7 +431,7 @@ defmodule Ultravisor.DbHandler do
 
   @spec send_startup(Ultravisor.sock(), map(), String.t() | nil, String.t() | nil) ::
           :ok | {:error, term}
-  def send_startup(sock, auth, tenant, search_path) do
+  defp send_startup(sock, auth, tenant, search_path) do
     user =
       if is_nil(tenant), do: get_user(auth), else: "#{get_user(auth)}.#{tenant}"
 
@@ -486,20 +454,6 @@ defmodule Ultravisor.DbHandler do
       auth.secrets.().user
     end
   end
-
-  @spec receive_ready_for_query() :: :ok | :timeout_error
-  defp receive_ready_for_query do
-    receive do
-      {_proto, _socket, Server.ready_for_query()} ->
-        :ok
-    after
-      15_000 -> :timeout_error
-    end
-  end
-
-  @spec handler_caller(t()) :: pid() | nil
-  defp handler_caller(data(caller: caller, mode: :session)), do: caller
-  defp handler_caller(_), do: nil
 
   @spec handle_auth_pkts(map(), map(), t()) :: any()
   defp handle_auth_pkts(%{tag: :parameter_status, payload: {k, v}}, acc, _),
