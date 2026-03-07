@@ -271,7 +271,7 @@ defmodule Ultravisor.DbHandler do
     if buff != [] do
       Logger.debug("DbHandler: Buffer is not empty, try to send #{IO.iodata_length(buff)} bytes")
       buff = Enum.reverse(buff)
-      :ok = sock_send(sock, buff)
+      :ok = HandlerHelpers.sock_send(sock, buff)
     end
 
     {:next_state, :busy, data(data, buffer: [])}
@@ -400,7 +400,7 @@ defmodule Ultravisor.DbHandler do
     end
 
     if state == :busy or mode == :session do
-      sock_send(sock, Server.terminate_message())
+      HandlerHelpers.sock_send(sock, Server.terminate_message())
       :gen_tcp.close(elem(sock, 1))
       {:stop, {:client_handler_down, mode}}
     else
@@ -452,7 +452,7 @@ defmodule Ultravisor.DbHandler do
   @spec try_ssl_handshake(Ultravisor.tcp_sock(), map) ::
           {:ok, Ultravisor.sock()} | {:error, term()}
   defp try_ssl_handshake(sock, %{upstream_ssl: true} = auth) do
-    case sock_send(sock, Server.ssl_request()) do
+    case HandlerHelpers.sock_send(sock, Server.ssl_request()) do
       :ok -> ssl_recv(sock, auth)
       error -> error
     end
@@ -511,12 +511,7 @@ defmodule Ultravisor.DbHandler do
         ] ++ if(search_path, do: [{"options", "--search_path=#{search_path}"}], else: [])
       )
 
-    sock_send(sock, msg)
-  end
-
-  @spec sock_send(Ultravisor.sock(), iodata) :: :ok | {:error, term}
-  defp sock_send({mod, sock}, data) do
-    mod.send(sock, data)
+    HandlerHelpers.sock_send(sock, msg)
   end
 
   defp get_user(auth) do
