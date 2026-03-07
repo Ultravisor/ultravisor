@@ -61,8 +61,7 @@ defmodule Ultravisor.ClientHandler do
     :log_level,
     :auth,
     :tenant_availability_zone,
-    :local,
-    :app_name
+    :local
   ])
 
   @typep t() :: record(:data)
@@ -135,8 +134,7 @@ defmodule Ultravisor.ClientHandler do
         log_level: nil,
         auth: %{},
         tenant_availability_zone: nil,
-        local: local,
-        app_name: nil
+        local: local
       )
 
     :gen_statem.enter_loop(__MODULE__, [hibernate_after: 5_000], :exchange, data)
