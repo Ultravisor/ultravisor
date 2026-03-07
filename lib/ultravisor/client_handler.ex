@@ -50,7 +50,6 @@ defmodule Ultravisor.ClientHandler do
     :ps,
     :ssl,
     :auth_secrets,
-    :proxy_type,
     :mode,
     :stats,
     :idle_timeout,
@@ -123,7 +122,6 @@ defmodule Ultravisor.ClientHandler do
         ps: nil,
         ssl: false,
         auth_secrets: nil,
-        proxy_type: nil,
         mode: opts.mode,
         stats: {0, 0},
         idle_timeout: 0,
@@ -878,11 +876,6 @@ defmodule Ultravisor.ClientHandler do
   defp handle_db_pid(:proxy, _, db_pid), do: db_pid
 
   defp update_user_data(data, info, user, id, db_name, mode) do
-    proxy_type =
-      if info.tenant.require_user,
-        do: :password,
-        else: :auth_query
-
     auth = %{
       application_name: data(data, :app_name) || "Ultravisor",
       database: db_name,
@@ -901,7 +894,6 @@ defmodule Ultravisor.ClientHandler do
     data(data,
       timeout: info.user.pool_checkout_timeout,
       ps: info.tenant.default_parameter_status,
-      proxy_type: proxy_type,
       id: id,
       heartbeat_interval: info.tenant.client_heartbeat_interval * 1000,
       mode: mode,
