@@ -66,8 +66,7 @@ config :ultravisor, UltravisorWeb.Endpoint,
   ]
 
 # Configures Elixir's Logger
-config :logger, :console,
-  format: "$time [$level] $message $metadata\n",
+config :logger, :default_formatter,
   level: :debug,
   # level: :notice,
   metadata: [
@@ -75,13 +74,7 @@ config :logger, :console,
     :file,
     :line,
     :pid,
-    :project,
-    :user,
     :mode,
-    :type,
-    :app_name,
-    :peer_ip,
-    :local,
     :proxy
   ]
 
