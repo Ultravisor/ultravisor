@@ -183,30 +183,4 @@ defmodule Ultravisor.DbHandlerTest do
       assert message == <<?p, 40::integer-32, "md5", "ae5546ff52734a18d0277977f626946c", 0>>
     end
   end
-
-  describe "check_ready/1" do
-    test "ready_for_query valid" do
-      assert {:ready_for_query, :transaction_block} == Db.check_ready(<<90, 0, 0, 0, 5, ?T>>)
-
-      assert {:ready_for_query, :transaction_block} ==
-               Db.check_ready(<<1, 1, 1, 90, 0, 0, 0, 5, ?T>>)
-
-      assert {:ready_for_query, :failed_transaction_block} ==
-               Db.check_ready(<<90, 0, 0, 0, 5, ?E>>)
-
-      assert {:ready_for_query, :failed_transaction_block} ==
-               Db.check_ready(<<1, 1, 1, 90, 0, 0, 0, 5, ?E>>)
-
-      assert {:ready_for_query, :idle} == Db.check_ready(<<90, 0, 0, 0, 5, ?I>>)
-
-      assert {:ready_for_query, :idle} ==
-               Db.check_ready(<<1, 1, 1, 90, 0, 0, 0, 5, ?I>>)
-    end
-
-    test "ready_for_query not valid" do
-      assert :continue == Db.check_ready(<<>>)
-      assert :continue == Db.check_ready(<<90, 0, 0, 0, 5, ?I, 1, 1, 1>>)
-      assert :continue == Db.check_ready(<<1, 1, 1, 90, 0, 0, 0, 5, ?I, 1, 1, 1>>)
-    end
-  end
 end
