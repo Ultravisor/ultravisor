@@ -42,7 +42,6 @@ defmodule Ultravisor.ClientHandler do
   Record.defrecord(:data, [
     :id,
     :sock,
-    :trans,
     :db_pid,
     :pool,
     :manager,
@@ -116,7 +115,6 @@ defmodule Ultravisor.ClientHandler do
       data(
         id: nil,
         sock: {:gen_tcp, sock},
-        trans: trans,
         db_pid: nil,
         pool: nil,
         manager: nil,
