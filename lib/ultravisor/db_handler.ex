@@ -202,7 +202,7 @@ defmodule Ultravisor.DbHandler do
     dec_pkt = Server.decode(bin)
     Logger.debug("DbHandler: dec_pkt, #{inspect(dec_pkt, pretty: true)}")
 
-    resp = Enum.reduce(dec_pkt, %{}, &handle_auth_pkts(&1, &2, data))
+    resp = Enum.reduce_while(dec_pkt, %{}, &handle_auth_pkts(&1, &2, data))
 
     case resp do
       {:authentication_sasl, nonce} ->
@@ -572,17 +572,17 @@ defmodule Ultravisor.DbHandler do
 
   @spec handle_auth_pkts(map(), map(), t()) :: any()
   defp handle_auth_pkts(%{tag: :parameter_status, payload: {k, v}}, acc, _),
-    do: update_in(acc, [:ps], fn ps -> Map.put(ps || %{}, k, v) end)
+    do: {:cont, update_in(acc, [:ps], fn ps -> Map.put(ps || %{}, k, v) end)}
 
   defp handle_auth_pkts(%{tag: :ready_for_query, payload: db_state}, acc, _),
-    do: {:ready_for_query, Map.put(acc, :db_state, db_state)}
+    do: {:halt, {:ready_for_query, Map.put(acc, :db_state, db_state)}}
 
   defp handle_auth_pkts(%{tag: :backend_key_data, payload: payload}, acc, data(auth: auth)) do
     key = self()
     conn = %{host: auth.host, port: auth.port, ip_ver: auth.ip_version}
     Registry.register(Ultravisor.Registry.PoolPids, key, Map.merge(payload, conn))
     Logger.debug("DbHandler: Backend #{inspect(key)} data: #{inspect(payload)}")
-    Map.put(acc, :backend_key_data, payload)
+    {:cont, Map.put(acc, :backend_key_data, payload)}
   end
 
   defp handle_auth_pkts(
@@ -615,7 +615,7 @@ defmodule Ultravisor.DbHandler do
           nil
       end
 
-    {:authentication_sasl, nonce}
+    {:halt, {:authentication_sasl, nonce}}
   end
 
   defp handle_auth_pkts(
@@ -639,7 +639,7 @@ defmodule Ultravisor.DbHandler do
     bin = :pgo_protocol.encode_scram_response_message(client_final_message)
     :ok = HandlerHelpers.sock_send(sock, bin)
 
-    {:authentication_server_first_message, server_proof}
+    {:halt, {:authentication_server_first_message, server_proof}}
   end
 
   defp handle_auth_pkts(
@@ -660,7 +660,7 @@ defmodule Ultravisor.DbHandler do
     bin = :pgo_protocol.encode_scram_response_message(client_final_message)
     :ok = HandlerHelpers.sock_send(sock, bin)
 
-    {:authentication_server_first_message, server_proof}
+    {:halt, {:authentication_server_first_message, server_proof}}
   end
 
   defp handle_auth_pkts(
@@ -668,14 +668,14 @@ defmodule Ultravisor.DbHandler do
          acc,
          _data
        ),
-       do: Map.put(acc, :authentication_server_final_message, server_final)
+       do: {:cont, Map.put(acc, :authentication_server_final_message, server_final)}
 
   defp handle_auth_pkts(
          %{payload: :authentication_ok},
          acc,
          _data
        ),
-       do: Map.put(acc, :authentication_ok, true)
+       do: {:cont, Map.put(acc, :authentication_ok, true)}
 
   defp handle_auth_pkts(
          %{payload: {:authentication_md5_password, salt}} = dec_pkt,
@@ -694,13 +694,11 @@ defmodule Ultravisor.DbHandler do
     payload = ["md5", Helpers.md5([digest, salt]), 0]
     bin = [?p, <<IO.iodata_length(payload) + 4::signed-32>>, payload]
     :ok = HandlerHelpers.sock_send(sock, bin)
-    :authentication_md5
+    {:halt, :authentication_md5}
   end
 
   defp handle_auth_pkts(%{tag: :error_response, payload: error}, _acc, _data),
-    do: {:error_response, error}
-
-  defp handle_auth_pkts(_e, acc, _data), do: acc
+    do: {:halt, {:error_response, error}}
 
   @spec handle_authentication_error(t(), String.t()) :: any()
   defp handle_authentication_error(data(id: id, user: user, proxy: false), reason) do
