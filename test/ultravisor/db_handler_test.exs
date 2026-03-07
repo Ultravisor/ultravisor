@@ -54,7 +54,6 @@ defmodule Ultravisor.DbHandlerTest do
       assert data(
                sock: nil,
                caller: nil,
-               sent: false,
                auth: auth,
                tenant: tenant,
                buffer: [],
