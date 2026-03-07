@@ -87,8 +87,6 @@
                 };
               };
 
-              process.manager.implementation = "honcho";
-
               # Force connection through TCP instead of Unix socket
               env.PGHOST = lib.mkForce "";
 
