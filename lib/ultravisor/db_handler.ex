@@ -35,7 +35,6 @@ defmodule Ultravisor.DbHandler do
   Record.defrecord(:data, [
     :id,
     :sock,
-    :sent,
     :auth,
     :user,
     :tenant,
@@ -91,7 +90,6 @@ defmodule Ultravisor.DbHandler do
       data(
         id: args.id,
         sock: nil,
-        sent: false,
         auth: args.auth,
         user: args.user,
         tenant: args.tenant,
