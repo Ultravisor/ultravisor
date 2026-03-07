@@ -379,11 +379,6 @@ defmodule Ultravisor.DbHandler do
       else: {:keep_state, data(data, client_sock: client_sock, caller: caller, reply: from)}
   end
 
-  def handle_event({:call, from}, :ps, _, data(parameter_status: parameter_status)) do
-    Logger.debug("DbHandler: get parameter status")
-    {:keep_state_and_data, {:reply, from, parameter_status}}
-  end
-
   def handle_event(_, {closed, _}, :busy, data) when closed in @sock_closed do
     {:stop, {:shutdown, :db_termination}, data}
   end
