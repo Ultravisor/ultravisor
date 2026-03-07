@@ -62,10 +62,6 @@
                 package = pkgs.beam.packages.erlang_28.elixir_1_19;
               };
 
-              packages = [
-                pkgs.lexical
-              ];
-
               # env.DYLD_INSERT_LIBRARIES = "${pkgs.mimalloc}/lib/libmimalloc.dylib";
             }
             {
