@@ -590,22 +590,9 @@ defmodule Ultravisor.ClientHandler do
     {:keep_state_and_data, {:timeout, hb, :heartbeat_check}}
   end
 
-  def handle_event(kind, {proto, socket, msg}, state, data)
+  def handle_event(kind, {proto, _socket, msg}, state, data)
       when proto in @proto and is_binary(msg) do
-    with {:next_state, next_state, new_data, actions} <- handle_data(kind, msg, state, data) do
-      new_actions =
-        actions
-        |> List.wrap()
-        |> Enum.map(fn
-          {:next_event, type, bin} when is_binary(bin) ->
-            {:next_event, type, {proto, socket, bin}}
-
-          other ->
-            other
-        end)
-
-      {:next_state, next_state, new_data, new_actions}
-    end
+    handle_data(kind, msg, state, data)
   end
 
   def handle_event(:info, {:parameter_status, :updated}, _state, _) do
@@ -1080,23 +1067,23 @@ defmodule Ultravisor.ClientHandler do
     # db_pid can be nil in transaction mode, so we will send ready_for_query
     # without checking out a direct connection. If there is a linked db_pid,
     # we will forward the message to it
-    if db_pid != nil,
-      do: :ok = sock_send_maybe_active_once(Server.sync(), data),
-      else: :ok = HandlerHelpers.sock_send(sock, Server.ready_for_query())
+    if db_pid,
+      do: :ok = HandlerHelpers.sock_send(sock, Server.ready_for_query()),
+      else: :ok = forward_to_db(Server.sync(), data)
 
     {:keep_state, data, handle_actions(data)}
   end
 
   defp handle_data(:info, Server.sync(), _, data) do
     Logger.debug("ClientHandler: Receive sync while not idle")
-    :ok = sock_send_maybe_active_once(Server.sync(), data)
+    :ok = forward_to_db(Server.sync(), data)
     {:keep_state, data, handle_actions(data)}
   end
 
   # handle Flush message
   defp handle_data(:info, Server.flush(), _, data) do
     Logger.debug("ClientHandler: Receive flush while not idle")
-    :ok = sock_send_maybe_active_once(Server.flush(), data)
+    :ok = forward_to_db(Server.flush(), data)
     {:keep_state, data, handle_actions(data)}
   end
 
@@ -1104,14 +1091,17 @@ defmodule Ultravisor.ClientHandler do
   defp handle_data(:info, bin, :idle, data(pool: pid) = data) when is_pid(pid) do
     Logger.debug("ClientHandler: Receive query #{inspect(bin)}")
     db_pid = db_checkout(:both, :on_query, data)
+    data = data(data, db_pid: db_pid, query_start: System.monotonic_time())
 
-    {:next_state, :busy, data(data, db_pid: db_pid, query_start: System.monotonic_time()),
-     {:next_event, :internal, bin}}
+    :ok = forward_to_db(bin, data)
+
+    {:next_state, :busy, data}
   end
 
   defp handle_data(:info, bin, _, data(mode: :proxy) = data) do
-    {:next_state, :busy, data(data, query_start: System.monotonic_time()),
-     {:next_event, :internal, bin}}
+    data = data(data, query_start: System.monotonic_time())
+    :ok = forward_to_db(bin, data)
+    {:next_state, :busy, data}
   end
 
   # incoming query with read/write pools
@@ -1120,18 +1110,20 @@ defmodule Ultravisor.ClientHandler do
 
     ts = System.monotonic_time()
     db_pid = db_checkout(query_type, :on_query, data)
+    data = data(data, db_pid: db_pid, query_start: ts, last_query: "")
 
-    {:next_state, :busy, data(data, db_pid: db_pid, query_start: ts, last_query: bin),
-     {:next_event, :internal, bin}}
+    :ok = forward_to_db(bin, data)
+
+    {:next_state, :busy, data}
   end
 
   # forward query to db
   defp handle_data(_, bin, :busy, data(sock: sock, db_pid: db_pid) = data) do
     Logger.debug("ClientHandler: Forward query to db #{inspect(bin)} #{inspect(db_pid)}")
 
-    case sock_send_maybe_active_once(bin, data) do
+    case forward_to_db(bin, data) do
       :ok ->
-        {:keep_state, data}
+        :keep_state_and_data
 
       error ->
         Logger.error("ClientHandler: error while sending query: #{inspect(error)}")
@@ -1178,10 +1170,10 @@ defmodule Ultravisor.ClientHandler do
 
   def maybe_change_log(_), do: :ok
 
-  @compile {:inline, sock_send_maybe_active_once: 2}
+  @compile {:inline, forward_to_db: 2}
 
-  @spec sock_send_maybe_active_once(binary(), t()) :: :ok | {:error, term()}
-  defp sock_send_maybe_active_once(bin, data(db_pid: db_pid)) do
+  @spec forward_to_db(binary(), t()) :: :ok | {:error, term()}
+  defp forward_to_db(bin, data(db_pid: db_pid)) do
     HandlerHelpers.sock_send(elem(db_pid, 2), bin)
   end
 end
