@@ -102,12 +102,12 @@ defmodule Ultravisor.HandlerHelpers do
     end
   end
 
-  @spec send_cancel_query(non_neg_integer, non_neg_integer, term) :: :ok | {:errr, term}
-  def send_cancel_query(pid, key, msg \\ :cancel_query) do
+  @spec send_cancel_query(non_neg_integer(), non_neg_integer()) :: :ok | {:errr, term}
+  def send_cancel_query(pid, key) do
     PubSub.broadcast(
       Ultravisor.PubSub,
       "cancel_req:#{pid}_#{key}",
-      msg
+      :cancel_query
     )
   end
 
