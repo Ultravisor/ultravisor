@@ -541,28 +541,6 @@ defmodule Ultravisor.DbHandler do
   defp handler_caller(data(caller: caller, mode: :session)), do: caller
   defp handler_caller(_), do: nil
 
-  @spec check_ready(binary()) ::
-          {:ready_for_query, :idle | :transaction_block | :failed_transaction_block} | :continue
-  def check_ready(bin) do
-    bin_size = byte_size(bin)
-
-    case bin do
-      <<_::binary-size(bin_size - 6), 90, 0, 0, 0, 5, status_indicator::binary>> ->
-        indicator =
-          case status_indicator do
-            <<?I>> -> :idle
-            <<?T>> -> :transaction_block
-            <<?E>> -> :failed_transaction_block
-            _ -> :continue
-          end
-
-        {:ready_for_query, indicator}
-
-      _ ->
-        :continue
-    end
-  end
-
   @spec handle_auth_pkts(map(), map(), t()) :: any()
   defp handle_auth_pkts(%{tag: :parameter_status, payload: {k, v}}, acc, _),
     do: {:cont, update_in(acc, [:ps], fn ps -> Map.put(ps || %{}, k, v) end)}
