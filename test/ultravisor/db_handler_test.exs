@@ -56,7 +56,6 @@ defmodule Ultravisor.DbHandlerTest do
                caller: nil,
                auth: auth,
                tenant: tenant,
-               buffer: [],
                parameter_status: parameter_status,
                nonce: nil,
                server_proof: nil
