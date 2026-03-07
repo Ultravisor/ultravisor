@@ -1074,27 +1074,22 @@ defmodule Ultravisor.ClientHandler do
     {:stop, {:shutdown, :terminate_received}}
   end
 
-  defp handle_data(
-         :info,
-         Server.sync() = msg,
-         :idle,
-         data(sock: sock, db_pid: db_pid) = data
-       ) do
+  defp handle_data(:info, Server.sync(), :idle, data(sock: sock, db_pid: db_pid) = data) do
     Logger.debug("ClientHandler: Receive sync")
 
     # db_pid can be nil in transaction mode, so we will send ready_for_query
     # without checking out a direct connection. If there is a linked db_pid,
     # we will forward the message to it
     if db_pid != nil,
-      do: :ok = sock_send_maybe_active_once(msg, data),
+      do: :ok = sock_send_maybe_active_once(Server.sync(), data),
       else: :ok = HandlerHelpers.sock_send(sock, Server.ready_for_query())
 
     {:keep_state, data, handle_actions(data)}
   end
 
-  defp handle_data(:info, Server.sync() = msg, _, data) do
+  defp handle_data(:info, Server.sync(), _, data) do
     Logger.debug("ClientHandler: Receive sync while not idle")
-    :ok = sock_send_maybe_active_once(msg, data)
+    :ok = sock_send_maybe_active_once(Server.sync(), data)
     {:keep_state, data, handle_actions(data)}
   end
 
