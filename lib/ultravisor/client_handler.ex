@@ -1158,9 +1158,7 @@ defmodule Ultravisor.ClientHandler do
         do: [{:timeout, heart, :heartbeat_check}],
         else: []
 
-    idle = if idle > 0, do: [{:timeout, idle, :idle_timeout}], else: []
-
-    idle ++ heartbeat
+    if idle > 0, do: [{:timeout, idle, :idle_terminate} | heartbeat], else: heartbeat
   end
 
   @spec app_name(any()) :: String.t()
