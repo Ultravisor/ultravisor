@@ -39,7 +39,6 @@ defmodule Ultravisor.DbHandler do
     :user,
     :tenant,
     :buffer,
-    :anon_buffer,
     :parameter_status,
     :nonce,
     :server_proof,
@@ -92,7 +91,6 @@ defmodule Ultravisor.DbHandler do
         user: args.user,
         tenant: args.tenant,
         buffer: [],
-        anon_buffer: [],
         parameter_status: %{},
         nonce: nil,
         server_proof: nil,
@@ -359,7 +357,7 @@ defmodule Ultravisor.DbHandler do
           data(data, stats: stats, client_stats: client_stats)
         end
 
-      {:next_state, :idle, check_anon_buffer(data)}
+      {:next_state, :idle, data}
     else
       HandlerHelpers.sock_send(data(data, :client_sock), bin)
       {:keep_state, data}
@@ -727,18 +725,4 @@ defmodule Ultravisor.DbHandler do
 
   defp reconnect_timeout(_),
     do: @reconnect_timeout
-
-  defp check_anon_buffer(data(sock: sock, anon_buffer: buff, caller: nil) = data)
-       when buff != [] do
-    Logger.debug(
-      "DbHandler: Anon buffer is not empty, try to send #{IO.iodata_length(buff)} bytes"
-    )
-
-    buff = Enum.reverse(buff)
-    :ok = sock_send(sock, buff)
-
-    data(data, anon_buffer: [])
-  end
-
-  defp check_anon_buffer(data), do: data
 end
