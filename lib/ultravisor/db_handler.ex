@@ -57,8 +57,8 @@ defmodule Ultravisor.DbHandler do
   def start_link(config),
     do: :gen_statem.start_link(__MODULE__, config, hibernate_after: 5_000)
 
-  def checkout(pid, sock, caller, timeout \\ 15_000),
-    do: :gen_statem.call(pid, {:checkout, sock, caller}, timeout)
+  def checkout(pid, sock),
+    do: :gen_statem.call(pid, {:checkout, sock})
 
   @spec get_state_and_mode(pid()) :: {:ok, {state, Ultravisor.mode()}} | {:error, term()}
   def get_state_and_mode(pid) do
@@ -120,12 +120,7 @@ defmodule Ultravisor.DbHandler do
     :keep_state_and_data
   end
 
-  def handle_event(
-        :internal,
-        _,
-        :connect,
-        data(id: id, client_sock: client_sock) = data
-      ) do
+  def handle_event(:internal, _, :connect, data(id: id, client_sock: client_sock) = data) do
     Logger.debug("DbHandler: Try to connect to DB")
 
     data(auth: auth, reconnect_retries: reconnect_retries, proxy: proxy) = data
@@ -294,20 +289,21 @@ defmodule Ultravisor.DbHandler do
   end
 
   # forward the message to the client
-  def handle_event(:info, {proto, _, bin}, _, data(id: id, caller: caller, reply: nil) = data)
+  def handle_event(:info, {proto, _, bin}, _, data(caller: caller, reply: nil) = data)
       when is_pid(caller) and proto in @proto do
+    data(
+      id: id,
+      client_sock: client_sock,
+      mode: mode,
+      stats: stats,
+      client_stats: client_stats,
+      proxy: proxy,
+      sock: sock
+    ) = data
+
     Logger.debug("DbHandler: Got write replica message  #{inspect(bin)}")
 
     if String.ends_with?(bin, Server.ready_for_query()) do
-      data(
-        sock: sock,
-        client_sock: client_sock,
-        mode: mode,
-        proxy: proxy,
-        stats: stats,
-        client_stats: client_stats
-      ) = data
-
       {_, stats} =
         if proxy,
           do: {nil, stats},
@@ -332,17 +328,13 @@ defmodule Ultravisor.DbHandler do
 
       {:next_state, :idle, data}
     else
-      HandlerHelpers.sock_send(data(data, :client_sock), bin)
-      {:keep_state, data}
+      HandlerHelpers.sock_send(client_sock, bin)
+      :keep_state_and_data
     end
   end
 
-  def handle_event(
-        {:call, from},
-        {:checkout, client_sock, caller},
-        state,
-        data(sock: sock) = data
-      ) do
+  def handle_event({:call, from}, {:checkout, client_sock}, state, data(sock: sock) = data) do
+    {caller, _} = from
     Logger.debug("DbHandler: checkout call when state was #{state}")
 
     # store the reply ref and send it when the state is idle

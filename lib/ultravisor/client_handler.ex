@@ -551,7 +551,7 @@ defmodule Ultravisor.ClientHandler do
     }
 
     {:ok, db_pid} = DbHandler.start_link(args)
-    db_sock = DbHandler.checkout(db_pid, sock, self())
+    db_sock = DbHandler.checkout(db_pid, sock)
     {:keep_state, data(data, db_pid: {nil, db_pid, db_sock}, mode: :proxy)}
   end
 
@@ -865,7 +865,7 @@ defmodule Ultravisor.ClientHandler do
     start = System.monotonic_time()
     db_pid = :poolboy.checkout(pool, true, timeout)
     Process.link(db_pid)
-    db_sock = DbHandler.checkout(db_pid, sock, self())
+    db_sock = DbHandler.checkout(db_pid, sock)
     same_box = if node(db_pid) == node(), do: :local, else: :remote
     Telem.pool_checkout_time(System.monotonic_time() - start, id, same_box)
     {pool, db_pid, db_sock}
