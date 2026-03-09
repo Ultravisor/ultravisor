@@ -42,7 +42,6 @@ defmodule Ultravisor.DbHandler do
     :nonce,
     :server_proof,
     :stats,
-    :client_stats,
     :mode,
     :replica_type,
     :reply,
@@ -93,7 +92,6 @@ defmodule Ultravisor.DbHandler do
         nonce: nil,
         server_proof: nil,
         stats: {0, 0},
-        client_stats: {0, 0},
         mode: args.mode,
         replica_type: args.replica_type,
         reply: nil,
@@ -304,8 +302,7 @@ defmodule Ultravisor.DbHandler do
         client_sock: client_sock,
         mode: mode,
         proxy: proxy,
-        stats: stats,
-        client_stats: client_stats
+        stats: stats
       ) = data
 
       {_, stats} =
@@ -322,12 +319,7 @@ defmodule Ultravisor.DbHandler do
         else
           HandlerHelpers.sock_send(client_sock, bin)
 
-          {_, client_stats} =
-            if proxy,
-              do: {nil, client_stats},
-              else: Telem.network_usage(:client, client_sock, id, client_stats)
-
-          data(data, stats: stats, client_stats: client_stats)
+          data(data, stats: stats)
         end
 
       {:next_state, :idle, data}
