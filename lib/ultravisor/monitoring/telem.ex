@@ -11,32 +11,36 @@ defmodule Ultravisor.Monitoring.Telem do
 
   import Ultravisor, only: [conn_id: 0]
 
+  alias Ultravisor.Debouncer
+
   @type net_stats() :: {non_neg_integer(), non_neg_integer()}
 
   @spec network_usage(:client | :db, Ultravisor.sock(), Ultravisor.id(), net_stats()) ::
           {:ok | :error, net_stats()}
   def network_usage(type, {mod, socket}, id, {prev_recv, prev_send} = stats) do
-    mod = if mod == :ssl, do: :ssl, else: :inet
+    Debouncer.debounce({:net, type}, fn ->
+      mod = if mod == :ssl, do: :ssl, else: :inet
 
-    case mod.getstat(socket, [:recv_oct, :send_oct]) do
-      {:ok, [{:recv_oct, recv_oct}, {:send_oct, send_oct}]} ->
-        stats = %{
-          send_oct: send_oct - prev_send,
-          recv_oct: recv_oct - prev_recv
-        }
+      case mod.getstat(socket, [:recv_oct, :send_oct]) do
+        {:ok, [{:recv_oct, recv_oct}, {:send_oct, send_oct}]} ->
+          stats = %{
+            send_oct: send_oct - prev_send,
+            recv_oct: recv_oct - prev_recv
+          }
 
-        :telemetry.execute(
-          [:ultravisor, type, :network, :stat],
-          stats,
-          Ultravisor.conn_id_to_map(id)
-        )
+          :telemetry.execute(
+            [:ultravisor, type, :network, :stat],
+            stats,
+            Ultravisor.conn_id_to_map(id)
+          )
 
-        {:ok, {recv_oct, send_oct}}
+          {:ok, {recv_oct, send_oct}}
 
-      {:error, reason} ->
-        Logger.error("Failed to get socket stats: #{inspect(reason)}")
-        {:error, stats}
-    end
+        {:error, reason} ->
+          Logger.error("Failed to get socket stats: #{inspect(reason)}")
+          {:error, stats}
+      end
+    end)
   end
 
   @spec pool_checkout_time(integer(), Ultravisor.id(), :local | :remote) :: :ok | nil
