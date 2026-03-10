@@ -588,9 +588,9 @@ defmodule Ultravisor.ClientHandler do
     {:keep_state_and_data, {:timeout, hb, :heartbeat_check}}
   end
 
-  def handle_event(kind, {proto, _socket, msg}, state, data)
+  def handle_event(:info, {proto, _socket, msg}, state, data)
       when proto in @proto and is_binary(msg) do
-    handle_data(kind, msg, state, data)
+    handle_downstream_data(msg, state, data)
   rescue
     exception ->
       msg = Error.encode(exception, __STACKTRACE__)
@@ -1016,23 +1016,23 @@ defmodule Ultravisor.ClientHandler do
     end
   end
 
-  @spec handle_data(kind :: atom(), data :: binary(), state, data) ::
+  @spec handle_downstream_data(data :: binary(), state, data) ::
           :gen_statem.event_handler_result(data)
         when state: atom() | term(),
              data: term()
 
   # handle Terminate message
-  defp handle_data(:info, Server.terminate(), :idle, data(local: true)) do
+  defp handle_downstream_data(Server.terminate(), :idle, data(local: true)) do
     Logger.info("ClientHandler: Terminate received from proxy client")
     :keep_state_and_data
   end
 
-  defp handle_data(:info, Server.terminate(), :idle, _data) do
+  defp handle_downstream_data(Server.terminate(), :idle, _data) do
     Logger.info("ClientHandler: Terminate received from client")
     {:stop, {:shutdown, :terminate_received}}
   end
 
-  defp handle_data(:info, Server.sync(), :idle, data(sock: sock, db_pid: db_pid) = data) do
+  defp handle_downstream_data(Server.sync(), :idle, data(sock: sock, db_pid: db_pid) = data) do
     Logger.debug("ClientHandler: Receive sync")
 
     # db_pid can be nil in transaction mode, so we will send ready_for_query
@@ -1045,21 +1045,21 @@ defmodule Ultravisor.ClientHandler do
     {:keep_state, data, handle_actions(data)}
   end
 
-  defp handle_data(:info, Server.sync(), _, data) do
+  defp handle_downstream_data(Server.sync(), _, data) do
     Logger.debug("ClientHandler: Receive sync while not idle")
     :ok = forward_to_db(Server.sync(), data)
     {:keep_state, data, handle_actions(data)}
   end
 
   # handle Flush message
-  defp handle_data(:info, Server.flush(), _, data) do
+  defp handle_downstream_data(Server.flush(), _, data) do
     Logger.debug("ClientHandler: Receive flush while not idle")
     :ok = forward_to_db(Server.flush(), data)
     {:keep_state, data, handle_actions(data)}
   end
 
   # incoming query with a single pool
-  defp handle_data(:info, bin, :idle, data(pool: pid) = data) when is_pid(pid) do
+  defp handle_downstream_data(bin, :idle, data(pool: pid) = data) when is_pid(pid) do
     Logger.debug("ClientHandler: Receive query #{inspect(bin)}")
     db_pid = db_checkout(:on_query, data)
     data = data(data, db_pid: db_pid, query_start: System.monotonic_time())
@@ -1069,14 +1069,14 @@ defmodule Ultravisor.ClientHandler do
     {:next_state, :busy, data}
   end
 
-  defp handle_data(:info, bin, _, data(mode: :proxy) = data) do
+  defp handle_downstream_data(bin, _, data(mode: :proxy) = data) do
     data = data(data, query_start: System.monotonic_time())
     :ok = forward_to_db(bin, data)
     {:next_state, :busy, data}
   end
 
   # incoming query with read/write pools
-  defp handle_data(:info, bin, :idle, data) do
+  defp handle_downstream_data(bin, :idle, data) do
     ts = System.monotonic_time()
     db_pid = db_checkout(:on_query, data)
     data = data(data, db_pid: db_pid, query_start: ts, last_query: "")
@@ -1087,7 +1087,7 @@ defmodule Ultravisor.ClientHandler do
   end
 
   # forward query to db
-  defp handle_data(_, bin, :busy, data(db_pid: db_pid) = data) do
+  defp handle_downstream_data(bin, :busy, data(db_pid: db_pid) = data) do
     Logger.debug("ClientHandler: Forward query to db #{inspect(bin)} #{inspect(db_pid)}")
     :ok = forward_to_db(bin, data)
 
@@ -1129,8 +1129,8 @@ defmodule Ultravisor.ClientHandler do
   @compile {:inline, forward_to_db: 2}
 
   @spec forward_to_db(binary(), t()) :: :ok | {:error, term()}
-  defp forward_to_db(bin, data(db_pid: db_pid)) do
-    case HandlerHelpers.sock_send(elem(db_pid, 2), bin) do
+  defp forward_to_db(bin, data(db_pid: {_, _, db_sock})) do
+    case HandlerHelpers.sock_send(db_sock, bin) do
       :ok ->
         :ok
 
