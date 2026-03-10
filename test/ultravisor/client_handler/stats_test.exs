@@ -52,6 +52,8 @@ defmodule Ultravisor.ClientHandler.StatsTest do
     test "increase on query", %{conn: conn, external_id: external_id} do
       pre = get_net_stat(:client, external_id)
 
+      Process.sleep(50)
+
       assert {:ok, _} = SingleConnection.query(conn, "SELECT 1")
 
       post = get_net_stat(:client, external_id)
@@ -140,6 +142,8 @@ defmodule Ultravisor.ClientHandler.StatsTest do
   describe "server network usage" do
     test "increase on query", ctx do
       pre = get_net_stat(:db, ctx.external_id)
+
+      Process.sleep(50)
 
       assert {:ok, _} = SingleConnection.query(ctx.conn, "SELECT 1")
 
