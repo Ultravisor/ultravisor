@@ -655,7 +655,7 @@ defmodule Ultravisor.ClientHandler do
 
         :ok = HandlerHelpers.sock_send(sock, bin)
 
-        db_pid = handle_db_pid(mode, pool, db_pid)
+        db_pid = db_checkin(mode, pool, db_pid)
 
         Telem.client_query_time(query_start, id)
 
@@ -667,7 +667,7 @@ defmodule Ultravisor.ClientHandler do
         )
 
         # release the read pool
-        _ = handle_db_pid(mode, pool, db_pid)
+        _ = db_checkin(mode, pool, db_pid)
 
         ts = System.monotonic_time()
         db_pid = db_checkout(:write, :on_query, data)
@@ -861,19 +861,19 @@ defmodule Ultravisor.ClientHandler do
     {pool, db_pid, db_sock}
   end
 
-  @spec handle_db_pid(:transaction, pid(), pid() | nil) :: nil
-  @spec handle_db_pid(:session, pid(), pid()) :: pid()
-  @spec handle_db_pid(:proxy, pid(), pid()) :: pid()
-  defp handle_db_pid(:transaction, _pool, nil), do: nil
+  @spec db_checkin(:transaction, pid(), pid() | nil) :: nil
+  @spec db_checkin(:session, pid(), pid()) :: pid()
+  @spec db_checkin(:proxy, pid(), pid()) :: pid()
+  defp db_checkin(:transaction, _pool, nil), do: nil
 
-  defp handle_db_pid(:transaction, pool, {_, db_pid, _}) do
+  defp db_checkin(:transaction, pool, {_, db_pid, _}) do
     Process.unlink(db_pid)
     :poolboy.checkin(pool, db_pid)
     nil
   end
 
-  defp handle_db_pid(:session, _, db_pid), do: db_pid
-  defp handle_db_pid(:proxy, _, db_pid), do: db_pid
+  defp db_checkin(:session, _, db_pid), do: db_pid
+  defp db_checkin(:proxy, _, db_pid), do: db_pid
 
   defp update_user_data(data, info, user, id, db_name, mode) do
     auth = %{
