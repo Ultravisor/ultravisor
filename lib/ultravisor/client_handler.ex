@@ -80,6 +80,8 @@ defmodule Ultravisor.ClientHandler do
   @spec db_status(pid(), :ready_for_query, binary()) :: :ok
   def db_status(pid, status, bin), do: :gen_statem.cast(pid, {:db_status, status, bin})
 
+  def save_stats(pid), do: :gen_statem.cast(pid, :save_stats)
+
   @impl true
   def init(_), do: :ignore
 
@@ -145,14 +147,7 @@ defmodule Ultravisor.ClientHandler do
   def handle_event(:enter, _old, new, data) do
     :logger.update_process_metadata(%{state: new})
 
-    data(id: id, sock: sock, local: local, stats: stats) = data
-
-    {_, stats} =
-      if is_nil(id) or local,
-        do: {nil, stats},
-        else: Telem.network_usage(:client, sock, id, stats)
-
-    {:next_state, new, data(data, stats: stats)}
+    {:next_state, new, net_stats(data)}
   end
 
   def handle_event(:info, {passive, _socket}, _, data(sock: sock))
@@ -672,6 +667,10 @@ defmodule Ultravisor.ClientHandler do
     end
   end
 
+  def handle_event(:cast, :save_stats, _, data) do
+    {:keep_state, net_stats(data)}
+  end
+
   def handle_event(:info, {sock_error, _sock, msg}, _state, _data)
       when sock_error in [:tcp_error, :ssl_error] do
     Logger.error("ClientHandler: Socket error: #{inspect(msg)}")
@@ -1139,5 +1138,16 @@ defmodule Ultravisor.ClientHandler do
 
         raise Errors.QuerySendError, error: error
     end
+  end
+
+  defp net_stats(data) do
+    data(id: id, sock: sock, local: local, stats: stats) = data
+
+    {_, stats} =
+      if is_nil(id) or local,
+        do: {nil, stats},
+        else: Telem.network_usage(:client, sock, id, stats)
+
+    data(data, stats: stats)
   end
 end

@@ -42,7 +42,6 @@ defmodule Ultravisor.DbHandler do
     :nonce,
     :server_proof,
     :stats,
-    :client_stats,
     :mode,
     :reply,
     :caller,
@@ -92,7 +91,6 @@ defmodule Ultravisor.DbHandler do
         nonce: nil,
         server_proof: nil,
         stats: {0, 0},
-        client_stats: {0, 0},
         mode: args.mode,
         reply: nil,
         caller: args[:caller] || nil,
@@ -263,10 +261,9 @@ defmodule Ultravisor.DbHandler do
       id: id,
       client_sock: client_sock,
       mode: mode,
-      stats: stats,
-      client_stats: client_stats,
       proxy: proxy,
-      sock: sock
+      sock: sock,
+      stats: stats
     ) = data
 
     Logger.debug("DbHandler: Got write replica message  #{inspect(bin)}")
@@ -282,16 +279,13 @@ defmodule Ultravisor.DbHandler do
       data =
         if mode == :transaction do
           ClientHandler.db_status(caller, :ready_for_query, bin)
+
           data(data, stats: stats, caller: nil, client_sock: nil)
         else
           HandlerHelpers.sock_send(client_sock, bin)
+          ClientHandler.save_stats(caller)
 
-          {_, client_stats} =
-            if proxy,
-              do: {nil, client_stats},
-              else: Telem.network_usage(:client, client_sock, id, client_stats)
-
-          data(data, stats: stats, client_stats: client_stats)
+          data(data, stats: stats)
         end
 
       {:next_state, :idle, data}
@@ -359,6 +353,11 @@ defmodule Ultravisor.DbHandler do
   end
 
   @impl true
+  def terminate({:shutdown, :client_termination}, :idle, data(id: id)) do
+    Telem.handler_action(:db_handler, :stopped, id)
+    :ok
+  end
+
   def terminate(:shutdown, _state, data(id: id)) do
     Telem.handler_action(:db_handler, :stopped, id)
     :ok
