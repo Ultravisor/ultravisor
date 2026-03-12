@@ -144,10 +144,16 @@ defmodule Ultravisor.ClientHandler do
   end
 
   @impl true
-  def handle_event(:enter, _old, new, data) do
+  def handle_event(:enter, old, new, data) do
     :logger.update_process_metadata(%{state: new})
 
-    {:next_state, new, net_stats(data)}
+    if old == :idle do
+      # If previous state was idle, then do not even attempt to store network
+      # stats, as there should be next to no data transferred
+      {:next_state, new, data}
+    else
+      {:next_state, new, net_stats(data)}
+    end
   end
 
   def handle_event(:info, {passive, _socket}, _, data(sock: sock))
