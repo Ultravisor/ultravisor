@@ -124,7 +124,7 @@ defmodule UltravisorWeb.TenantController do
                 else
                   params
                 end
-                |> put_in(["tenant", "external_id"], id)
+                |> put_in([Access.key("tenant", %{}), "external_id"], id)
 
               with {:ok, %TenantModel{} = tenant} <- Tenants.create_tenant(params) do
                 conn
