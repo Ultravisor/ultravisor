@@ -300,10 +300,12 @@ defmodule Ultravisor.DbHandler do
     Logger.debug("DbHandler: checkout call when state was #{state}")
 
     # store the reply ref and send it when the state is idle
-    if state in [:idle, :busy],
-      do:
-        {:keep_state, data(data, client_sock: client_sock, caller: caller), {:reply, from, sock}},
-      else: {:keep_state, data(data, client_sock: client_sock, caller: caller, reply: from)}
+    if state in [:idle, :busy] do
+      {:keep_state, data(data, client_sock: client_sock, caller: caller), {:reply, from, sock}}
+    else
+      Logger.warning("DbHandler: not ready")
+      {:keep_state, data(data, client_sock: client_sock, caller: caller, reply: from)}
+    end
   end
 
   def handle_event(_, {closed, _}, :busy, data) when closed in @sock_closed do
