@@ -61,6 +61,12 @@
               enable = true;
               package = pkgs.beam.packages.erlang_28.elixir_1_19;
             };
+
+            languages.erlang = {
+              enable = true;
+              package = pkgs.beam.packages.erlang_28.erlang;
+            };
+
             packages = [
               pkgs.pgbouncer
               pkgs.pgdog
