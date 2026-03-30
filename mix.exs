@@ -178,9 +178,96 @@ defmodule Ultravisor.MixProject do
         "ecto.migrate --prefix _ultravisor --log-migrator-sql",
         "run priv/repo/seeds_after_migration.exs",
         "test"
-      ]
+      ],
+      make_help: &make_help/1,
+      dev: &run_dev/1
     ]
   end
 
   defp version, do: File.read!("./VERSION") |> String.trim()
+
+  ## Custom tasks
+
+  defp run_dev(args) do
+    {flags, []} =
+      OptionParser.parse!(
+        args,
+        strict: [
+          node: :integer
+        ]
+      )
+
+    node = flags[:node] || 0
+
+    if node < 0 do
+      Mix.raise("Invalid node ID")
+    end
+
+    # XXX: Better algorithm for finding sensible port values
+    port_management = 4000 + node
+    port_transaction = 6543 + 10 * node
+    port_session = 5432 + 10 * node
+    port_proxy = 5412 + 10 * node
+
+    System.put_env([
+      {"VAULT_ENC_KEY", "aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7"},
+      {"API_JWT_SECRET", "dev"},
+      {"METRICS_JWT_SECRET", "dev"},
+      {"SECRET_KEY_BASE", "dev"},
+      {"ULTRAVISOR_CLUSTER_POSTGRES", "ultravisor_local"},
+      {"DB_POOL_SIZE", "5"},
+      {"AVAILABILITY_ZONE", "test-#{node}"},
+      {"PROXY_PORT_TRANSACTION", to_string(port_transaction)},
+      {"PROXY_PORT_SESSION", to_string(port_session)},
+      {"PROXY_PORT", to_string(port_proxy)},
+      {"ULTRAVISOR_MANAGEMENT_PORT", to_string(port_management)}
+    ])
+
+    Node.start(:"ultravisor#{node}@127.0.0.1")
+    Node.set_cookie(:cookie)
+
+    Mix.Task.run("run", ["--no-halt"])
+  end
+
+  defp make_help([makefile | _]) do
+    data = File.read!(makefile)
+
+    tasks =
+      Regex.scan(~r/^(?<help>(#[^\n]*\n)*)(?<task>[a-z0-9._-]+):/mi, data, capture: :all_names)
+
+    Mix.shell().info([
+      "Usage:\n\n",
+      "  ",
+      :yellow,
+      "make ",
+      :green,
+      "<task> ",
+      :reset,
+      "[argument=value]",
+      "\n\n",
+      "Tasks:\n"
+    ])
+
+    max_task = tasks |> Enum.map(fn [_, name] -> String.length(name) end) |> Enum.max()
+    width = (div(max_task, 8) + 1) * 8 + 2
+
+    for [help, name] <- tasks, not String.starts_with?(name, ".") do
+      name_width = String.length(name)
+
+      help =
+        case String.split(help, "\n", trim: true) do
+          [first | rest] ->
+            first_pad = List.duplicate(?\s, width - name_width - 2)
+            rest_pad = List.duplicate(?\s, width)
+            remaining_help = Enum.map(rest, &[rest_pad, &1, "\n"])
+
+            [first_pad, first, "\n" | remaining_help]
+
+          [] ->
+            ""
+        end
+
+      Mix.shell().info(["  ", :green, name, :reset, help])
+    end
+  end
 end

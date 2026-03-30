@@ -4,78 +4,57 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-License-Identifier: EUPL-1.2
 
+# Display this help
 help:
-	@make -qpRr | egrep -e '^[a-z].*:$$' | sed -e 's~:~~g' | sort
+	@mix make_help $(MAKEFILE_LIST)
 
-.PHONY: dev
+node_id ?= 0
+
+.PHONY: dev db_migrate clean
+# Start new development instance
+#
+# Arguments:
+#   node_id (default: 0) - positive number marking node ID
 dev:
-	MIX_ENV=dev \
-	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
-	API_JWT_SECRET=dev \
-	METRICS_JWT_SECRET=dev \
-	SECRET_KEY_BASE="dev" \
-	ULTRAVISOR_CLUSTER_POSTGRES="ultravisor_local" \
-	DB_POOL_SIZE="5" \
-	METRICS_DISABLED="false" \
-	AVAILABILITY_ZONE="ap-southeast-1b" \
-	ERL_AFLAGS="-kernel shell_history enabled +zdbbl 2097151" \
-	iex --name node1@127.0.0.1 --cookie cookie -S mix run --no-halt
-
-dev.node2:
-	ULTRAVISOR_MANAGEMENT_PORT=4001 \
-	MIX_ENV=dev \
-	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
-	API_JWT_SECRET=dev \
-	METRICS_JWT_SECRET=dev \
-	SECRET_KEY_BASE="dev" \
-	ULTRAVISOR_CLUSTER_POSTGRES="ultravisor_local" \
-	PROXY_PORT_SESSION="5442" \
-	PROXY_PORT_TRANSACTION="6553" \
-	PROXY_PORT="5402" \
-	NODE_IP=localhost \
-	AVAILABILITY_ZONE="ap-southeast-1c" \
-	ERL_AFLAGS="-kernel shell_history enabled" \
-	iex --name node2@127.0.0.1 --cookie cookie -S mix phx.server
-
-dev.node3:
-	ULTRAVISOR_MANAGEMENT_PORT=4002 \
-	MIX_ENV=dev \
-	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
-	API_JWT_SECRET=dev \
-	METRICS_JWT_SECRET=dev \
-	SECRET_KEY_BASE="dev" \
-	ULTRAVISOR_CLUSTER_POSTGRES="ultravisor_local" \
-	PROXY_PORT_SESSION="5443" \
-	PROXY_PORT_TRANSACTION="6554" \
-	ERL_AFLAGS="-kernel shell_history enabled" \
-	iex --name node3@127.0.0.1 --cookie cookie -S mix phx.server
+	ERL_AFLAGS="+zdbbl 2097151" \
+	iex -S mix dev --node ${node_id}
 
 db_migrate:
 	mix ecto.migrate --prefix _ultravisor --log-migrator-sql
 
-db_start:
-	docker-compose -f ./docker-compose.db.yml up
+# Cleanup work environment
+clean:
+	mix clean && rm -rf _build deps target priv/native/
 
-db_stop:
-	docker-compose -f ./docker-compose.db.yml down --remove-orphans
+## Benchmarking
 
-db_rebuild:
-	make db_stop
-	docker-compose -f ./docker-compose.db.yml build
-	make db_start
-
+host ?= localhost
 user ?= postgres.sys
 port ?= 6543
 duration ?= 60
 clients ?= 32
 protocol ?= extended
 
-pgbench_init:
+.PHONY: pgbench.init pgbench pgbouncer pgdog
+psql:
+	PGPASSWORD=postgres psql postgres://${user}@${host}:${port}/postgres?sslmode=disable
+
+# Initialise PgBench database
+pgbench.init:
 	PGPASSWORD=postgres pgbench -i -h localhost -p 6432 -U postgres -d postgres
 
+# Run PgBench
+#
+# Arguments:
+#   host (default: localhost) - host on which SUT is running
+#   user (default: postgres.sys) - user which will be used to connect to DB
+#   port (default: 6543) - port on which SUT is running
+#   duration (default: 60) - overall duration of test in seconds
+#   clients (default: 32) - number of client connections used during test
+#   protocol (default: extended) - protocol kind used during tests
 pgbench:
 	PGPASSWORD="postgres" pgbench \
-		   postgres://${user}@localhost:${port}/postgres?sslmode=disable \
+		   postgres://${user}@${host}:${port}/postgres?sslmode=disable \
 		   --select-only \
 		   --report-per-command \
 		   --no-vacuum \
@@ -85,17 +64,16 @@ pgbench:
 		   --progress=10 \
 		   --protocol=${protocol}
 
+# Run PgBouncer instance to compare benchmarks
 pgbouncer:
 	cd $(PWD)/bench/pgbouncer && \
 		pgbouncer pgbouncer.conf
 
+# Run PgDog instance to compare benchmarks
 pgdog:
 	pgdog \
 		--config $(PWD)/bench/pgdog/config.toml \
 		--users  $(PWD)/bench/pgdog/users.toml
-
-clean:
-	rm -rf _build && rm -rf deps
 
 dev_release:
 	mix deps.get && mix compile && mix release ultravisor
