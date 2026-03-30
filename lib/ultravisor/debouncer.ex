@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: EUPL-1.2
 
 defmodule Ultravisor.Debouncer do
-  def debounce(key, time \\ 10, func) do
+  def debounce(key, time \\ 100, func) do
     current = System.monotonic_time(:millisecond)
     key = {:debounce, key}
 
