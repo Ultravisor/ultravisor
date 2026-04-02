@@ -62,7 +62,6 @@ defmodule Ultravisor.ProtocolTest do
     assert [
              %@subject.Pkt{
                tag: :backend_key_data,
-               len: 13,
                payload: %{pid: _, key: _}
              }
            ] = @subject.decode([header, payload] |> IO.iodata_to_binary())
@@ -75,7 +74,6 @@ defmodule Ultravisor.ProtocolTest do
     assert @subject.decode(@auth_bin_error) == [
              %Ultravisor.Protocol.Server.Pkt{
                tag: :error_response,
-               len: 112,
                payload: [
                  "SFATAL",
                  "VFATAL",

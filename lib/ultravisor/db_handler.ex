@@ -80,11 +80,13 @@ defmodule Ultravisor.DbHandler do
     {_, tenant} = args.tenant
     Logger.metadata(project: tenant, user: args.user, mode: args.mode)
 
+    auth = args.auth
+
     data =
       data(
         id: args.id,
         sock: nil,
-        auth: args.auth,
+        auth: auth,
         user: args.user,
         tenant: args.tenant,
         parameter_status: %{},
@@ -124,128 +126,51 @@ defmodule Ultravisor.DbHandler do
   def handle_event(:internal, _, :connect, data(id: id, client_sock: client_sock) = data) do
     Logger.debug("DbHandler: Try to connect to DB")
 
-    data(auth: auth, reconnect_retries: reconnect_retries, proxy: proxy) = data
+    data(auth: auth, reconnect_retries: reconnect_retries, proxy: proxy, caller: caller) = data
 
-    sock_opts =
-      [
-        auth.ip_version,
-        buffer: 8192,
-        mode: :binary,
-        packet: :raw,
-        # recbuf: 8192,
-        # sndbuf: 8192,
-        # backlog: 2048,
-        # send_timeout: 120,
-        # keepalive: true,
-        # nopush: true,
-        nodelay: true,
-        active: false
-      ]
+    tenant = if proxy, do: Ultravisor.tenant(id)
 
-    maybe_reconnect_callback = fn reason ->
-      if reconnect_retries > @reconnect_retries and client_sock != nil,
-        do: {:stop, {:failed_to_connect, reason}},
-        else: {:keep_state_and_data, {:state_timeout, reconnect_timeout(data), :connect}}
+    user =
+      if is_nil(tenant), do: get_user(auth), else: "#{get_user(auth)}.#{tenant}"
+
+    cred =
+      if auth.method == :password do
+        {:password, auth.password.()}
+      else
+        {:secret, auth.secrets.().secret}
+      end
+
+    # TODO: Gracefully handle failures and retries
+    {:ok, conn} =
+      Ultravisor.Protocol.Conn.connect(auth.host, auth.port, [
+        cred,
+        user: user,
+        database: auth.database
+      ])
+
+    Logger.debug("DbHandler: Connected")
+
+    if proxy do
+      bin_ps = Server.encode_parameter_status(conn.parameters)
+      send(caller, {:parameter_status, bin_ps})
+    else
+      Ultravisor.set_parameter_status(id, conn.parameters)
     end
 
-    Telem.handler_action(:db_handler, :db_connection, id)
+    HandlerHelpers.setopts(conn.socket, active: @switch_active_count)
 
-    case :gen_tcp.connect(auth.host, auth.port, sock_opts) do
-      {:ok, sock} ->
-        Logger.debug("DbHandler: auth #{inspect(auth, pretty: true)}")
-
-        case try_ssl_handshake({:gen_tcp, sock}, auth) do
-          {:ok, sock} ->
-            tenant = if proxy, do: Ultravisor.tenant(id)
-            search_path = Ultravisor.search_path(id)
-
-            case send_startup(sock, auth, tenant, search_path) do
-              :ok ->
-                HandlerHelpers.setopts(sock, active: @switch_active_count)
-                {:next_state, :authentication, data(data, sock: sock)}
-
-              {:error, reason} ->
-                Logger.error("DbHandler: Send startup error #{inspect(reason)}")
-                maybe_reconnect_callback.(reason)
-            end
-
-          {:error, reason} ->
-            Logger.error("DbHandler: Handshake error #{inspect(reason)}")
-            maybe_reconnect_callback.(reason)
-        end
-
-      other ->
-        Logger.error(
-          "DbHandler: Connection failed #{inspect(other)} to #{inspect(auth.host)}:#{inspect(auth.port)}"
-        )
-
-        maybe_reconnect_callback.(other)
-    end
+    check_caller(
+      data(data,
+        sock: conn.socket,
+        parameter_status: conn.parameters
+      )
+    )
   end
 
   def handle_event(:state_timeout, :connect, _state, data(reconnect_retries: retry) = data) do
     Logger.warning("DbHandler: Reconnect #{retry} to DB")
 
     {:keep_state, data(data, reconnect_retries: retry + 1), {:next_event, :internal, :connect}}
-  end
-
-  def handle_event(:info, {proto, _, bin}, :authentication, data(id: id) = data)
-      when proto in @proto do
-    dec_pkt = Server.decode(bin)
-    Logger.debug("DbHandler: dec_pkt, #{inspect(dec_pkt, pretty: true)}")
-
-    resp = Enum.reduce_while(dec_pkt, %{}, &handle_auth_pkts(&1, &2, data))
-
-    case resp do
-      {:authentication_sasl, nonce} ->
-        {:keep_state, data(data, nonce: nonce)}
-
-      {:authentication_server_first_message, server_proof} ->
-        {:keep_state, data(data, server_proof: server_proof)}
-
-      %{authentication_server_final_message: _server_final} ->
-        :keep_state_and_data
-
-      %{authentication_ok: true} ->
-        :keep_state_and_data
-
-      :authentication ->
-        :keep_state_and_data
-
-      :authentication_md5 ->
-        :keep_state_and_data
-
-      {:error_response, ["SFATAL", "VFATAL", "C28P01", reason, _, _, _]} ->
-        handle_authentication_error(data, reason)
-        Logger.error("DbHandler: Auth error #{inspect(reason)}")
-        {:stop, :invalid_password, data}
-
-      {:error_response, error} ->
-        Logger.error("DbHandler: Error auth response #{inspect(error)}")
-        {:stop, {:encode_and_forward, error}}
-
-      {:ready_for_query, acc} ->
-        ps = acc.ps
-
-        Logger.debug(
-          "DbHandler: DB ready_for_query: #{inspect(acc.db_state)} #{inspect(ps, pretty: true)}"
-        )
-
-        data(proxy: proxy, caller: caller) = data
-
-        if proxy do
-          bin_ps = Server.encode_parameter_status(ps)
-          send(caller, {:parameter_status, bin_ps})
-        else
-          Ultravisor.set_parameter_status(id, ps)
-        end
-
-        check_caller(data(data, parameter_status: ps, reconnect_retries: 0))
-
-      other ->
-        Logger.error("DbHandler: Undefined auth response #{inspect(other)}")
-        {:stop, :auth_error, data}
-    end
   end
 
   # the process received message from db without linked caller

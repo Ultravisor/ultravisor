@@ -26,11 +26,10 @@ defmodule Ultravisor.Protocol.Server do
 
   defmodule Pkt do
     @moduledoc "Representing a packet structure with tag, length, and payload fields."
-    defstruct([:tag, :len, :payload])
+    defstruct([:tag, :payload])
 
     @type t :: %Pkt{
             tag: atom,
-            len: integer,
             payload: any
           }
   end
@@ -84,6 +83,14 @@ defmodule Ultravisor.Protocol.Server do
     Enum.reverse(acc)
   end
 
+  def decode_pkt(tag, bin_payload) do
+    tag = tag(tag)
+
+    payload = decode_payload(tag, bin_payload)
+
+    {:ok, %Pkt{tag: tag, payload: payload}}
+  end
+
   def decode_pkt(<<char::integer-8, pkt_len::integer-32, rest::binary>>) do
     tag = tag(char)
     payload_len = pkt_len - 4
@@ -92,7 +99,7 @@ defmodule Ultravisor.Protocol.Server do
 
     payload = decode_payload(tag, bin_payload)
 
-    {:ok, %Pkt{tag: tag, len: pkt_len + 1, payload: payload}, rest2}
+    {:ok, %Pkt{tag: tag, payload: payload}, rest2}
   end
 
   # credo:disable-for-next-line /CyclomaticComplexity/
@@ -168,7 +175,7 @@ defmodule Ultravisor.Protocol.Server do
   end
 
   defp decode_payload(:parameter_status, payload) do
-    case String.split(payload, <<0>>, trim: true, parts: 3) do
+    case strings(payload) do
       [k, v] -> {k, v}
       _ -> :undefined
     end
@@ -407,10 +414,9 @@ defmodule Ultravisor.Protocol.Server do
     end
   end
 
-  def decode_startup_packet(<<len::integer-32, _protocol::binary-4, rest::binary>>) do
+  def decode_startup_packet(<<_len::integer-32, _protocol::binary-4, rest::binary>>) do
     with {:ok, payload} <- decode_startup_packet_payload(rest) do
       pkt = %{
-        len: len,
         payload: payload,
         tag: :startup
       }
@@ -430,4 +436,10 @@ defmodule Ultravisor.Protocol.Server do
       _ -> false
     end)
   end
+
+  defp strings(data), do: do_strings(data, <<>>, [])
+
+  defp do_strings(<<>>, <<>>, acc), do: Enum.reverse(acc)
+  defp do_strings(<<0>> <> rest, s, acc), do: do_strings(rest, <<>>, [s | acc])
+  defp do_strings(<<c>> <> rest, s, acc), do: do_strings(rest, s <> <<c>>, acc)
 end
