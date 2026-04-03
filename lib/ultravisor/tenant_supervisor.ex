@@ -34,7 +34,7 @@ defmodule Ultravisor.TenantSupervisor do
       replicas
       |> Enum.with_index()
       |> Enum.map(fn {e, i} ->
-        id = {:pool, e.replica_type, i, args.id}
+        id = {:pool, i, args.id}
 
         %{
           id: {:pool, id},
@@ -46,7 +46,6 @@ defmodule Ultravisor.TenantSupervisor do
     children = [{Manager, args}, {SecretChecker, args} | pools]
 
     conn_id(
-      type: type,
       tenant: tenant,
       user: user,
       mode: mode,
@@ -54,7 +53,7 @@ defmodule Ultravisor.TenantSupervisor do
       search_path: search_path
     ) = args.id
 
-    map_id = %{user: user, mode: mode, type: type, db_name: db_name, search_path: search_path}
+    map_id = %{user: user, mode: mode, db_name: db_name, search_path: search_path}
     Registry.register(Ultravisor.Registry.TenantSups, tenant, map_id)
 
     Supervisor.init(children,
@@ -77,7 +76,7 @@ defmodule Ultravisor.TenantSupervisor do
     {size, overflow} = {1, args.pool_size}
 
     [
-      name: {:via, Registry, {Ultravisor.Registry.Tenants, id, args.replica_type}},
+      name: {:via, Registry, {Ultravisor.Registry.Tenants, id}},
       worker_module: Ultravisor.DbHandler,
       size: size,
       max_overflow: overflow,

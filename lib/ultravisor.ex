@@ -26,7 +26,6 @@ defmodule Ultravisor do
   @max_pools Application.compile_env(:ultravisor, :max_pools, 20)
 
   Record.defrecord(:conn_id,
-    type: :single,
     tenant: nil,
     user: nil,
     mode: :transaction,
@@ -36,7 +35,6 @@ defmodule Ultravisor do
 
   @type id ::
           record(:conn_id,
-            type: :single | :cluster,
             tenant: String.t(),
             user: String.t(),
             mode: mode(),
@@ -46,7 +44,6 @@ defmodule Ultravisor do
 
   def conn_id_to_map(
         conn_id(
-          type: type,
           tenant: tenant,
           user: user,
           mode: mode,
@@ -55,7 +52,6 @@ defmodule Ultravisor do
         )
       ) do
     %{
-      type: type,
       tenant: tenant,
       user: user,
       mode: mode,
@@ -65,7 +61,6 @@ defmodule Ultravisor do
   end
 
   def map_to_conn_id(%{
-        type: type,
         tenant: tenant,
         user: user,
         mode: mode,
@@ -73,7 +68,6 @@ defmodule Ultravisor do
         search_path: search_path
       }) do
     conn_id(
-      type: type,
       tenant: tenant,
       user: user,
       mode: mode,
@@ -210,7 +204,7 @@ defmodule Ultravisor do
     Enum.reduce(keys, [], fn
       {:metrics, ^tenant} = key, acc -> del.(key, acc)
       {:secrets, ^tenant, ^user} = key, acc -> del.(key, acc)
-      {:user_cache, _, ^user, ^tenant, _} = key, acc -> del.(key, acc)
+      {:user_cache, ^user, ^tenant, _} = key, acc -> del.(key, acc)
       {:tenant_cache, ^tenant, _} = key, acc -> del.(key, acc)
       {:pool_config_cache, ^tenant, ^user} = key, acc -> del.(key, acc)
       _, acc -> acc
@@ -232,7 +226,7 @@ defmodule Ultravisor do
           case key do
             {:metrics, ^tenant} -> del.(key, acc)
             {:secrets, ^tenant, _} -> del.(key, acc)
-            {:user_cache, _, _, ^tenant, _} -> del.(key, acc)
+            {:user_cache, _, ^tenant, _} -> del.(key, acc)
             {:tenant_cache, ^tenant, _} -> del.(key, acc)
             {:pool_config_cache, ^tenant, _} -> del.(key, acc)
             _ -> acc
@@ -258,7 +252,7 @@ defmodule Ultravisor do
 
   @spec get_local_pool(id) :: map | pid | nil
   def get_local_pool(id) do
-    match = {{:pool, :_, :_, id}, :"$2", :"$3"}
+    match = {{:pool, :_, id}, :"$2", :"$3"}
     body = [{{:"$2", :"$3"}}]
 
     case Registry.select(@registry, [{match, [], body}]) do
@@ -326,23 +320,17 @@ defmodule Ultravisor do
   @spec start_local_pool(id, secrets, atom()) :: {:ok, pid} | {:error, any}
   def start_local_pool(id, secrets, log_level \\ nil)
 
-  def start_local_pool(conn_id(tenant: tenant, type: type) = id, secrets, log_level) do
+  def start_local_pool(conn_id(tenant: tenant) = id, secrets, log_level) do
     Logger.info("Starting pool(s) for #{inspect(id)}")
 
     user = elem(secrets, 1).().alias
 
-    case type do
-      :single -> Tenants.get_pool_config_cache(tenant, user)
-    end
+    Tenants.get_pool_config_cache(tenant, user)
     |> case do
       [_ | _] = replicas ->
         opts =
           Enum.map(replicas, fn replica ->
-            case replica do
-              %Tenants.Tenant{} = tenant ->
-                Map.put(tenant, :replica_type, :write)
-            end
-            |> supervisor_args(id, secrets, log_level)
+            supervisor_args(replica, id, secrets, log_level)
           end)
 
         DynamicSupervisor.start_child(
@@ -365,7 +353,7 @@ defmodule Ultravisor do
 
   defp supervisor_args(
          tenant_record,
-         conn_id(type: type, tenant: tenant, user: user, mode: mode, db_name: db_name) = id,
+         conn_id(tenant: tenant, user: user, mode: mode, db_name: db_name) = id,
          {method, secrets},
          log_level
        ) do
@@ -379,7 +367,6 @@ defmodule Ultravisor do
       default_pool_size: def_pool_size,
       default_max_clients: def_max_clients,
       client_idle_timeout: client_idle_timeout,
-      replica_type: replica_type,
       sni_hostname: sni_hostname,
       users: [
         %{
@@ -387,7 +374,6 @@ defmodule Ultravisor do
           db_password: db_pass,
           pool_size: pool_size,
           db_user_alias: alias,
-          # mode_type: mode_type,
           max_clients: max_clients
         }
       ]
@@ -421,8 +407,7 @@ defmodule Ultravisor do
 
     %{
       id: id,
-      tenant: {type, tenant},
-      replica_type: replica_type,
+      tenant: tenant,
       user: user,
       auth: auth,
       pool_size: pool_size,
