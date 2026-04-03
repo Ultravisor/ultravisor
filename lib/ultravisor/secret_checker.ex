@@ -24,7 +24,7 @@ defmodule Ultravisor.SecretChecker do
     Logger.debug("SecretChecker: Starting secret checker")
     tenant = Ultravisor.tenant(args.id)
 
-    %{auth: auth, user: user} = Enum.find(args.replicas, fn e -> e.replica_type == :write end)
+    %{auth: auth, user: user} = hd(args.replicas)
 
     state = %{
       tenant: tenant,

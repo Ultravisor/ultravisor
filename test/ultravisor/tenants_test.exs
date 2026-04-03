@@ -84,10 +84,10 @@ defmodule Ultravisor.TenantsTest do
 
     test "get_user/4" do
       _tenant = tenant_fixture()
-      assert {:error, :not_found} = @subject.get_user(:single, "no_user", "no_tenant", "")
+      assert {:error, :not_found} = @subject.get_user("no_user", "no_tenant", "")
 
       assert {:ok, %{tenant: _, user: _}} =
-               @subject.get_user(:single, "postgres", "dev_tenant", "")
+               @subject.get_user("postgres", "dev_tenant", "")
     end
   end
 end

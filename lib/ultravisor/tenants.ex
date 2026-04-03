@@ -74,27 +74,26 @@ defmodule Ultravisor.Tenants do
 
   def get_tenant(_, _), do: nil
 
-  @spec get_user_cache(:single | :cluster, String.t(), String.t() | nil, String.t() | nil) ::
+  @spec get_user_cache(String.t(), String.t() | nil, String.t() | nil) ::
           {:ok, map()} | {:error, any()}
-  def get_user_cache(type, user, external_id, sni_hostname) do
-    cache_key = {:user_cache, type, user, external_id, sni_hostname}
+  def get_user_cache(user, external_id, sni_hostname) do
+    cache_key = {:user_cache, user, external_id, sni_hostname}
 
     {_, {:cached, value}} =
       Cachex.fetch(Ultravisor.Cache, cache_key, fn _key ->
-        {:commit, {:cached, get_user(type, user, external_id, sni_hostname)},
-         expire: :timer.hours(24)}
+        {:commit, {:cached, get_user(user, external_id, sni_hostname)}, expire: :timer.hours(24)}
       end)
 
     value
   end
 
-  @spec get_user(atom(), String.t(), String.t() | nil, String.t() | nil) ::
+  @spec get_user(String.t(), String.t() | nil, String.t() | nil) ::
           {:ok, map()} | {:error, any()}
-  def get_user(_, _, nil, nil) do
+  def get_user(_, nil, nil) do
     {:error, "Either external_id or sni_hostname must be provided"}
   end
 
-  def get_user(:single, user, external_id, sni_hostname) do
+  def get_user(user, external_id, sni_hostname) do
     query = build_user_query(user, external_id, sni_hostname)
 
     case Repo.all(query) do
