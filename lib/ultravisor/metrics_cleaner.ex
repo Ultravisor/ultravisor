@@ -87,7 +87,6 @@ defmodule Ultravisor.MetricsCleaner do
       fn elem, acc ->
         with {{_,
                %{
-                 type: _type,
                  mode: _mode,
                  user: _user,
                  tenant: _tenant,

@@ -39,11 +39,10 @@ defmodule Ultravisor.DbHandlerTest do
       args = %{
         id: @id,
         auth: %{},
-        tenant: {:single, "test_tenant"},
+        tenant: "test_tenant",
         user_alias: "test_user_alias",
         user: "user",
         mode: :transaction,
-        replica_type: :single,
         log_level: nil,
         reconnect_retries: 5
       }

@@ -248,12 +248,12 @@ defmodule Ultravisor.ClientHandler do
     case Server.decode_startup_packet(bin) do
       {:ok, hello} ->
         Logger.debug("ClientHandler: Client startup message: #{inspect(hello)}")
-        {type, {user, tenant_or_alias, db_name}} = HandlerHelpers.parse_user_info(hello.payload)
+        {user, tenant_or_alias, db_name} = HandlerHelpers.parse_user_info(hello.payload)
 
         if Helpers.valid_name?(user) and Helpers.valid_name?(db_name) do
           log_level = maybe_change_log(hello)
           search_path = hello.payload["options"]["--search_path"]
-          event = {:hello, {type, {user, tenant_or_alias, db_name, search_path}}}
+          event = {:hello, {user, tenant_or_alias, db_name, search_path}}
           app_name = app_name(hello.payload["application_name"])
 
           {:keep_state, data(data, log_level: log_level, app_name: app_name),
@@ -284,19 +284,18 @@ defmodule Ultravisor.ClientHandler do
 
   def handle_event(
         :internal,
-        {:hello, {type, {user, tenant_or_alias, db_name, search_path}}},
+        {:hello, {user, tenant_or_alias, db_name, search_path}},
         :exchange,
         data(sock: sock) = data
       ) do
     sni_hostname = HandlerHelpers.try_get_sni(sock)
 
-    case Tenants.get_user_cache(type, user, tenant_or_alias, sni_hostname) do
+    case Tenants.get_user_cache(user, tenant_or_alias, sni_hostname) do
       {:ok, info} ->
         db_name = db_name || info.tenant.db_database
 
         id =
           conn_id(
-            type: type,
             tenant: tenant_or_alias,
             user: user,
             mode: data(data, :mode),
@@ -310,7 +309,6 @@ defmodule Ultravisor.ClientHandler do
           project: tenant_or_alias,
           user: user,
           mode: mode,
-          type: type,
           db_name: db_name,
           app_name: data(data, :app_name)
         )
@@ -365,7 +363,7 @@ defmodule Ultravisor.ClientHandler do
 
       {:error, reason} ->
         Logger.error(
-          "ClientHandler: User not found: #{inspect(reason)} #{inspect({type, user, tenant_or_alias})}"
+          "ClientHandler: User not found: #{inspect(reason)} #{inspect({user, tenant_or_alias})}"
         )
 
         :ok = HandlerHelpers.send_error(sock, "XX000", "Tenant or user not found")
@@ -549,7 +547,7 @@ defmodule Ultravisor.ClientHandler do
       id: id,
       auth: auth,
       user: conn_id(id, :user),
-      tenant: {:single, conn_id(id, :tenant)},
+      tenant: conn_id(id, :tenant),
       mode: :proxy,
       proxy: true,
       log_level: log_level,
