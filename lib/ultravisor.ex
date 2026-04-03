@@ -407,7 +407,7 @@ defmodule Ultravisor do
       user: db_user,
       alias: alias,
       auth_query: auth_query,
-      database: if(db_name != nil, do: db_name, else: db_database),
+      database: db_name || db_database,
       password: fn -> db_pass end,
       application_name: "Ultravisor",
       ip_version: Helpers.ip_version(ip_ver, db_host),
