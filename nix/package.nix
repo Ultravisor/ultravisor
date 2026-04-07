@@ -14,7 +14,8 @@
   darwin,
   protobuf,
   libiconv,
-}: let
+}:
+let
   pname = "ultravisor";
   version = "0.0.1";
   src = ./..;
@@ -29,12 +30,22 @@
     lockFile = ../native/pgparser/Cargo.lock;
   };
 in
-  mixRelease {
-    inherit pname version src mixFodDeps;
+mixRelease {
+  inherit
+    pname
+    version
+    src
+    mixFodDeps
+    ;
 
-    nativeBuildInputs = [cargo protobuf];
+  nativeBuildInputs = [
+    cargo
+    protobuf
+  ];
 
-    buildInputs = lib.optionals stdenv.isDarwin (with darwin.apple_sdk; [
+  buildInputs = lib.optionals stdenv.isDarwin (
+    with darwin.apple_sdk;
+    [
       libiconv
       frameworks.System
       frameworks.CoreFoundation
@@ -44,14 +55,15 @@ in
       frameworks.CFNetwork
       frameworks.Security
       libs.libDER
-    ]);
+    ]
+  );
 
-    preConfigure = ''
-      cat ${cargoDeps}/.cargo/config >> native/pgparser/.cargo/config.toml
-      ln -s ${cargoDeps} native/pgparser/cargo-vendor-dir
-    '';
+  preConfigure = ''
+    cat ${cargoDeps}/.cargo/config >> native/pgparser/.cargo/config.toml
+    ln -s ${cargoDeps} native/pgparser/cargo-vendor-dir
+  '';
 
-    meta = {
-      mainProgram = "ultravisor";
-    };
-  }
+  meta = {
+    mainProgram = "ultravisor";
+  };
+}
