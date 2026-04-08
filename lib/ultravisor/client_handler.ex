@@ -555,8 +555,8 @@ defmodule Ultravisor.ClientHandler do
       client_sock: sock
     }
 
-    {:ok, db_pid} = DbHandler.start_link(args)
-    db_sock = DbHandler.checkout(db_pid, sock)
+    {:ok, db_pid, db_sock} = DbHandler.start_link(args)
+    :ok = DbHandler.checkout(db_pid, sock)
     {:keep_state, data(data, db_pid: {nil, db_pid, db_sock}, mode: :proxy)}
   end
 
@@ -826,15 +826,20 @@ defmodule Ultravisor.ClientHandler do
     data(id: id, sock: sock, pool: pool, mode: mode, timeout: timeout) = data
     start = System.monotonic_time()
 
-    db_pid =
-      case :poolboy.checkout(pool, timeout) do
-        {:ok, db_pid} -> db_pid
-        _ when mode == :transaction -> raise Errors.CheckoutTimeoutError
-        _ when mode == :session -> raise Errors.MaxClientConnectionsError
+    {db_pid, db_sock} =
+      case Queproc.checkout(pool, timeout) do
+        {:ok, db_pid, db_sock} ->
+          {db_pid, db_sock}
+
+        {:error, :timeout} ->
+          case mode do
+            :transaction -> raise Errors.CheckoutTimeoutError
+            :session -> raise Errors.MaxClientConnectionsError
+          end
       end
 
     Process.link(db_pid)
-    db_sock = DbHandler.checkout(db_pid, sock)
+    :ok = DbHandler.checkout(db_pid, sock)
     same_box = if node(db_pid) == node(), do: :local, else: :remote
     Telem.pool_checkout_time(System.monotonic_time() - start, id, same_box)
     {pool, db_pid, db_sock}
@@ -845,9 +850,9 @@ defmodule Ultravisor.ClientHandler do
   @spec db_checkin(:proxy, pid(), pid()) :: pid()
   defp db_checkin(:transaction, _pool, nil), do: nil
 
-  defp db_checkin(:transaction, pool, {_, db_pid, _}) do
+  defp db_checkin(:transaction, pool, {_, db_pid, _db_sock}) do
     Process.unlink(db_pid)
-    :poolboy.checkin(pool, db_pid)
+    Queproc.checkin(pool, db_pid)
     nil
   end
 

@@ -32,6 +32,7 @@ host ?= localhost
 user ?= postgres.sys
 port ?= 6543
 duration ?= 60
+jobs ?= 4
 clients ?= 32
 protocol ?= extended
 
@@ -59,7 +60,7 @@ pgbench:
 		   --report-per-command \
 		   --no-vacuum \
 		   --time ${duration} \
-		   --jobs=4 \
+		   --jobs=${jobs} \
 		   --client=${clients} \
 		   --progress=10 \
 		   --protocol=${protocol}
