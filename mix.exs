@@ -124,9 +124,10 @@ defmodule Ultravisor.MixProject do
       # Documentation
       {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
 
-      # pooller
+      # Pooller
       # {:poolboy, "~> 1.5.2"},
       {:poolboy, github: "hauleth/poolboy"},
+      {:rustler, "~> 0.37.3"},
       {:syn, "~> 3.3"},
       {:pgo, "~> 0.13"},
       {:ranch, "~> 2.0", override: true},

@@ -56,7 +56,7 @@ defmodule Ultravisor.DbHandler do
     do: :gen_statem.start_link(__MODULE__, config, hibernate_after: 5_000)
 
   def checkout(pid, sock),
-    do: :gen_statem.call(pid, {:checkout, sock})
+    do: :gen_statem.cast(pid, {:checkout, sock, self()})
 
   @spec get_state_and_mode(pid()) :: {:ok, {state, Ultravisor.mode()}} | {:error, term()}
   def get_state_and_mode(pid) do
@@ -102,7 +102,10 @@ defmodule Ultravisor.DbHandler do
     :proc_lib.set_label({__MODULE__, args.id})
 
     Telem.handler_action(:db_handler, :started, args.id)
-    {:ok, :connect, data, {:next_event, :internal, :connect}}
+
+    :gen_statem.enter_loop(__MODULE__, [hibernate_after: 5000], :connect, data, [
+      {:next_event, :internal, :connect}
+    ])
   end
 
   @impl true
@@ -218,10 +221,12 @@ defmodule Ultravisor.DbHandler do
       {:error_response, ["SFATAL", "VFATAL", "C28P01", reason, _, _, _]} ->
         handle_authentication_error(data, reason)
         Logger.error("DbHandler: Auth error #{inspect(reason)}")
+        :proc_lib.init_ack({:error, :invalid_password})
         {:stop, :invalid_password, data}
 
       {:error_response, error} ->
         Logger.error("DbHandler: Error auth response #{inspect(error)}")
+        :proc_lib.init_ack({:error, :auth_error})
         {:stop, {:encode_and_forward, error}}
 
       {:ready_for_query, acc} ->
@@ -231,7 +236,7 @@ defmodule Ultravisor.DbHandler do
           "DbHandler: DB ready_for_query: #{inspect(acc.db_state)} #{inspect(ps, pretty: true)}"
         )
 
-        data(proxy: proxy, caller: caller) = data
+        data(sock: sock, proxy: proxy, caller: caller) = data
 
         if proxy do
           bin_ps = Server.encode_parameter_status(ps)
@@ -240,10 +245,12 @@ defmodule Ultravisor.DbHandler do
           Ultravisor.set_parameter_status(id, ps)
         end
 
+        :proc_lib.init_ack({:ok, sock})
         check_caller(data(data, parameter_status: ps, reconnect_retries: 0))
 
       other ->
         Logger.error("DbHandler: Undefined auth response #{inspect(other)}")
+        :proc_lib.init_ack({:error, :auth_error})
         {:stop, :auth_error, data}
     end
   end
@@ -295,17 +302,13 @@ defmodule Ultravisor.DbHandler do
     end
   end
 
-  def handle_event({:call, from}, {:checkout, client_sock}, state, data(sock: sock) = data) do
-    {caller, _} = from
+  def handle_event(:cast, {:checkout, client_sock, caller}, state, data() = data) do
     Logger.debug("DbHandler: checkout call when state was #{state}")
 
     # store the reply ref and send it when the state is idle
-    if state in [:idle, :busy] do
-      {:keep_state, data(data, client_sock: client_sock, caller: caller), {:reply, from, sock}}
-    else
-      Logger.warning("DbHandler: not ready")
-      {:keep_state, data(data, client_sock: client_sock, caller: caller, reply: from)}
-    end
+    true = state in [:idle, :busy]
+
+    {:keep_state, data(data, client_sock: client_sock, caller: caller)}
   end
 
   def handle_event(_, {closed, _}, :busy, data) when closed in @sock_closed do
@@ -331,10 +334,9 @@ defmodule Ultravisor.DbHandler do
     if state == :busy or mode == :session do
       HandlerHelpers.sock_send(sock, Server.terminate_message())
       :gen_tcp.close(elem(sock, 1))
-      {:stop, {:client_handler_down, mode}}
-    else
-      {:keep_state, data(data, caller: nil)}
     end
+
+    {:stop, {:client_handler_down, mode}}
   end
 
   def handle_event({:call, from}, :get_state_and_mode, state, data) do

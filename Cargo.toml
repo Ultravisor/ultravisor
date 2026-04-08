@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Łukasz Niemier <~@hauleth.dev>
+#
+# SPDX-License-Identifier: EUPL-1.2
+
+[workspace]
+resolver = "2"
+
+members = ["native/queproc"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1

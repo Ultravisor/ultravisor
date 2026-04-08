@@ -38,7 +38,16 @@ defmodule Ultravisor.TenantSupervisor do
 
         %{
           id: {:pool, id},
-          start: {:poolboy, :start_link, [pool_spec(id, e), e]},
+          # start: {:poolboy, :start_link, [pool_spec(id, e), e]},
+          start:
+            {Queproc, :start_link,
+             [
+               [
+                 name: {:via, Registry, {Ultravisor.Registry.Tenants, id, e.replica_type}},
+                 size: e.pool_size,
+                 worker: {Ultravisor.DbHandler, e}
+               ]
+             ]},
           restart: :temporary
         }
       end)
