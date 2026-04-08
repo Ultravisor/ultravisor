@@ -38,7 +38,17 @@ defmodule Ultravisor.TenantSupervisor do
 
         %{
           id: {:pool, id},
-          start: {:poolboy, :start_link, [pool_spec(id, e), e]},
+          start:
+            {Queproc, :start_link,
+             [
+               [
+                 name: {:via, Registry, {Ultravisor.Registry.Tenants, id}},
+                 size: 1,
+                 max_size: e.pool_size,
+                 idle_timeout: :timer.minutes(5),
+                 worker: {Ultravisor.DbHandler, e}
+               ]
+             ]},
           restart: :temporary
         }
       end)
@@ -69,19 +79,5 @@ defmodule Ultravisor.TenantSupervisor do
       start: {__MODULE__, :start_link, [args]},
       restart: :transient
     }
-  end
-
-  @spec pool_spec(tuple, map) :: Keyword.t()
-  defp pool_spec(id, args) do
-    {size, overflow} = {1, args.pool_size}
-
-    [
-      name: {:via, Registry, {Ultravisor.Registry.Tenants, id}},
-      worker_module: Ultravisor.DbHandler,
-      size: size,
-      max_overflow: overflow,
-      strategy: :lifo,
-      idle_timeout: :timer.minutes(5)
-    ]
   end
 end

@@ -131,9 +131,10 @@ defmodule Ultravisor.MixProject do
       # Documentation
       {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
 
-      # pooller
+      # Pooller
       # {:poolboy, "~> 1.5.2"},
       {:poolboy, github: "hauleth/poolboy"},
+      {:rustler, "~> 0.38.0"},
       {:syn, "~> 3.3"},
       {:pgo, "~> 0.13"},
       {:ranch, "~> 2.0", override: true},
@@ -146,7 +147,7 @@ defmodule Ultravisor.MixProject do
       # Benchmarking and performance
       {:benchee, "~> 1.3", only: :dev},
       {:eflambe, "~> 0.3.1", only: :dev},
-      {:meck, "~> 1.2.0", only: :dev, override: true},
+      {:meck, "~> 1.2", only: :dev, override: true},
 
       # Test utilities
       {:excoveralls, ">= 0.0.0", only: [:dev, :test]},

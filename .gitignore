@@ -46,3 +46,4 @@ priv/native/*
 *.bggg
 /.pre-commit-config.yaml
 *.coverdata
+/target
