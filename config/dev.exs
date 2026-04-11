@@ -75,8 +75,6 @@ end
 
 # Configures Elixir's Logger
 config :logger, :default_formatter,
-  level: :debug,
-  # level: :notice,
   metadata: [
     :error_code,
     :file,
