@@ -131,6 +131,16 @@ if config_env() != :test do
     ]
 end
 
+default_level =
+  case config_env() do
+    :test -> :all
+    :dev -> :debug
+    _ -> :notice
+  end
+
+config :logger,
+  level: Config.get_enum("ULTRAVISOR_LOG_LEVEL", Logger.levels(), default_level)
+
 if path = System.get_env("ULTRAVISOR_LOG_FILE_PATH") do
   config :logger, :default_handler,
     config: [
