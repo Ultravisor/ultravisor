@@ -243,13 +243,13 @@ defmodule Ultravisor.MixProject do
       :green,
       "<task> ",
       :reset,
-      "[argument=value]",
+      "[argument=value]...",
       "\n\n",
       "Tasks:\n"
     ])
 
     max_task = tasks |> Enum.map(fn [_, name] -> String.length(name) end) |> Enum.max()
-    width = (div(max_task, 8) + 1) * 8 + 2
+    width = max_task + 6
 
     for [help, name] <- tasks, not String.starts_with?(name, ".") do
       name_width = String.length(name)

@@ -75,24 +75,6 @@ pgdog:
 		--config $(PWD)/bench/pgdog/config.toml \
 		--users  $(PWD)/bench/pgdog/users.toml
 
-dev_release:
-	mix deps.get && mix compile && mix release ultravisor
-
-dev_up:
-	rm -rf _build/dev/lib/ultravisor && \
-	MIX_ENV=dev mix compile && \
-	mix release ultravisor
-
-dev_start_rel:
-	MIX_ENV=dev \
-	VAULT_ENC_KEY="aHD8DZRdk2emnkdktFZRh3E9RNg4aOY7" \
-	API_JWT_SECRET=dev \
-	METRICS_JWT_SECRET=dev \
-	SECRET_KEY_BASE="dev" \
-	ULTRAVISOR_CLUSTER_POSTGRES="ultravisor_local" \
-	DB_POOL_SIZE="5" \
-	_build/prod/rel/ultravisor/bin/ultravisor start_iex
-
 prod_rel:
 	MIX_ENV=prod mix compile && \
 	MIX_ENV=prod mix release ultravisor
