@@ -95,6 +95,9 @@
             env.PGHOST = lib.mkForce "";
 
             # env.DATABASE_URL = "postgres://postgres:postgres@localhost:6432/";
+            env.MIMALLOC = "${pkgs.mimalloc}";
+            env.JEMALLOC = "${pkgs.jemalloc}";
+            env.SNMALLOC = "${pkgs.snmalloc}";
 
             languages.javascript = {
               enable = true;
