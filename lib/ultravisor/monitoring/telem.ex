@@ -19,27 +19,23 @@ defmodule Ultravisor.Monitoring.Telem do
           {:ok | :error, net_stats()}
   def network_usage(type, {mod, socket}, id, {prev_recv, prev_send} = stats) do
     Debouncer.debounce({:net, type}, fn ->
-      mod = if mod == :ssl, do: :ssl, else: :inet
+      :telemetry.execute_lazy([:ultravisor, type, :network, :stat], {:ok, stats}, fn ->
+        mod = if mod == :ssl, do: :ssl, else: :inet
 
-      case mod.getstat(socket, [:recv_oct, :send_oct]) do
-        {:ok, [{:recv_oct, recv_oct}, {:send_oct, send_oct}]} ->
-          stats = %{
-            send_oct: send_oct - prev_send,
-            recv_oct: recv_oct - prev_recv
-          }
+        case mod.getstat(socket, [:recv_oct, :send_oct]) do
+          {:ok, [{:recv_oct, recv_oct}, {:send_oct, send_oct}]} ->
+            stats = %{
+              send_oct: send_oct - prev_send,
+              recv_oct: recv_oct - prev_recv
+            }
 
-          :telemetry.execute(
-            [:ultravisor, type, :network, :stat],
-            stats,
-            Ultravisor.conn_id_to_map(id)
-          )
+            {{:ok, {recv_oct, send_oct}}, {stats, Ultravisor.conn_id_to_map(id)}}
 
-          {:ok, {recv_oct, send_oct}}
-
-        {:error, reason} ->
-          Logger.error("Failed to get socket stats: #{inspect(reason)}")
-          {:error, stats}
-      end
+          {:error, reason} ->
+            Logger.error("Failed to get socket stats: #{inspect(reason)}")
+            {{:error, stats}, :ignore}
+        end
+      end)
     end)
   end
 

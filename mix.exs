@@ -111,7 +111,7 @@ defmodule Ultravisor.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:phoenix_live_view, "~> 1.0"},
       {:phoenix_live_dashboard, "~> 0.7"},
-      {:telemetry, github: "hauleth/telemetry", branch: "push-wrpyympnlvow", override: true},
+      {:telemetry, github: "beam-telemetry/telemetry", override: true},
       {:telemetry_poller, "~> 1.0"},
       {:telemetry_metrics, github: "beam-telemetry/telemetry_metrics", override: true},
       {:peep, github: "rkallos/peep", override: true},
