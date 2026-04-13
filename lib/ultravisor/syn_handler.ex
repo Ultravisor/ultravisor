@@ -18,7 +18,7 @@ defmodule Ultravisor.SynHandler do
   @impl true
   def on_process_unregistered(
         :tenants,
-        conn_id(type: type, tenant: tenant, user: user, mode: mode, db_name: db_name) = id,
+        conn_id(tenant: tenant, user: user, mode: mode, db_name: db_name) = id,
         _pid,
         meta,
         reason
@@ -27,8 +27,7 @@ defmodule Ultravisor.SynHandler do
       project: tenant,
       user: user,
       mode: mode,
-      db_name: db_name,
-      type: type
+      db_name: db_name
     }
 
     Logger.debug("Process unregistered: #{inspect(id)} #{inspect(reason)}", metadata)
