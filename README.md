@@ -12,6 +12,7 @@ SPDX-License-Identifier: EUPL-1.2
 [![codecov](https://codecov.io/gh/Ultravisor/ultravisor/graph/badge.svg?token=XC5YG41599)](https://app.codecov.io/gh/Ultravisor/ultravisor)
 
 - [Overview](#overview)
+- [Community](#community)
 - [Motivation](#motivation)
 - [Architecture](#architecture)
 - [Docs](#docs)
@@ -30,6 +31,16 @@ a stateful pool of native Postgres database connections.
 For database managers, Ultravisor simplifies the task of managing Postgres
 clusters by providing easy configuration of highly available Postgres clusters
 ([todo](#future-work)).
+
+## Community
+
+This is community project, there is no corporate or other entity behind this
+project at the time of writing. If you want to participate in the development or
+you want community help, then you can see our:
+
+- [Discord](https://discord.gg/Rh2gdrDFDd)
+- IRC channel `#ultravisor` on Libera.Chat (it is bridged to Discord's `#irc`
+  channel)
 
 ## Motivation
 
@@ -154,7 +165,7 @@ the design decisions for Supavisor.
 
 ## License
 
-The project is for of Supabase's Supavisor, as so the licensing is:
+The project is fork of Supabase's Supavisor, as so the licensing is:
 
 Till commit `d7c2febd` (inclusive) - Apache-2.0 
 Since commit `e82f1bc7` (inclusive) - EUPL-1.2
