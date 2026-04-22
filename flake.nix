@@ -101,6 +101,8 @@
               bun.enable = true;
               yarn.enable = true;
             };
+
+            languages.rust.enable = true;
           };
         };
     };
