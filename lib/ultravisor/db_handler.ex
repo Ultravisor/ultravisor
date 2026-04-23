@@ -77,7 +77,7 @@ defmodule Ultravisor.DbHandler do
     Helpers.set_log_level(args.log_level)
     Helpers.set_max_heap_size(90)
 
-    {_, tenant} = args.tenant
+    tenant = args.tenant
     Logger.metadata(project: tenant, user: args.user, mode: args.mode)
 
     data =

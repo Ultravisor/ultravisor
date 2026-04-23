@@ -46,9 +46,9 @@ defmodule Ultravisor.Manager do
     Helpers.set_log_level(args.log_level)
     tid = :ets.new(__MODULE__, [:protected])
 
-    [args | _] = Enum.filter(args.replicas, fn e -> e.replica_type == :write end)
+    [args | _] = args.replicas
 
-    conn_id(type: type, tenant: tenant, user: user, db_name: db_name) = args.id
+    conn_id(tenant: tenant, user: user, db_name: db_name) = args.id
 
     state = %{
       id: args.id,
@@ -62,7 +62,7 @@ defmodule Ultravisor.Manager do
       idle_timeout: args.client_idle_timeout
     }
 
-    Logger.metadata(project: tenant, user: user, type: type, db_name: db_name)
+    Logger.metadata(project: tenant, user: user, db_name: db_name)
     Registry.register(Ultravisor.Registry.ManagerTables, args.id, tid)
 
     {:ok, state}

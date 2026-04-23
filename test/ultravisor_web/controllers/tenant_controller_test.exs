@@ -158,13 +158,13 @@ defmodule UltravisorWeb.TenantControllerTest do
   end
 
   defp set_cache(external_id) do
-    Ultravisor.Tenants.get_user_cache(:single, "user", external_id, nil)
+    Ultravisor.Tenants.get_user_cache("user", external_id, nil)
     Ultravisor.Tenants.get_tenant_cache(external_id, nil)
   end
 
   defp check_cache(external_id) do
     assert {:ok, nil} =
-             Cachex.get(Ultravisor.Cache, {:user_cache, :single, "user", external_id, nil})
+             Cachex.get(Ultravisor.Cache, {:user_cache, "user", external_id, nil})
 
     assert {:ok, nil} = Cachex.get(Ultravisor.Cache, {:tenant_cache, external_id, nil})
   end
