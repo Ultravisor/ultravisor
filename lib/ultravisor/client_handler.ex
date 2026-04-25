@@ -1041,7 +1041,7 @@ defmodule Ultravisor.ClientHandler do
     # db_pid can be nil in transaction mode, so we will send ready_for_query
     # without checking out a direct connection. If there is a linked db_pid,
     # we will forward the message to it
-    if db_pid,
+    if is_nil(db_pid),
       do: :ok = HandlerHelpers.sock_send(sock, Server.ready_for_query()),
       else: :ok = forward_to_db(Server.sync(), data)
 
