@@ -12,8 +12,6 @@ defmodule Ultravisor.Protocol.Server do
   Error codes https://www.postgresql.org/docs/current/errcodes-appendix.html
   """
 
-  alias Ultravisor.Protocol.PgType
-
   @pkt_header_size 5
   @authentication_ok <<?R, 8::32, 0::32>>
   @ready_for_query <<?Z, 5::32, ?I>>
@@ -265,7 +263,7 @@ defmodule Ultravisor.Protocol.Server do
           {:ok, format} ->
             field = %{
               name: field_name,
-              type_info: PgType.type(data_type_oid),
+              type_info: data_type_oid,
               table_oid: table_oid,
               attr_number: attr_num,
               data_type_oid: data_type_oid,

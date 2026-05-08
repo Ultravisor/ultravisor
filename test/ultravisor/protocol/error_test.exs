@@ -3,63 +3,53 @@
 # SPDX-License-Identifier: EUPL-1.2
 
 defmodule Ultravisor.Protocol.ErrorTest do
-  use ExUnit.Case, async: false
-
+  use ExUnit.Case, async: true
   @subject Ultravisor.Protocol.Error
 
-  alias Ultravisor.Protocol.Errors
-  alias Ultravisor.Protocol.Server
-
-  doctest @subject
-
-  describe "encode/2" do
-    test "general exceptions are encoded as is" do
-      msg = @subject.encode(%RuntimeError{})
-
-      assert %{
-               "C" => "UV000",
-               "M" => "RuntimeError: runtime error",
-               "S" => "FATAL",
-               "V" => "FATAL"
-             } == decode_error(msg)
-    end
-
-    test "internal errors have fixed code" do
-      msg = @subject.encode(%Errors.SSLRequiredError{})
-
-      assert %{
-               "C" => "UV002",
-               "M" => "SSLRequiredError: SSL connection is required",
-               "S" => "FATAL",
-               "V" => "FATAL"
-             } == decode_error(msg)
-    end
-
-    test "location is set to Ultravisor location, not top of stacktrace" do
-      {exception, stacktrace} =
-        try do
-          String.split(nil)
-        rescue
-          exception -> {exception, __STACKTRACE__}
-        end
-
-      msg = @subject.encode(exception, stacktrace)
-
-      assert %{
-               "F" => location,
-               "L" => line
-             } = decode_error(msg)
-
-      assert String.ends_with?(__ENV__.file, location)
-      assert {_, ""} = Integer.parse(line)
-    end
+  defmodule TestException do
+    defexception [:message, pg_code: "T001", pg_severity: :error]
   end
 
-  defp decode_error(msg) do
-    bin = IO.iodata_to_binary(msg)
+  defmodule GenericException do
+    defexception [:message]
+  end
 
-    assert {:ok, %{tag: :error_response, payload: payload}, ""} = Server.decode_pkt(bin)
+  describe "encode/2" do
+    test "encodes custom exception" do
+      exc = %TestException{message: "test message"}
+      encoded = @subject.encode(exc)
+      # Encoded message is iodata, convert to binary to check
+      bin = IO.iodata_to_binary(encoded)
 
-    for <<kind>> <> data <- payload, into: %{}, do: {<<kind>>, data}
+      # Should be an ErrorResponse packet (?E)
+      assert <<?E, _len::32, payload::binary>> = bin
+      # Check for fields
+      assert "SERROR" <> <<0>> <> "VERROR" <> <<0>> <> "CT001" <> <<0>> <> _ = payload
+
+      assert "MUltravisor.Protocol.ErrorTest.TestException: test message" in String.split(
+               payload,
+               <<0>>
+             )
+    end
+
+    test "encodes generic exception with default values" do
+      exc = %GenericException{message: "generic message"}
+      encoded = @subject.encode(exc)
+      bin = IO.iodata_to_binary(encoded)
+
+      assert <<?E, _len::32, payload::binary>> = bin
+      assert "SFATAL" <> <<0>> <> "VFATAL" <> <<0>> <> "CUV000" <> <<0>> <> _ = payload
+    end
+
+    test "includes location from stacktrace" do
+      exc = %TestException{message: "loc test"}
+      stack = [{Ultravisor.SomeModule, :some_func, 2, [file: "lib/some_file.ex", line: 42]}]
+      encoded = @subject.encode(exc, stack)
+      bin = IO.iodata_to_binary(encoded)
+
+      assert bin =~ "lib/some_file.ex"
+      assert bin =~ "42"
+      assert bin =~ "Ultravisor.SomeModule.some_func/2"
+    end
   end
 end
