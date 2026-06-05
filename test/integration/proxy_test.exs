@@ -7,8 +7,6 @@
 defmodule Ultravisor.Integration.ProxyTest do
   use Ultravisor.DataCase, async: false
 
-  require Logger
-
   require Ultravisor.ClientHandler, as: CH
 
   import Ultravisor, only: [conn_id: 1]

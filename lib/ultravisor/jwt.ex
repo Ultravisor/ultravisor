@@ -8,7 +8,6 @@ defmodule Ultravisor.Jwt do
   @moduledoc """
   Parse JWT and verify claims
   """
-  require Logger
 
   defmodule Token do
     @moduledoc false

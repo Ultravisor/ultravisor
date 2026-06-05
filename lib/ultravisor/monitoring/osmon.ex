@@ -10,7 +10,6 @@ defmodule Ultravisor.PromEx.Plugins.OsMon do
   """
 
   use PromEx.Plugin
-  require Logger
 
   @event_ram_usage [:prom_ex, :plugin, :osmon, :ram_usage]
   @event_cpu_util [:prom_ex, :plugin, :osmon, :cpu_util]

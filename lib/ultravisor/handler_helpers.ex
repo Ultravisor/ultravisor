@@ -91,7 +91,7 @@ defmodule Ultravisor.HandlerHelpers do
 
       matches ->
         {pos, 1} = List.last(matches)
-        <<name::size(pos)-binary, ?., external_id::binary>> = user
+        <<name::size(^pos)-binary, ?., external_id::binary>> = user
         {name, external_id, db_name}
     end
   end

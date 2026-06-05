@@ -146,6 +146,7 @@ defmodule Ultravisor.MixProject do
       # Benchmarking and performance
       {:benchee, "~> 1.3", only: :dev},
       {:eflambe, "~> 0.3.1", only: :dev},
+      {:meck, "~> 1.2.0", only: :dev, override: true},
 
       # Test utilities
       {:excoveralls, ">= 0.0.0", only: [:dev, :test]},
