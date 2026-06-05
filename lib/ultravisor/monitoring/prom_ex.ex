@@ -12,7 +12,6 @@ defmodule Ultravisor.Monitoring.PromEx do
   """
 
   use PromEx, otp_app: :ultravisor
-  require Logger
 
   alias PromEx.Plugins
   alias Ultravisor.PromEx.Plugins.OsMon

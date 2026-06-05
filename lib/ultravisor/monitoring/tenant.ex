@@ -8,7 +8,6 @@ defmodule Ultravisor.PromEx.Plugins.Tenant do
   @moduledoc "This module defines the PromEx plugin for Ultravisor tenants."
 
   use PromEx.Plugin
-  require Logger
 
   @tags &Function.identity/1
 

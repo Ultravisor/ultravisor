@@ -11,7 +11,6 @@ defmodule Ultravisor.Protocol.Server do
   Message Formats: https://www.postgresql.org/docs/current/protocol-message-formats.html
   Error codes https://www.postgresql.org/docs/current/errcodes-appendix.html
   """
-  require Logger
 
   alias Ultravisor.Protocol.PgType
 
@@ -88,7 +87,7 @@ defmodule Ultravisor.Protocol.Server do
     tag = tag(char)
     payload_len = pkt_len - 4
 
-    <<bin_payload::binary-size(payload_len), rest2::binary>> = rest
+    <<bin_payload::binary-size(^payload_len), rest2::binary>> = rest
 
     payload = decode_payload(tag, bin_payload)
 
