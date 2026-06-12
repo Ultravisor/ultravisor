@@ -76,29 +76,23 @@ defmodule Ultravisor.HandlerHelpers do
   def try_get_sni(_), do: nil
 
   @spec parse_user_info(map) ::
-          {:cluster | :single, {String.t() | nil, String.t(), String.t() | nil}}
+          {String.t() | nil, String.t(), String.t() | nil}
   def parse_user_info(%{"user" => user, "options" => %{"reference" => ref}} = payload) do
     # TODO: parse ref for cluster
-    {:single, {user, ref, payload["database"]}}
+    {user, ref, payload["database"]}
   end
 
   def parse_user_info(%{"user" => user} = payload) do
     db_name = payload["database"]
 
-    case :binary.split(user, ".cluster.") do
-      [user] ->
-        case :binary.matches(user, ".") do
-          [] ->
-            {:single, {user, nil, db_name}}
+    case :binary.matches(user, ".") do
+      [] ->
+        {user, nil, db_name}
 
-          matches ->
-            {pos, 1} = List.last(matches)
-            <<name::size(pos)-binary, ?., external_id::binary>> = user
-            {:single, {name, external_id, db_name}}
-        end
-
-      [user, tenant] ->
-        {:cluster, {user, tenant, db_name}}
+      matches ->
+        {pos, 1} = List.last(matches)
+        <<name::size(pos)-binary, ?., external_id::binary>> = user
+        {name, external_id, db_name}
     end
   end
 
