@@ -263,12 +263,12 @@ defmodule Ultravisor do
 
     case Registry.select(@registry, [{match, [], body}]) do
       [{pool, _}] ->
-        pool
+        Queproc.get_queue(pool)
 
       [_ | _] = pools ->
         # transform [{pid1, :read}, {pid2, :read}, {pid3, :write}]
         # to %{read: [pid1, pid2], write: [pid3]}
-        Enum.group_by(pools, &elem(&1, 1), &elem(&1, 0))
+        Enum.group_by(pools, &elem(&1, 1), &elem(Queproc.get_queue(&1), 0))
 
       _ ->
         nil
