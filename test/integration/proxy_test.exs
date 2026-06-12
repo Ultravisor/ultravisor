@@ -284,9 +284,8 @@ defmodule Ultravisor.Integration.ProxyTest do
     assert {:error,
             %Postgrex.Error{
               postgres: %{
-                code: :internal_error,
-                message: "Authentication error, reason: \"Invalid format for user or db_name\"",
-                pg_code: "XX000",
+                message: "InvalidFormatError: Invalid format for `user` or `db_name`",
+                pg_code: "UV011",
                 severity: "FATAL",
                 unknown: "FATAL"
               }
