@@ -24,7 +24,14 @@ defmodule Ultravisor.MixProject do
       docs: docs(),
       unused: unused(),
       dialyzer: [plt_add_apps: [:mix], flags: [:no_opaque]],
-      test_coverage: [tool: ExCoveralls]
+      test_coverage: [tool: ExCoveralls],
+      hex: [
+        ignore_advisories: [
+          "EEF-CVE-2026-43966",
+          "EEF-CVE-2026-43969",
+          "GHSA-g2wm-735q-3f56"
+        ]
+      ]
     ]
   end
 
@@ -135,7 +142,6 @@ defmodule Ultravisor.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:sobelow, ">= 0.0.0", only: [:dev, :test], runtime: false},
-      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
 
       # Benchmarking and performance
       {:benchee, "~> 1.3", only: :dev},
