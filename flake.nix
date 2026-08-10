@@ -49,7 +49,7 @@
           packages = {
             ultravisor =
               let
-                erl = pkgs.beam_nox.packages.erlang_28;
+                erl = pkgs.beam_nox.packages.erlang_29;
               in
               erl.callPackage ./nix/package.nix { };
 
@@ -59,12 +59,12 @@
           devenv.shells.default = {
             languages.elixir = {
               enable = true;
-              package = pkgs.beam.packages.erlang_28.elixir_1_19;
+              package = pkgs.beam.packages.erlang_29.elixir_1_20;
             };
 
             languages.erlang = {
               enable = true;
-              package = pkgs.beam.packages.erlang_28.erlang;
+              package = pkgs.beam.packages.erlang_29.erlang;
             };
 
             packages = [
@@ -75,7 +75,7 @@
 
             services.postgres = {
               enable = true;
-              package = pkgs.postgresql_18;
+              package = pkgs.postgresql_18_jit;
               initialScript = ''
                 ${builtins.readFile ./dev/postgres/00-setup.sql}
 
