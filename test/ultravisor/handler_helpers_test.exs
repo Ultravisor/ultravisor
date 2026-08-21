@@ -49,4 +49,75 @@ defmodule Ultravisor.HandlerHelpersTest do
       assert db_name == "postgres_test"
     end
   end
+
+  describe "socket helpers" do
+    test "sends data through a TCP socket" do
+      {client, server} = tcp_pair()
+
+      assert :ok = @subject.sock_send({:gen_tcp, client}, "message")
+      assert {:ok, "message"} = :gen_tcp.recv(server, 0, 1_000)
+    end
+
+    test "sets options through a TCP socket" do
+      {client, _server} = tcp_pair(active: true)
+
+      assert :ok = @subject.setopts({:gen_tcp, client}, active: false)
+      assert {:ok, [active: false]} = :inet.getopts(client, [:active])
+    end
+
+    test "closes nil and TCP sockets" do
+      assert :ok = @subject.sock_close(nil)
+      assert :ok = @subject.sock_close({:gen_tcp, nil})
+
+      {client, server} = tcp_pair()
+      assert :ok = @subject.sock_close({:gen_tcp, client})
+      assert {:error, :closed} = :gen_tcp.recv(server, 0, 1_000)
+    end
+
+    test "keeps a TCP socket when SSL is disabled" do
+      {client, _server} = tcp_pair()
+
+      assert {:ok, {:gen_tcp, ^client}} = @subject.try_ssl_handshake({:gen_tcp, client}, false)
+    end
+
+    test "keeps a TCP socket when the server rejects SSL" do
+      {client, server} = tcp_pair()
+      assert :ok = :gen_tcp.send(server, "N")
+
+      assert {:ok, {:gen_tcp, ^client}} = @subject.ssl_recv({:gen_tcp, client})
+    end
+
+    test "gets the peer address from a TCP socket" do
+      {client, _server} = tcp_pair()
+
+      assert {:ok, {127, 0, 0, 1}} = @subject.addr_from_sock({:gen_tcp, client})
+    end
+  end
+
+  describe "cancel query notifications" do
+    test "broadcasts a cancel query notification" do
+      request_id = System.unique_integer([:positive])
+      assert :ok = @subject.listen_cancel_query(request_id, request_id)
+      assert :ok = @subject.send_cancel_query(request_id, request_id)
+      assert_receive :cancel_query
+    end
+  end
+
+  defp tcp_pair(client_opts \\ [active: false]) do
+    {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true])
+    {:ok, {_addr, port}} = :inet.sockname(listener)
+    parent = self()
+
+    spawn_link(fn ->
+      {:ok, server} = :gen_tcp.accept(listener)
+      :ok = :gen_tcp.controlling_process(server, parent)
+      send(parent, {:tcp_server, server})
+    end)
+
+    {:ok, client} = :gen_tcp.connect(~c"127.0.0.1", port, [:binary | client_opts])
+    assert_receive {:tcp_server, server}
+    :ok = :gen_tcp.close(listener)
+
+    {client, server}
+  end
 end
