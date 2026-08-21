@@ -124,7 +124,7 @@ defmodule Ultravisor.MixProject do
       {:libcluster_postgres, "~> 0.2.0"},
       {:cachex, "~> 4.0"},
       {:inet_cidr, "~> 1.0.0"},
-      {:observer_cli, "~> 1.7"},
+      {:observer_cli, "~> 2.0"},
       {:sauron, github: "hauleth/sauron"},
       {:mix_unused, github: "hauleth/mix_unused", runtime: false},
 
