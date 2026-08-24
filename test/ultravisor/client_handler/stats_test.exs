@@ -91,7 +91,7 @@ defmodule Ultravisor.ClientHandler.StatsTest do
     end
 
     @tag external_id: "metrics_tenant"
-    @tag ignore: "No idea what are the rules for proxy connectio metrics"
+    @tag ignore: "No idea what are the rules for proxy connection metrics"
     test "another instance do not send events here", ctx do
       assert {:ok, _pid, node} = Ultravisor.Support.Cluster.start_node()
 
