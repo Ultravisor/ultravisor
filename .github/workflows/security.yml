@@ -7,15 +7,9 @@
 name: Security checks
 
 on:
-  push:
-    branches:
-      - main
-  pull_request_target:
-    branches:
-      - main
   schedule:
     # Every day at midnight UTC
-    - cron: "0 0 * * *"
+    # - cron: "0 0 * * *"
 
 permissions:
   contents: write
