@@ -24,7 +24,10 @@ defmodule Ultravisor.MixProject do
       docs: docs(),
       unused: unused(),
       dialyzer: [plt_add_apps: [:mix], flags: [:no_opaque]],
-      test_coverage: [tool: ExCoveralls],
+      test_coverage: [
+        # tool: Repatch.CoverTool,
+        tool: ExCoveralls
+      ],
       hex: [
         ignore_advisories: [
           "EEF-CVE-2026-43966",
@@ -40,6 +43,7 @@ defmodule Ultravisor.MixProject do
       preferred_envs: [
         coveralls: :test,
         "coveralls.html": :test,
+        "coveralls.json": :test,
         "coveralls.github": :test,
         "coveralls.lcov": :test
       ]
