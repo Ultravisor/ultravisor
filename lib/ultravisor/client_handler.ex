@@ -63,7 +63,9 @@ defmodule Ultravisor.ClientHandler do
     :auth,
     :tenant_availability_zone,
     :local,
-    :app_name
+    :app_name,
+    :frontend_buffer,
+    :ready_for_query_count
   ])
 
   @typep t() :: record(:data)
@@ -137,7 +139,9 @@ defmodule Ultravisor.ClientHandler do
         auth: %{},
         tenant_availability_zone: nil,
         local: local,
-        app_name: nil
+        app_name: nil,
+        frontend_buffer: <<>>,
+        ready_for_query_count: 0
       )
 
     :gen_statem.enter_loop(__MODULE__, [hibernate_after: 5_000], :exchange, data)
@@ -592,6 +596,27 @@ defmodule Ultravisor.ClientHandler do
     Logger.debug("ClientHandler: Send heartbeat to client")
     HandlerHelpers.sock_send(sock, Server.application_name())
     {:keep_state_and_data, {:timeout, hb, :heartbeat_check}}
+  end
+
+  def handle_event(:info, {proto, _socket, msg}, state, data(mode: :transaction) = data)
+      when proto in @proto and is_binary(msg) do
+    {:ok, ready_for_query_count, frontend_buffer} =
+      Server.frontend_ready_for_query_count(msg, data(data, :frontend_buffer))
+
+    data =
+      data(data,
+        frontend_buffer: frontend_buffer,
+        ready_for_query_count: ready_for_query_count
+      )
+
+    handle_downstream_data(msg, state, data)
+  rescue
+    exception ->
+      msg = Error.encode(exception, __STACKTRACE__)
+      data(sock: sock) = data
+      HandlerHelpers.sock_send(sock, msg)
+
+      reraise exception, __STACKTRACE__
   end
 
   def handle_event(:info, {proto, _socket, msg}, state, data)
@@ -1134,7 +1159,14 @@ defmodule Ultravisor.ClientHandler do
   @compile {:inline, forward_to_db: 2}
 
   @spec forward_to_db(binary(), t()) :: :ok | {:error, term()}
-  defp forward_to_db(bin, data(db_pid: {_, _, db_sock})) do
+  defp forward_to_db(
+         bin,
+         data(db_pid: {_, db_pid, db_sock}, ready_for_query_count: ready_for_query_count)
+       ) do
+    # This cast must enter DbHandler before the database can send its reply.
+    # DbHandler delays checkin until all counted replies are sent.
+    :ok = DbHandler.expect_ready_for_query(db_pid, ready_for_query_count)
+
     case HandlerHelpers.sock_send(db_sock, bin) do
       :ok ->
         :ok

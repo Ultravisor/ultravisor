@@ -62,6 +62,35 @@ defmodule Ultravisor.Protocol.ServerTest do
     end
   end
 
+  describe "ReadyForQuery boundaries" do
+    test "counts frontend Query and Sync messages across TCP payloads" do
+      query = <<?Q, 4::32>>
+      sync = <<?S, 4::32>>
+      <<sync_prefix::binary-size(3), sync_suffix::binary>> = sync
+
+      assert {:ok, 1, ^sync_prefix} =
+               @subject.frontend_ready_for_query_count(query <> sync_prefix)
+
+      assert {:ok, 1, <<>>} =
+               @subject.frontend_ready_for_query_count(sync_suffix, sync_prefix)
+    end
+
+    test "waits for a complete backend ReadyForQuery message" do
+      ready_for_query = <<?Z, 5::32, ?I>>
+      <<prefix::binary-size(5), suffix::binary>> = ready_for_query
+
+      assert {:ok, 0, nil, ^prefix} = @subject.backend_ready_for_query_statuses(prefix)
+
+      assert {:ok, 1, :idle, <<>>} =
+               @subject.backend_ready_for_query_statuses(suffix, prefix)
+    end
+
+    test "rejects a packet length shorter than its length field" do
+      assert {:error, :invalid_packet_length} =
+               @subject.frontend_ready_for_query_count(<<?Q, 3::32>>)
+    end
+  end
+
   describe "decode_startup_packet/1" do
     test "decodes valid startup packet" do
       payload =

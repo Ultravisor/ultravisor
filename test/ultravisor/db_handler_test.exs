@@ -6,13 +6,45 @@
 
 defmodule Ultravisor.DbHandlerTest do
   use ExUnit.Case, async: true
+  use Repatch.ExUnit
 
   import Ultravisor, only: [conn_id: 1]
   import Ultravisor.DbHandler, only: [data: 1]
 
   alias Ultravisor.DbHandler, as: Db
+  require Ultravisor.Protocol.Server, as: Server
 
   @id conn_id(tenant: "tenant", user: "user", db_name: "postgres")
+
+  @tls_send_chunk_size 8_192
+
+  defp patch_sock_send(result \\ :ok) do
+    test_process = self()
+
+    Repatch.patch(Ultravisor.HandlerHelpers, :sock_send, fn socket, payload ->
+      send(test_process, {:sock_send, socket, IO.iodata_to_binary(payload)})
+      result
+    end)
+  end
+
+  defp receive_chunks(socket, count) do
+    for _ <- 1..count do
+      assert_receive {:sock_send, ^socket, payload}
+      payload
+    end
+  end
+
+  defp forwarding_data(client_sock) do
+    data(
+      caller: self(),
+      reply: nil,
+      mode: :session,
+      proxy: true,
+      client_sock: client_sock,
+      stats: {0, 0},
+      id: @id
+    )
+  end
 
   defp sockpair do
     {:ok, listen} = :gen_tcp.listen(0, mode: :binary, active: false)
@@ -117,6 +149,97 @@ defmodule Ultravisor.DbHandlerTest do
         )
 
       assert state == {:keep_state_and_data, {:state_timeout, 2_500, :connect}}
+    end
+  end
+
+  describe "TLS downstream forwarding" do
+    test "chunks normal and ReadyForQuery database responses" do
+      patch_sock_send()
+      socket = {:ssl, :downstream}
+      normal_payload = :binary.copy("x", 20_000)
+
+      ready_payload =
+        :binary.copy("y", 20_000 - byte_size(Server.ready_for_query())) <>
+          Server.ready_for_query()
+
+      assert :keep_state_and_data =
+               Db.handle_event(
+                 :info,
+                 {:tcp, :upstream, normal_payload},
+                 :busy,
+                 forwarding_data(socket)
+               )
+
+      normal_chunks = receive_chunks(socket, 3)
+      assert Enum.map(normal_chunks, &byte_size/1) == [8_192, 8_192, 3_616]
+      assert Enum.all?(normal_chunks, &(byte_size(&1) <= @tls_send_chunk_size))
+      assert IO.iodata_to_binary(normal_chunks) == normal_payload
+
+      assert {:next_state, :idle, _} =
+               Db.handle_event(
+                 :info,
+                 {:tcp, :upstream, ready_payload},
+                 :busy,
+                 forwarding_data(socket)
+               )
+
+      ready_chunks = receive_chunks(socket, 3)
+      assert Enum.map(ready_chunks, &byte_size/1) == [8_192, 8_192, 3_616]
+      assert Enum.all?(ready_chunks, &(byte_size(&1) <= @tls_send_chunk_size))
+      assert IO.iodata_to_binary(ready_chunks) == ready_payload
+    end
+
+    test "sends TCP database responses without chunking" do
+      patch_sock_send()
+      socket = {:gen_tcp, :downstream}
+      payload = :binary.copy("x", 20_000)
+
+      assert :keep_state_and_data =
+               Db.handle_event(
+                 :info,
+                 {:tcp, :upstream, payload},
+                 :busy,
+                 forwarding_data(socket)
+               )
+
+      assert_receive {:sock_send, ^socket, ^payload}
+      refute_receive {:sock_send, ^socket, _}
+    end
+
+    test "chunks TLS client errors during termination" do
+      patch_sock_send()
+      socket = {:ssl, :downstream}
+      fields = ["SFATAL", "VFATAL", "CXX000", "M", :binary.copy("x", 20_000)]
+      message = Server.encode_error_message(fields)
+
+      assert :ok =
+               Db.terminate(
+                 {:encode_and_forward, fields},
+                 :busy,
+                 data(id: @id, client_sock: socket)
+               )
+
+      chunks = receive_chunks(socket, 3)
+      assert Enum.all?(chunks, &(byte_size(&1) <= @tls_send_chunk_size))
+      assert IO.iodata_to_binary(chunks) == IO.iodata_to_binary(message)
+    end
+
+    test "stops TLS forwarding after a send error" do
+      patch_sock_send({:error, :closed})
+      socket = {:ssl, :downstream}
+      payload = :binary.copy("x", 20_000)
+
+      assert :keep_state_and_data =
+               Db.handle_event(
+                 :info,
+                 {:tcp, :upstream, payload},
+                 :busy,
+                 forwarding_data(socket)
+               )
+
+      assert_receive {:sock_send, ^socket, first_chunk}
+      assert byte_size(first_chunk) == @tls_send_chunk_size
+      refute_receive {:sock_send, ^socket, _}
     end
   end
 

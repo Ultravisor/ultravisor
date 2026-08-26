@@ -30,6 +30,7 @@ defmodule Ultravisor.DbHandler do
   @proto [:tcp, :ssl]
   @switch_active_count Application.compile_env(:ultravisor, :db_active_count)
   @reconnect_retries Application.compile_env(:ultravisor, :reconnect_retries)
+  @tls_send_chunk_size 8_192
 
   # TODO: Make it private
   Record.defrecord(:data, [
@@ -47,7 +48,9 @@ defmodule Ultravisor.DbHandler do
     :caller,
     :client_sock,
     :proxy,
-    :reconnect_retries
+    :reconnect_retries,
+    :backend_buffer,
+    :expected_ready_for_query
   ])
 
   @typep t() :: record(:data)
@@ -58,6 +61,10 @@ defmodule Ultravisor.DbHandler do
 
   def checkout(pid, sock),
     do: :gen_statem.cast(pid, {:checkout, sock, self()})
+
+  @spec expect_ready_for_query(pid(), non_neg_integer()) :: :ok
+  def expect_ready_for_query(pid, count),
+    do: :gen_statem.cast(pid, {:expect_ready_for_query, count})
 
   @spec get_state_and_mode(pid()) :: {:ok, {state, Ultravisor.mode()}} | {:error, term()}
   def get_state_and_mode(pid) do
@@ -97,7 +104,9 @@ defmodule Ultravisor.DbHandler do
         caller: args[:caller] || nil,
         client_sock: args[:client_sock] || nil,
         proxy: args[:proxy] || false,
-        reconnect_retries: 0
+        reconnect_retries: 0,
+        backend_buffer: <<>>,
+        expected_ready_for_query: 0
       )
 
     :proc_lib.set_label({__MODULE__, args.id})
@@ -271,37 +280,83 @@ defmodule Ultravisor.DbHandler do
       mode: mode,
       proxy: proxy,
       sock: sock,
-      stats: stats
+      stats: stats,
+      backend_buffer: backend_buffer,
+      expected_ready_for_query: expected_ready_for_query
     ) = data
 
-    Logger.debug("DbHandler: Got write replica message  #{inspect(bin)}")
+    Logger.debug("DbHandler: Got database message #{inspect(bin)}")
 
-    if String.ends_with?(bin, Server.ready_for_query()) do
-      {_, stats} =
-        if proxy,
-          do: {nil, stats},
-          else: Telem.network_usage(:db, sock, id, stats)
+    {received_ready_for_query, status, backend_buffer} =
+      if mode == :transaction do
+        backend_buffer = backend_buffer || <<>>
 
-      # in transaction mode, we need to notify the client when the transaction is finished,
-      # after which it will unlink the direct db connection process from itself.
-      data =
-        if mode == :transaction do
-          ClientHandler.db_status(caller, :ready_for_query, bin)
+        {:ok, count, last, backend_buffer} =
+          Server.backend_ready_for_query_statuses(bin, backend_buffer)
 
-          data(data, stats: stats, caller: nil, client_sock: nil)
-        else
-          HandlerHelpers.sock_send(client_sock, bin)
-          ClientHandler.save_stats(caller)
+        {count, last, backend_buffer}
+      else
+        {0, nil, backend_buffer}
+      end
 
-          data(data, stats: stats)
-        end
+    expected_ready_for_query = expected_ready_for_query || 0
+    outstanding_ready_for_query = expected_ready_for_query - received_ready_for_query
 
-      {:next_state, :idle, data}
-    else
-      HandlerHelpers.sock_send(client_sock, bin)
-      :keep_state_and_data
+    complete_response? =
+      (mode == :transaction and status == :idle) or
+        String.ends_with?(bin, Server.ready_for_query())
+
+    transaction_done? =
+      mode == :transaction and expected_ready_for_query > 0 and
+        outstanding_ready_for_query <= 0 and complete_response?
+
+    expected_ready_for_query = max(outstanding_ready_for_query, 0)
+
+    {_, stats} =
+      if transaction_done? and not proxy,
+        do: Telem.network_usage(:db, sock, id, stats),
+        else: {nil, stats}
+
+    # Queue this cast before the final ReadyForQuery reaches the client. The
+    # client can then check the backend in only after it sends that reply.
+    if transaction_done?, do: ClientHandler.db_status(caller, :ready_for_query, bin)
+
+    data =
+      if mode == :transaction do
+        data(data,
+          stats: stats,
+          backend_buffer: backend_buffer,
+          expected_ready_for_query: expected_ready_for_query
+        )
+      else
+        data(data, stats: stats)
+      end
+
+    cond do
+      transaction_done? ->
+        {:next_state, :idle, data(data, caller: nil, client_sock: nil)}
+
+      complete_response? ->
+        client_send(client_sock, bin)
+        ClientHandler.save_stats(caller)
+        {:next_state, :idle, data}
+
+      mode == :transaction ->
+        client_send(client_sock, bin)
+        {:keep_state, data}
+
+      true ->
+        client_send(client_sock, bin)
+        :keep_state_and_data
     end
   end
+
+  def handle_event(:cast, {:expect_ready_for_query, count}, _, data(mode: :transaction) = data) do
+    data(expected_ready_for_query: expected_ready_for_query) = data
+    {:keep_state, data(data, expected_ready_for_query: expected_ready_for_query + count)}
+  end
+
+  def handle_event(:cast, {:expect_ready_for_query, _bin}, _, _data), do: :keep_state_and_data
 
   def handle_event(:cast, {:checkout, client_sock, caller}, state, data() = data) do
     Logger.debug("DbHandler: checkout call when state was #{state}")
@@ -378,13 +433,74 @@ defmodule Ultravisor.DbHandler do
           _ -> Server.error_message("XX000", inspect(reason))
         end
 
-      HandlerHelpers.sock_send(client_sock, message)
+      client_send(client_sock, message)
     end
 
     Logger.error(
       "DbHandler: Terminating with reason #{inspect(reason)} when state was #{inspect(state)}"
     )
   end
+
+  defp handshake(sock, auth, data(id: id, proxy: proxy) = data, on_error) do
+    case try_ssl_handshake({:gen_tcp, sock}, auth) do
+      {:ok, sock} ->
+        start_authentication(sock, auth, id, proxy, data, on_error)
+
+      {:error, reason} ->
+        Logger.error("DbHandler: Handshake error #{inspect(reason)}")
+        on_error.(reason)
+    end
+  end
+
+  defp start_authentication(sock, auth, id, proxy, data, on_error) do
+    tenant = if proxy, do: Ultravisor.tenant(id)
+    search_path = Ultravisor.search_path(id)
+
+    case send_startup(sock, auth, tenant, search_path) do
+      :ok ->
+        HandlerHelpers.setopts(sock, active: @switch_active_count)
+        {:next_state, :authentication, data(data, sock: sock)}
+
+      {:error, reason} ->
+        Logger.error("DbHandler: Send startup error #{inspect(reason)}")
+        on_error.(reason)
+    end
+  end
+
+  # libpq's async API hangs when a TLS record leaves bytes in OpenSSL's
+  # buffer that pqReadData doesn't drain; the client then polls the socket
+  # for data that's already arrived. Keeping records within libpq's 8KB
+  # input buffer avoids it.
+  # https://www.postgresql.org/message-id/flat/57d1e8b1-d016-4cea-9b60-63cbdb40eb81%40iki.fi
+  defp client_send({:ssl, _} = sock, payload) do
+    chunk_send(:erlang.iolist_to_iovec(payload), sock)
+  end
+
+  defp client_send(sock, payload) do
+    HandlerHelpers.sock_send(sock, payload)
+  end
+
+  defp chunk_send([], _sock), do: :ok
+
+  defp chunk_send(iovec, sock) do
+    {chunk, rest} = take_chunk(iovec, @tls_send_chunk_size, [])
+
+    case HandlerHelpers.sock_send(sock, chunk) do
+      :ok -> chunk_send(rest, sock)
+      error -> error
+    end
+  end
+
+  defp take_chunk([bin | rest], remaining, acc) when byte_size(bin) <= remaining do
+    take_chunk(rest, remaining - byte_size(bin), [bin | acc])
+  end
+
+  defp take_chunk([bin | rest], remaining, acc) do
+    <<head::binary-size(^remaining), tail::binary>> = bin
+    {:lists.reverse([head | acc]), [tail | rest]}
+  end
+
+  defp take_chunk([], _remaining, acc), do: {:lists.reverse(acc), []}
 
   @spec try_ssl_handshake(Ultravisor.tcp_sock(), map) ::
           {:ok, Ultravisor.sock()} | {:error, term()}
