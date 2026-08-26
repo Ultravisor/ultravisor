@@ -81,6 +81,75 @@ defmodule Ultravisor.Protocol.Server do
     Enum.reverse(acc)
   end
 
+  @doc """
+  Counts complete frontend messages that require a backend ReadyForQuery reply.
+
+  The returned remainder starts at the first incomplete message. Pass that
+  remainder to the next call with the next TCP payload.
+  """
+  @spec frontend_ready_for_query_count(binary(), binary()) ::
+          {:ok, non_neg_integer(), binary()} | {:error, :invalid_packet_length}
+  def frontend_ready_for_query_count(data, buffer \\ <<>>) do
+    with {:ok, packets, rest} <- split_complete_packets(data, buffer) do
+      count = Enum.count(packets, fn {tag, _payload} -> tag in [?Q, ?S] end)
+      {:ok, count, rest}
+    end
+  end
+
+  @doc """
+  Gets statuses from complete backend ReadyForQuery messages.
+
+  The returned remainder starts at the first incomplete message. Pass that
+  remainder to the next call with the next TCP payload.
+  """
+  @spec backend_ready_for_query_statuses(binary(), binary()) ::
+          {:ok, non_neg_integer(), nil | :idle | :transaction | :error, binary()}
+          | {:error, :invalid_packet_length}
+  def backend_ready_for_query_statuses(data, buffer \\ <<>>) do
+    with {:ok, packets, rest} <- split_complete_packets(data, buffer) do
+      {count, last} =
+        for {?Z, <<status>>} <- packets,
+            status <- ready_for_query_status(status),
+            reduce: {0, nil} do
+          {c, _} -> {c + 1, status}
+        end
+
+      {:ok, count, last, rest}
+    end
+  end
+
+  defp split_complete_packets(data, buffer) do
+    split_complete_packet_parts(buffer <> data, [])
+  end
+
+  defp split_complete_packet_parts(<<>>, acc), do: {:ok, Enum.reverse(acc), <<>>}
+
+  defp split_complete_packet_parts(data, acc) when byte_size(data) < @pkt_header_size,
+    do: {:ok, Enum.reverse(acc), data}
+
+  defp split_complete_packet_parts(<<_tag, packet_length::integer-32, _rest::binary>>, _acc)
+       when packet_length < 4,
+       do: {:error, :invalid_packet_length}
+
+  defp split_complete_packet_parts(
+         <<tag, packet_length::integer-32, rest::binary>>,
+         acc
+       ) do
+    payload_length = packet_length - 4
+
+    if byte_size(rest) < payload_length do
+      {:ok, Enum.reverse(acc), <<tag, packet_length::integer-32, rest::binary>>}
+    else
+      <<payload::binary-size(^payload_length), tail::binary>> = rest
+      split_complete_packet_parts(tail, [{tag, payload} | acc])
+    end
+  end
+
+  defp ready_for_query_status(?I), do: [:idle]
+  defp ready_for_query_status(?T), do: [:transaction]
+  defp ready_for_query_status(?E), do: [:error]
+  defp ready_for_query_status(_), do: []
+
   def decode_pkt(<<char::integer-8, pkt_len::integer-32, rest::binary>>) do
     tag = tag(char)
     payload_len = pkt_len - 4
