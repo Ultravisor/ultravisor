@@ -22,6 +22,30 @@ defmodule Ultravisor.Integration.TransactionPipeliningTest do
     assert receive_ready_for_queries(sock, 1) == 1
   end
 
+  @tag :integration
+  test "reuses a named extended-protocol statement after transaction checkin" do
+    sock = connect(@tenant)
+    on_exit(fn -> :gen_tcp.close(sock) end)
+
+    parse = packet(?P, "statement" <> <<0>> <> "SELECT $1::int" <> <<0, 0::16>>)
+    bind = packet(?B, <<0, "statement", 0, 0::16, 1::16, 1::32, ?1, 0::16>>)
+    execute = packet(?E, <<0, 0::32>>)
+    sync = <<?S, 4::32>>
+
+    :ok = :gen_tcp.send(sock, [parse, bind, execute, sync])
+    assert [?1, ?2, ?D, ?C, ?Z] = receive_response(sock)
+    holder = connect(@tenant)
+    on_exit(fn -> :gen_tcp.close(holder) end)
+    :ok = :gen_tcp.send(holder, :pgo_protocol.encode_query_message("BEGIN"))
+    assert receive_ready_for_queries(holder, 1) == 1
+
+    :ok = :gen_tcp.send(sock, [bind, execute, sync])
+    assert [?2, ?D, ?C, ?Z] = receive_response(sock)
+
+    :ok = :gen_tcp.send(holder, :pgo_protocol.encode_query_message("COMMIT"))
+    assert receive_ready_for_queries(holder, 1) == 1
+  end
+
   defp connect(tenant) do
     db_conf = Application.fetch_env!(:ultravisor, Ultravisor.Repo)
     port = Application.fetch_env!(:ultravisor, :proxy_port_transaction)
@@ -61,6 +85,36 @@ defmodule Ultravisor.Integration.TransactionPipeliningTest do
     Enum.map(1..count, fn number ->
       :pgo_protocol.encode_query_message("SELECT #{number}")
     end)
+  end
+
+  defp packet(tag, payload), do: <<tag, byte_size(payload) + 4::32, payload::binary>>
+
+  defp receive_response(sock, buffer \\ <<>>) do
+    {packets, rest} = split_packets(buffer)
+
+    if Enum.any?(packets, &match?(<<?Z, _::binary>>, &1)) do
+      tags = Enum.map(packets, &binary_part(&1, 0, 1))
+      refute ?E in tags
+      Enum.map(tags, fn <<tag, _::binary>> -> tag end)
+    else
+      {:ok, data} = :gen_tcp.recv(sock, 0, 5_000)
+      receive_response(sock, rest <> data)
+    end
+  end
+
+  defp split_packets(data, packets \\ [])
+  defp split_packets(<<>>, packets), do: {Enum.reverse(packets), <<>>}
+  defp split_packets(data, packets) when byte_size(data) < 5, do: {Enum.reverse(packets), data}
+
+  defp split_packets(<<_tag, length::32, rest::binary>> = data, packets) do
+    payload_length = length - 4
+
+    if byte_size(rest) < payload_length do
+      {Enum.reverse(packets), data}
+    else
+      <<payload::binary-size(^payload_length), tail::binary>> = rest
+      split_packets(tail, [<<binary_part(data, 0, 5)::binary, payload::binary>> | packets])
+    end
   end
 
   defp receive_ready_for_queries(sock, expected, buffer \\ <<>>, received \\ 0) do
