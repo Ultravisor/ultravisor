@@ -39,6 +39,7 @@ defmodule Ultravisor.ClientHandler do
 
   alias Ultravisor.Protocol.Error
   alias Ultravisor.Protocol.Errors
+  alias Ultravisor.Protocol.PreparedStatements
 
   # TODO: remove all tests that rely on this structure and replace them with
   # something more appropriate
@@ -65,7 +66,10 @@ defmodule Ultravisor.ClientHandler do
     :local,
     :app_name,
     :frontend_buffer,
-    :ready_for_query_count
+    :ready_for_query_count,
+    :prepared_statements,
+    :prepared_packets,
+    :prepared_operations
   ])
 
   @typep t() :: record(:data)
@@ -141,7 +145,10 @@ defmodule Ultravisor.ClientHandler do
         local: local,
         app_name: nil,
         frontend_buffer: <<>>,
-        ready_for_query_count: 0
+        ready_for_query_count: 0,
+        prepared_statements: PreparedStatements.new(),
+        prepared_packets: [],
+        prepared_operations: []
       )
 
     :gen_statem.enter_loop(__MODULE__, [hibernate_after: 5_000], :exchange, data)
@@ -600,16 +607,26 @@ defmodule Ultravisor.ClientHandler do
 
   def handle_event(:info, {proto, _socket, msg}, state, data(mode: :transaction) = data)
       when proto in @proto and is_binary(msg) do
+    {:ok, prepared_statements, prepared_packets, prepared_operations} =
+      PreparedStatements.process(data(data, :prepared_statements), msg)
+
+    packets = IO.iodata_to_binary(prepared_packets)
+
     {:ok, ready_for_query_count, frontend_buffer} =
-      Server.frontend_ready_for_query_count(msg, data(data, :frontend_buffer))
+      Server.frontend_ready_for_query_count(packets, data(data, :frontend_buffer))
 
     data =
       data(data,
         frontend_buffer: frontend_buffer,
-        ready_for_query_count: ready_for_query_count
+        ready_for_query_count: ready_for_query_count,
+        prepared_statements: prepared_statements,
+        prepared_packets: prepared_packets,
+        prepared_operations: prepared_operations
       )
 
-    handle_downstream_data(msg, state, data)
+    if packets == <<>>,
+      do: {:keep_state, data},
+      else: handle_downstream_data(packets, state, data)
   rescue
     exception ->
       msg = Error.encode(exception, __STACKTRACE__)
@@ -632,7 +649,7 @@ defmodule Ultravisor.ClientHandler do
   end
 
   def handle_event(:info, {:parameter_status, :updated}, _state, _) do
-    Logger.warning("ClientHandler: Parameter status is updated")
+    Logger.warning("Parameter status is updated")
     {:stop, {:shutdown, :parameter_status_updated}}
   end
 
@@ -1121,7 +1138,7 @@ defmodule Ultravisor.ClientHandler do
     Logger.debug("ClientHandler: Forward query to db #{inspect(bin)} #{inspect(db_pid)}")
     :ok = forward_to_db(bin, data)
 
-    :keep_state_and_data
+    {:keep_state, data}
   end
 
   @spec handle_actions(t()) :: [{:timeout, non_neg_integer, atom}]
@@ -1160,13 +1177,36 @@ defmodule Ultravisor.ClientHandler do
 
   @spec forward_to_db(binary(), t()) :: :ok | {:error, term()}
   defp forward_to_db(
-         bin,
-         data(db_pid: {_, db_pid, db_sock}, ready_for_query_count: ready_for_query_count)
+         _bin,
+         data(
+           mode: :transaction,
+           db_pid: {_, db_pid, db_sock},
+           ready_for_query_count: ready_for_query_count,
+           prepared_packets: packets,
+           prepared_operations: prepared_operations
+         )
        ) do
+    {prefix, cached_parses} = DbHandler.prepare_statements(db_pid, prepared_operations)
+    cached_parses = MapSet.new(cached_parses)
+    packets = Enum.reject(packets, &MapSet.member?(cached_parses, &1))
+    bin = IO.iodata_to_binary([prefix, packets])
+
     # This cast must enter DbHandler before the database can send its reply.
     # DbHandler delays checkin until all counted replies are sent.
     :ok = DbHandler.expect_ready_for_query(db_pid, ready_for_query_count)
 
+    case HandlerHelpers.sock_send(db_sock, bin) do
+      :ok ->
+        :ok
+
+      {:error, error} ->
+        Logger.error("ClientHandler: error while sending query: #{inspect(error)}")
+
+        raise Errors.QuerySendError, error: error
+    end
+  end
+
+  defp forward_to_db(bin, data(db_pid: {_, _db_pid, db_sock})) do
     case HandlerHelpers.sock_send(db_sock, bin) do
       :ok ->
         :ok
