@@ -152,6 +152,35 @@ defmodule Ultravisor.DbHandlerTest do
     end
   end
 
+  describe "prepared statement backend cache" do
+    alias Ultravisor.Protocol.PreparedStatements.BackendStorage.LRU
+
+    test "reuses a known parse and refreshes its recency" do
+      packet = <<?P, 12::32, "statement", 0, 0::16>>
+      state = data(prepared_statements: LRU.new())
+
+      assert {:keep_state, data(prepared_statements: storage), {:reply, _, {[], []}}} =
+               Db.handle_event(
+                 {:call, self()},
+                 {:prepare_statements, [{:parse, "statement", packet}]},
+                 :idle,
+                 state
+               )
+
+      assert LRU.member?(storage, "statement")
+
+      assert {:keep_state, data(prepared_statements: storage), {:reply, _, {[], [^packet]}}} =
+               Db.handle_event(
+                 {:call, self()},
+                 {:prepare_statements, [{:parse, "statement", packet}]},
+                 :idle,
+                 data(prepared_statements: storage)
+               )
+
+      assert LRU.member?(storage, "statement")
+    end
+  end
+
   describe "TLS downstream forwarding" do
     test "chunks normal and ReadyForQuery database responses" do
       patch_sock_send()
