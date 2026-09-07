@@ -377,7 +377,8 @@ t('Throw syntax error', async() =>
 t('Connect using uri', async() =>
   [true, await new Promise((resolve, reject) => {
     const sql = postgres(`postgres://${login.user}:${login.pass}@${options.host}:${options.port}/${options.db}`, {
-      idle_timeout
+      idle_timeout,
+      prepare: options.prepare,
     })
     sql`select 1`.then(() => resolve(true), reject)
   })]
