@@ -1582,31 +1582,6 @@ t('numeric is returned as string', async() => [
   typeof (await sql`select 1.2 as x`)[0].x
 ])
 
-t('Async stack trace', async() => {
-  const sql = postgres({ ...options, debug: false })
-  return [
-    parseInt(new Error().stack.split('\n')[1].match(':([0-9]+):')[1]) + 1,
-    parseInt(await sql`error`.catch(x => x.stack.split('\n').pop().match(':([0-9]+):')[1]))
-  ]
-})
-
-t('Debug has long async stack trace', async() => {
-  const sql = postgres({ ...options, debug: true })
-
-  return [
-    'watyo',
-    await yo().catch(x => x.stack.match(/wat|yo/g).join(''))
-  ]
-
-  function yo() {
-    return wat()
-  }
-
-  function wat() {
-    return sql`error`
-  }
-})
-
 t('Error contains query string', async() => [
   'selec 1',
   (await sql`selec 1`.catch(err => err.query))

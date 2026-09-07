@@ -45,16 +45,16 @@ defmodule Ultravisor.Integration.ExternalTest do
     end
 
     # These currently do not pass
-    # @tag runtime: "bun", mode: "session"
-    # test "Bun session", ctx do
-    #   assert_run ctx, ~w[postgres/index.js], suite: "js"
-    # end
-    #
-    # @tag runtime: "bun", mode: "transaction"
-    # test "Bun transaction", ctx do
-    #   assert_run ctx, ~w[postgres/index.js], suite: "js"
-    # end
-    #
+    @tag runtime: "bun", mode: "session"
+    test "Bun session", ctx do
+      assert_run(ctx, ~w[postgres/index.js])
+    end
+
+    @tag runtime: "bun", mode: "transaction"
+    test "Bun transaction", ctx do
+      assert_run(ctx, ~w[postgres/index.js], suite: "js")
+    end
+
     # @tag runtime: "deno", mode: "session"
     # test "Deno session", ctx do
     #   assert_run ctx, ~w[run --allow-all postgres/index.js], suite: "js"
