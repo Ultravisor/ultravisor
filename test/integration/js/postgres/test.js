@@ -13,6 +13,7 @@ let only = false
 let ignored = 0
 let failed = false
 let promise = Promise.resolve()
+let testNumber = 0
 const tests = {}
     , ignore = Symbol('ignore')
 
@@ -25,7 +26,7 @@ t.timeout = (process.env.TIMEOUT || 5) | 0
 
 async function test(o, name, options, fn) {
   typeof options !== 'object' && (fn = options, options = {})
-  const line = new Error().stack.split('\n')[3].match(':([0-9]+):')[1]
+  const line = ++testNumber
 
   await 1
 
