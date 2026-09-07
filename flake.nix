@@ -99,6 +99,8 @@
             env.JEMALLOC = "${pkgs.jemalloc}";
             env.SNMALLOC = "${pkgs.snmalloc}";
 
+            languages.deno.enable = true;
+
             languages.javascript = {
               enable = true;
               bun.enable = true;
