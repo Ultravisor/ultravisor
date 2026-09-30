@@ -360,31 +360,32 @@ defmodule Ultravisor.DbHandlerTest do
     end
   end
 
-  describe "handle_event/4 info tcp authentication authentication_md5_password payload events" do
-    test "keeps state while sending the digested md5" do
-      # `82` is `?R`, which identifies the payload tag as `:authentication`
-      # `0, 0, 0, 12` is the packet length
-      # `0, 0, 0, 5` is the authentication type, identified as `:authentication_md5_password`
-      # `100, 100, 100, 100` is the md5 salt from db, a random 4 bytes value
-      bin = <<82, 0, 0, 0, 12, 0, 0, 0, 5, 100, 100, 100, 100>>
+  describe "authentication stream framing" do
+    test "retains a split authentication packet before sending the MD5 response" do
+      # The packet carries an MD5 authentication challenge with a four-byte salt.
+      packet = <<?R, 12::32, 5::32, 100, 100, 100, 100>>
+      <<prefix::binary-size(4), suffix::binary>> = packet
 
-      {a, b} = sockpair()
+      {socket, peer} = sockpair()
 
-      content = {:tcp, b, bin}
-
-      data =
+      state =
         data(
           auth: %{
             password: fn -> "some_password" end,
             user: "some_user",
             method: :password
           },
-          sock: {:gen_tcp, a}
+          sock: {:gen_tcp, socket},
+          authentication_buffer: <<>>
         )
 
-      assert :keep_state_and_data = Db.handle_event(:info, content, :authentication, data)
+      assert {:keep_state, data(authentication_buffer: ^prefix) = buffered_state} =
+               Db.handle_event(:info, {:tcp, peer, prefix}, :authentication, state)
 
-      assert {:ok, message} = :gen_tcp.recv(b, 0)
+      assert {:keep_state, data(authentication_buffer: <<>>)} =
+               Db.handle_event(:info, {:tcp, peer, suffix}, :authentication, buffered_state)
+
+      assert {:ok, message} = :gen_tcp.recv(peer, 0)
 
       assert message == <<?p, 40::integer-32, "md5", "ae5546ff52734a18d0277977f626946c", 0>>
     end
