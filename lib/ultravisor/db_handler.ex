@@ -51,6 +51,7 @@ defmodule Ultravisor.DbHandler do
     :client_sock,
     :proxy,
     :reconnect_retries,
+    :authentication_buffer,
     :backend_buffer,
     :prepared_statements,
     :expected_ready_for_query,
@@ -115,6 +116,7 @@ defmodule Ultravisor.DbHandler do
         client_sock: args[:client_sock] || nil,
         proxy: args[:proxy] || false,
         reconnect_retries: 0,
+        authentication_buffer: <<>>,
         backend_buffer: <<>>,
         prepared_statements: LRU.new(),
         expected_ready_for_query: 0,
@@ -196,66 +198,25 @@ defmodule Ultravisor.DbHandler do
     {:keep_state, data(data, reconnect_retries: retry + 1), {:next_event, :internal, :connect}}
   end
 
-  def handle_event(:info, {proto, _, bin}, :authentication, data(id: id) = data)
+  def handle_event(
+        :info,
+        {proto, _, bin},
+        :authentication,
+        data(authentication_buffer: authentication_buffer) = data
+      )
       when proto in @proto do
-    dec_pkt = Server.decode(bin)
-    Logger.debug("DbHandler: dec_pkt, #{inspect(dec_pkt, pretty: true)}")
+    case Server.decode(bin, authentication_buffer || <<>>) do
+      {:ok, [], remainder} ->
+        {:keep_state, data(data, authentication_buffer: remainder)}
 
-    resp = Enum.reduce_while(dec_pkt, %{}, &handle_auth_pkts(&1, &2, data))
+      {:ok, packets, remainder} ->
+        data = data(data, authentication_buffer: remainder)
+        handle_auth_packets(packets, data)
 
-    case resp do
-      {:authentication_sasl, nonce} ->
-        {:keep_state, data(data, nonce: nonce)}
-
-      {:authentication_server_first_message, server_proof} ->
-        {:keep_state, data(data, server_proof: server_proof)}
-
-      %{authentication_server_final_message: _server_final} ->
-        :keep_state_and_data
-
-      %{authentication_ok: true} ->
-        :keep_state_and_data
-
-      :authentication ->
-        :keep_state_and_data
-
-      :authentication_md5 ->
-        :keep_state_and_data
-
-      {:error_response, ["SFATAL", "VFATAL", "C28P01", reason, _, _, _]} ->
-        handle_authentication_error(data, reason)
-        Logger.error("DbHandler: Auth error #{inspect(reason)}")
-        :proc_lib.init_ack({:error, :invalid_password})
-        {:stop, :invalid_password, data}
-
-      {:error_response, error} ->
-        Logger.error("DbHandler: Error auth response #{inspect(error)}")
+      {:error, :invalid_packet_length} ->
+        Logger.error("DbHandler: Invalid packet length during authentication")
         :proc_lib.init_ack({:error, :auth_error})
-        {:stop, {:encode_and_forward, error}}
-
-      {:ready_for_query, acc} ->
-        ps = acc.ps
-
-        Logger.debug(
-          "DbHandler: DB ready_for_query: #{inspect(acc.db_state)} #{inspect(ps, pretty: true)}"
-        )
-
-        data(sock: sock, proxy: proxy, caller: caller) = data
-
-        if proxy do
-          bin_ps = Server.encode_parameter_status(ps)
-          send(caller, {:parameter_status, bin_ps})
-        else
-          Ultravisor.set_parameter_status(id, ps)
-        end
-
-        :proc_lib.init_ack({:ok, self(), sock})
-        check_caller(data(data, parameter_status: ps, reconnect_retries: 0))
-
-      other ->
-        Logger.error("DbHandler: Undefined auth response #{inspect(other)}")
-        :proc_lib.init_ack({:error, :auth_error})
-        {:stop, :auth_error, data}
+        {:stop, :invalid_packet_length, data}
     end
   end
 
@@ -651,6 +612,75 @@ defmodule Ultravisor.DbHandler do
     else
       auth.secrets.().user
     end
+  end
+
+  defp handle_auth_packets(packets, data() = data) do
+    Logger.debug("DbHandler: dec_pkt, #{inspect(packets, pretty: true)}")
+    resp = Enum.reduce_while(packets, %{}, &handle_auth_pkts(&1, &2, data))
+
+    case resp do
+      {:authentication_sasl, nonce} ->
+        {:keep_state, data(data, nonce: nonce)}
+
+      {:authentication_server_first_message, server_proof} ->
+        {:keep_state, data(data, server_proof: server_proof)}
+
+      {:error_response, error} ->
+        handle_auth_error_response(error, data)
+
+      {:ready_for_query, acc} ->
+        handle_auth_ready(acc, data)
+
+      other ->
+        if auth_keep?(other),
+          do: {:keep_state, data},
+          else: handle_auth_undefined(other, data)
+    end
+  end
+
+  defp auth_keep?(%{authentication_server_final_message: _server_final}), do: true
+  defp auth_keep?(%{authentication_ok: true}), do: true
+  defp auth_keep?(:authentication), do: true
+  defp auth_keep?(:authentication_md5), do: true
+  defp auth_keep?(_), do: false
+
+  defp handle_auth_error_response(["SFATAL", "VFATAL", "C28P01", reason, _, _, _], data) do
+    handle_authentication_error(data, reason)
+    Logger.error("DbHandler: Auth error #{inspect(reason)}")
+    :proc_lib.init_ack({:error, :invalid_password})
+    {:stop, :invalid_password, data}
+  end
+
+  defp handle_auth_error_response(error, _data) do
+    Logger.error("DbHandler: Error auth response #{inspect(error)}")
+    :proc_lib.init_ack({:error, :auth_error})
+    {:stop, {:encode_and_forward, error}}
+  end
+
+  defp handle_auth_ready(acc, data(id: id) = data) do
+    ps = acc.ps
+
+    Logger.debug(
+      "DbHandler: DB ready_for_query: #{inspect(acc.db_state)} #{inspect(ps, pretty: true)}"
+    )
+
+    data(sock: sock, proxy: proxy, caller: caller) = data
+
+    if proxy do
+      bin_ps = Server.encode_parameter_status(ps)
+      send(caller, {:parameter_status, bin_ps})
+    else
+      Ultravisor.set_parameter_status(id, ps)
+    end
+
+    :proc_lib.init_ack({:ok, self(), sock})
+    check_caller(data(data, parameter_status: ps, reconnect_retries: 0))
+  end
+
+  defp handle_auth_undefined(other, data) do
+    Logger.error("DbHandler: Undefined auth response #{inspect(other)}")
+    :proc_lib.init_ack({:error, :auth_error})
+    {:stop, :auth_error, data}
   end
 
   @spec handle_auth_pkts(map(), map(), t()) :: any()

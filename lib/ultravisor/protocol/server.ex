@@ -67,18 +67,28 @@ defmodule Ultravisor.Protocol.Server do
     [<<?R, 12::32, 5::32>>, salt]
   end
 
-  @spec decode(iodata()) :: [Pkt.t()] | []
-  def decode(data) do
-    decode(data, [])
+  @spec decode(binary(), binary()) ::
+          {:ok, [Pkt.t()], binary()} | {:error, :invalid_packet_length}
+  def decode(data, buffer \\ <<>>) do
+    decode_packets(buffer <> data, [])
   end
 
-  def decode(data, acc) when byte_size(data) >= @pkt_header_size do
-    {:ok, pkt, rest} = decode_pkt(data)
-    decode(rest, [pkt | acc])
-  end
+  defp decode_packets(data, acc) when byte_size(data) < @pkt_header_size,
+    do: {:ok, Enum.reverse(acc), data}
 
-  def decode(_, acc) do
-    Enum.reverse(acc)
+  defp decode_packets(<<_tag, packet_length::integer-32, _rest::binary>>, _acc)
+       when packet_length < 4,
+       do: {:error, :invalid_packet_length}
+
+  defp decode_packets(<<_tag, packet_length::integer-32, rest::binary>> = data, acc) do
+    payload_length = packet_length - 4
+
+    if byte_size(rest) < payload_length do
+      {:ok, Enum.reverse(acc), data}
+    else
+      {:ok, packet, tail} = decode_pkt(data)
+      decode_packets(tail, [packet | acc])
+    end
   end
 
   @doc """

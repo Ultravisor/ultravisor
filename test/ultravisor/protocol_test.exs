@@ -59,34 +59,36 @@ defmodule Ultravisor.ProtocolTest do
     {header, payload} = @subject.backend_key_data()
     len = byte_size(payload) + 4
 
-    assert [
-             %@subject.Pkt{
-               tag: :backend_key_data,
-               len: 13,
-               payload: %{pid: _, key: _}
-             }
-           ] = @subject.decode([header, payload] |> IO.iodata_to_binary())
+    assert {:ok,
+            [
+              %@subject.Pkt{
+                tag: :backend_key_data,
+                len: 13,
+                payload: %{pid: _, key: _}
+              }
+            ], <<>>} = @subject.decode([header, payload] |> IO.iodata_to_binary())
 
     assert header == <<?K, len::32>>
     assert byte_size(payload) == 8
   end
 
   test "decode_payload for error_response" do
-    assert @subject.decode(@auth_bin_error) == [
-             %Ultravisor.Protocol.Server.Pkt{
-               tag: :error_response,
-               len: 112,
-               payload: [
-                 "SFATAL",
-                 "VFATAL",
-                 "C28P01",
-                 "Mpassword authentication failed for user \"test_wrong_user\"",
-                 "Fauth.c",
-                 "L335",
-                 "Rauth_failed"
-               ]
-             }
-           ]
+    assert {:ok,
+            [
+              %Ultravisor.Protocol.Server.Pkt{
+                tag: :error_response,
+                len: 112,
+                payload: [
+                  "SFATAL",
+                  "VFATAL",
+                  "C28P01",
+                  "Mpassword authentication failed for user \"test_wrong_user\"",
+                  "Fauth.c",
+                  "L335",
+                  "Rauth_failed"
+                ]
+              }
+            ], <<>>} = @subject.decode(@auth_bin_error)
   end
 
   test "cancel_message/2" do
