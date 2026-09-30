@@ -114,7 +114,7 @@ defmodule Ultravisor.SecretChecker do
         if update_cache do
           Logger.info("Secrets changed or not present, updating cache")
           value = {:ok, {method, fn -> secrets end}}
-          Cachex.put(Ultravisor.Cache, state.key, {:cached, value}, expire: :timer.hours(24))
+          Cachex.put(Ultravisor.Cache, state.key, {:cached, value}, expire: state.ttl)
         end
 
       other ->
