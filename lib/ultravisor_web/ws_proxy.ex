@@ -6,7 +6,7 @@
 
 defmodule UltravisorWeb.WsProxy do
   @moduledoc """
-  The `Ultravisor.WsProxy` module implements a WebSocket proxy for managing
+  The `UltravisorWeb.WsProxy` module implements a WebSocket proxy for managing
   TCP connections between clients and a Postgres database.
   """
 
