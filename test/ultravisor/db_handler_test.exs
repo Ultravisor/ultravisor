@@ -34,14 +34,15 @@ defmodule Ultravisor.DbHandlerTest do
     end
   end
 
-  defp forwarding_data(client_sock) do
+  defp forwarding_data(client_sock, mode \\ :session) do
     data(
       caller: self(),
       reply: nil,
-      mode: :session,
+      mode: mode,
       proxy: true,
       client_sock: client_sock,
       stats: {0, 0},
+      backend_buffer: <<>>,
       id: @id
     )
   end
@@ -181,17 +182,103 @@ defmodule Ultravisor.DbHandlerTest do
     end
   end
 
+  describe "backend response framing" do
+    test "retains each partial ReadyForQuery split in session mode" do
+      patch_sock_send()
+      socket = {:gen_tcp, :downstream}
+      ready = Server.ready_for_query()
+
+      for split <- 1..(byte_size(ready) - 1) do
+        <<prefix::binary-size(^split), suffix::binary>> = ready
+
+        assert {:keep_state, data(backend_buffer: ^prefix) = state} =
+                 Db.handle_event(
+                   :info,
+                   {:tcp, :upstream, prefix},
+                   :busy,
+                   forwarding_data(socket)
+                 )
+
+        assert {:next_state, :idle, data(backend_buffer: <<>>)} =
+                 Db.handle_event(:info, {:tcp, :upstream, suffix}, :busy, state)
+
+        assert_receive {:sock_send, ^socket, ^prefix}
+        assert_receive {:sock_send, ^socket, ^suffix}
+      end
+    end
+
+    test "does not treat a DataRow payload ending in ReadyForQuery bytes as complete" do
+      patch_sock_send()
+      socket = {:gen_tcp, :downstream}
+      collision = <<?D, 10::32, Server.ready_for_query()::binary>>
+
+      assert {:keep_state, data(backend_buffer: <<>>)} =
+               Db.handle_event(
+                 :info,
+                 {:tcp, :upstream, collision},
+                 :busy,
+                 forwarding_data(socket)
+               )
+
+      assert_receive {:sock_send, ^socket, ^collision}
+    end
+
+    test "detects the last ReadyForQuery in pipelined session responses" do
+      patch_sock_send()
+      socket = {:gen_tcp, :downstream}
+      row = <<?D, 5::32, 0>>
+      payload = row <> Server.ready_for_query() <> Server.ready_for_query()
+
+      assert {:next_state, :idle, data(backend_buffer: <<>>)} =
+               Db.handle_event(
+                 :info,
+                 {:tcp, :upstream, payload},
+                 :busy,
+                 forwarding_data(socket)
+               )
+
+      assert_receive {:sock_send, ^socket, ^payload}
+    end
+
+    test "detects a complete ReadyForQuery in TCP and TLS responses" do
+      patch_sock_send()
+      row_payload = :binary.copy("x", 20_000)
+      frame = <<?D, 20_004::32, row_payload::binary>>
+
+      for socket <- [{:gen_tcp, :tcp_downstream}, {:ssl, :tls_downstream}] do
+        payload = frame <> Server.ready_for_query()
+
+        assert {:next_state, :idle, _} =
+                 Db.handle_event(
+                   :info,
+                   {:tcp, :upstream, payload},
+                   :busy,
+                   forwarding_data(socket)
+                 )
+
+        chunks =
+          if elem(socket, 0) == :ssl,
+            do: receive_chunks(socket, 3),
+            else:
+              (
+                assert_receive({:sock_send, ^socket, ^payload})
+                [payload]
+              )
+
+        assert IO.iodata_to_binary(chunks) == payload
+      end
+    end
+  end
+
   describe "TLS downstream forwarding" do
     test "chunks normal and ReadyForQuery database responses" do
       patch_sock_send()
       socket = {:ssl, :downstream}
-      normal_payload = :binary.copy("x", 20_000)
+      row_payload = :binary.copy("x", 20_000)
+      normal_payload = <<?D, 20_004::32, row_payload::binary>>
+      ready_payload = normal_payload <> Server.ready_for_query()
 
-      ready_payload =
-        :binary.copy("y", 20_000 - byte_size(Server.ready_for_query())) <>
-          Server.ready_for_query()
-
-      assert :keep_state_and_data =
+      assert {:keep_state, _} =
                Db.handle_event(
                  :info,
                  {:tcp, :upstream, normal_payload},
@@ -200,7 +287,7 @@ defmodule Ultravisor.DbHandlerTest do
                )
 
       normal_chunks = receive_chunks(socket, 3)
-      assert Enum.map(normal_chunks, &byte_size/1) == [8_192, 8_192, 3_616]
+      assert Enum.map(normal_chunks, &byte_size/1) == [8_192, 8_192, 3_621]
       assert Enum.all?(normal_chunks, &(byte_size(&1) <= @tls_send_chunk_size))
       assert IO.iodata_to_binary(normal_chunks) == normal_payload
 
@@ -213,7 +300,7 @@ defmodule Ultravisor.DbHandlerTest do
                )
 
       ready_chunks = receive_chunks(socket, 3)
-      assert Enum.map(ready_chunks, &byte_size/1) == [8_192, 8_192, 3_616]
+      assert Enum.map(ready_chunks, &byte_size/1) == [8_192, 8_192, 3_627]
       assert Enum.all?(ready_chunks, &(byte_size(&1) <= @tls_send_chunk_size))
       assert IO.iodata_to_binary(ready_chunks) == ready_payload
     end
@@ -221,9 +308,10 @@ defmodule Ultravisor.DbHandlerTest do
     test "sends TCP database responses without chunking" do
       patch_sock_send()
       socket = {:gen_tcp, :downstream}
-      payload = :binary.copy("x", 20_000)
+      row_payload = :binary.copy("x", 20_000)
+      payload = <<?D, 20_004::32, row_payload::binary>>
 
-      assert :keep_state_and_data =
+      assert {:keep_state, _} =
                Db.handle_event(
                  :info,
                  {:tcp, :upstream, payload},
@@ -258,7 +346,7 @@ defmodule Ultravisor.DbHandlerTest do
       socket = {:ssl, :downstream}
       payload = :binary.copy("x", 20_000)
 
-      assert :keep_state_and_data =
+      assert {:keep_state, _} =
                Db.handle_event(
                  :info,
                  {:tcp, :upstream, payload},
