@@ -145,8 +145,6 @@ defmodule Ultravisor.Helpers do
     {:error, "Unsupported or invalid secret format"}
   end
 
-  def parse_postgres_secret(_), do: {:error, "Digest not supported"}
-
   ## Internal functions
 
   @doc """
@@ -371,10 +369,6 @@ defmodule Ultravisor.Helpers do
       _error -> "undefined"
     end
   end
-
-  @spec controlling_process(Ultravisor.sock(), pid) :: :ok | {:error, any()}
-  def controlling_process({mod, socket}, pid),
-    do: mod.controlling_process(socket, pid)
 
   # This is the value of `NAMEDATALEN` set when compiling PostgreSQL. By default
   # we use default Postgres value of `64`
