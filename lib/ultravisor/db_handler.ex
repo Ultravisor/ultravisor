@@ -340,24 +340,13 @@ defmodule Ultravisor.DbHandler do
     Logger.debug("DbHandler: Got database message #{inspect(bin)}")
     backend_stream = backend_stream || BackendStream.new()
 
-    {received_ready_for_query, status, backend_buffer} =
-      if mode == :transaction do
-        backend_buffer = backend_buffer || <<>>
-
-        {:ok, count, last, backend_buffer} =
-          Server.backend_ready_for_query_statuses(bin, backend_buffer)
-
-        {count, last, backend_buffer}
-      else
-        {0, nil, backend_buffer}
-      end
+    {:ok, received_ready_for_query, last_status, backend_buffer} =
+      Server.backend_ready_for_query_statuses(bin, backend_buffer || <<>>)
 
     expected_ready_for_query = expected_ready_for_query || 0
     outstanding_ready_for_query = expected_ready_for_query - received_ready_for_query
 
-    complete_response? =
-      (mode == :transaction and status == :idle) or
-        String.ends_with?(bin, Server.ready_for_query())
+    complete_response? = last_status == :idle
 
     transaction_done? =
       mode == :transaction and expected_ready_for_query > 0 and
@@ -380,17 +369,13 @@ defmodule Ultravisor.DbHandler do
     if transaction_done?, do: ClientHandler.db_status(caller, :ready_for_query, client_bin)
 
     data =
-      if mode == :transaction do
-        data(data,
-          stats: stats,
-          backend_buffer: backend_buffer,
-          expected_ready_for_query: expected_ready_for_query,
-          pending_parse_completes: 0,
-          backend_stream: backend_stream
-        )
-      else
-        data(data, stats: stats, pending_parse_completes: 0, backend_stream: backend_stream)
-      end
+      data(data,
+        stats: stats,
+        backend_buffer: backend_buffer,
+        expected_ready_for_query: expected_ready_for_query,
+        pending_parse_completes: 0,
+        backend_stream: backend_stream
+      )
 
     cond do
       transaction_done? ->
@@ -401,13 +386,9 @@ defmodule Ultravisor.DbHandler do
         ClientHandler.save_stats(caller)
         {:next_state, :idle, data}
 
-      mode == :transaction ->
-        client_send(client_sock, client_bin)
-        {:keep_state, data}
-
       true ->
         client_send(client_sock, client_bin)
-        :keep_state_and_data
+        {:keep_state, data}
     end
   end
 

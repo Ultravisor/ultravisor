@@ -11,7 +11,7 @@ defmodule UltravisorWeb.WsProxy do
   """
 
   require Logger
-  require Ultravisor.Protocol.Server, as: Server
+  alias Ultravisor.Protocol.Server
 
   @behaviour Plug
 
@@ -21,7 +21,7 @@ defmodule UltravisorWeb.WsProxy do
   end
 
   def init(_) do
-    %{socket: nil, acc: nil, status: :startup}
+    %{socket: nil, acc: nil, status: :startup, backend_buffer: <<>>}
   end
 
   def websocket_handle(
@@ -40,7 +40,12 @@ defmodule UltravisorWeb.WsProxy do
   end
 
   def websocket_info({:tcp, _, bin}, %{status: :startup} = state) do
-    if String.ends_with?(bin, Server.ready_for_query()) do
+    {:ok, _count, last, backend_buffer} =
+      Server.backend_ready_for_query_statuses(bin, state.backend_buffer)
+
+    state = %{state | backend_buffer: backend_buffer}
+
+    if last == :idle do
       acc = filter_pass_pkt(state.acc)
       :ok = :gen_tcp.send(state.socket, acc)
       {[{:binary, bin}], %{state | acc: nil, status: :idle}}
