@@ -71,6 +71,9 @@
               pkgs.pgbouncer
               pkgs.pgdog
               pkgs.xan
+
+              pkgs.cargo-outdated
+              pkgs.cargo-nextest
             ];
 
             services.postgres = {
