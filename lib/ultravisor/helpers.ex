@@ -31,68 +31,74 @@ defmodule Ultravisor.Helpers do
   def check_creds_get_ver(_), do: {:ok, nil}
 
   def do_check_creds_get_ver(params) do
-    Enum.reduce_while(params["users"], {nil, nil}, fn user, _ ->
-      upstream_ssl? = !!params["upstream_ssl"]
-
-      ssl_opts =
-        if upstream_ssl? and params["upstream_verify"] == "peer" do
-          [
-            verify: :verify_peer,
-            cacerts: [upstream_cert(params["upstream_tls_ca"])],
-            server_name_indication: String.to_charlist(params["db_host"]),
-            customize_hostname_check: [{:match_fun, fn _, _ -> true end}]
-          ]
-        else
-          [
-            verify: :verify_none
-          ]
-        end
-
-      {:ok, conn} =
-        Postgrex.start_link(
-          hostname: params["db_host"],
-          port: params["db_port"],
-          database: params["db_database"],
-          password: user["db_password"],
-          username: user["db_user"],
-          ssl: upstream_ssl?,
-          socket_options: [
-            ip_version(params["ip_version"], params["db_host"])
-          ],
-          queue_target: 1_000,
-          queue_interval: 5_000,
-          ssl_opts: ssl_opts
-        )
-
-      check =
-        Postgrex.query(conn, "select version()", [])
-        |> case do
-          {:ok, %{rows: [[version]]}} ->
-            if params["require_user"] do
-              {:cont, {:ok, version}}
-            else
-              case get_user_secret(conn, params["auth_query"], user["db_user"]) do
-                {:ok, _} ->
-                  {:halt, {:ok, version}}
-
-                {:error, reason} ->
-                  {:halt, {:error, reason}}
-              end
-            end
-
-          {:error, reason} ->
-            {:halt, {:error, "Can't connect the user #{user["db_user"]}: #{inspect(reason)}"}}
-        end
-
-      GenServer.stop(conn)
-      check
-    end)
+    params["users"]
+    |> Enum.reduce_while({nil, nil}, fn user, _ -> check_user_creds(params, user) end)
     |> case do
       {:ok, version} ->
         parse_pg_version(version)
 
       other ->
         other
+    end
+  end
+
+  defp check_user_creds(params, user) do
+    {:ok, conn} =
+      Postgrex.start_link(
+        hostname: params["db_host"],
+        port: params["db_port"],
+        database: params["db_database"],
+        password: user["db_password"],
+        username: user["db_user"],
+        ssl: !!params["upstream_ssl"],
+        socket_options: [
+          ip_version(params["ip_version"], params["db_host"])
+        ],
+        queue_target: 1_000,
+        queue_interval: 5_000,
+        ssl_opts: upstream_ssl_opts(params)
+      )
+
+    check =
+      Postgrex.query(conn, "select version()", [])
+      |> case do
+        {:ok, %{rows: [[version]]}} ->
+          check_user_version(conn, params, user, version)
+
+        {:error, reason} ->
+          {:halt, {:error, "Can't connect the user #{user["db_user"]}: #{inspect(reason)}"}}
+      end
+
+    GenServer.stop(conn)
+    check
+  end
+
+  defp check_user_version(conn, params, user, version) do
+    if params["require_user"] do
+      {:cont, {:ok, version}}
+    else
+      case get_user_secret(conn, params["auth_query"], user["db_user"]) do
+        {:ok, _} ->
+          {:halt, {:ok, version}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end
+  end
+
+  defp upstream_ssl_opts(params) do
+    if !!params["upstream_ssl"] and params["upstream_verify"] == "peer" do
+      [
+        verify: :verify_peer,
+        cacerts: [upstream_cert(params["upstream_tls_ca"])],
+        server_name_indication: String.to_charlist(params["db_host"]),
+        customize_hostname_check: [{:match_fun, fn _, _ -> true end}]
+      ]
+    else
+      [
+        verify: :verify_none
+      ]
     end
   end
 
