@@ -43,7 +43,7 @@ defmodule Ultravisor.PromEx.Plugins.Tenant do
       [
         counter(
           [:ultravisor, :metrics_cleaner, :orphaned_metrics],
-          event_name: [:ultravisor, :metrics, :orphaned],
+          event_name: [:ultravisor, :metrics, :stop],
           description: "Amount of orphaned metrics that were cleaned up"
         )
       ]
