@@ -11,15 +11,16 @@ defmodule Ultravisor.Helpers do
   @spec check_creds_get_ver(map) :: {:ok, String.t() | nil} | {:error, String.t()}
 
   def check_creds_get_ver(%{"require_user" => false} = params) do
-    cond do
-      length(params["users"]) != 1 ->
+    case params["users"] do
+      [user] ->
+        if user["is_manager"] do
+          do_check_creds_get_ver(params)
+        else
+          {:error, "Can't use 'require_user' and 'auth_query' with non-manager user"}
+        end
+
+      _ ->
         {:error, "Can't use 'require_user' and 'auth_query' with multiple users"}
-
-      !hd(params["users"])["is_manager"] ->
-        {:error, "Can't use 'require_user' and 'auth_query' with non-manager user"}
-
-      true ->
-        do_check_creds_get_ver(params)
     end
   end
 
