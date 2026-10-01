@@ -52,9 +52,7 @@ defmodule Ultravisor.PromEx.Plugins.OsMonTest do
 
   describe "polling_metrics/1" do
     test "returns polling metrics definition" do
-      metrics = @subject.polling_metrics(poll_rate: 5000)
-      assert is_list(metrics)
-      assert length(metrics) == 1
+      assert [_single_metric] = @subject.polling_metrics(poll_rate: 5000)
     end
   end
 end
