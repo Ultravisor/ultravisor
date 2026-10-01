@@ -137,7 +137,7 @@ defmodule Ultravisor.DbHandler do
   def handle_event(:internal, _, :connect, data(id: id, client_sock: client_sock) = data) do
     Logger.debug("DbHandler: Try to connect to DB")
 
-    data(auth: auth, reconnect_retries: reconnect_retries, proxy: proxy) = data
+    data(auth: auth, reconnect_retries: reconnect_retries) = data
 
     sock_opts =
       [
@@ -166,26 +166,7 @@ defmodule Ultravisor.DbHandler do
     case :gen_tcp.connect(auth.host, auth.port, sock_opts) do
       {:ok, sock} ->
         Logger.debug("DbHandler: auth #{inspect(auth, pretty: true)}")
-
-        case try_ssl_handshake({:gen_tcp, sock}, auth) do
-          {:ok, sock} ->
-            tenant = if proxy, do: Ultravisor.tenant(id)
-            search_path = Ultravisor.search_path(id)
-
-            case send_startup(sock, auth, tenant, search_path) do
-              :ok ->
-                HandlerHelpers.setopts(sock, active: @switch_active_count)
-                {:next_state, :authentication, data(data, sock: sock)}
-
-              {:error, reason} ->
-                Logger.error("DbHandler: Send startup error #{inspect(reason)}")
-                maybe_reconnect_callback.(reason)
-            end
-
-          {:error, reason} ->
-            Logger.error("DbHandler: Handshake error #{inspect(reason)}")
-            maybe_reconnect_callback.(reason)
-        end
+        handshake(sock, auth, data, maybe_reconnect_callback)
 
       other ->
         Logger.error(
