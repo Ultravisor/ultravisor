@@ -3,6 +3,10 @@
 # SPDX-License-Identifier: EUPL-1.2
 
 defmodule Ultravisor.Support.Metrics do
+  @moduledoc """
+  Test helpers for reading PromEx/Peep metric samples.
+  """
+
   import ExUnit.Assertions
 
   def get(metric_name, tags \\ %{}) do

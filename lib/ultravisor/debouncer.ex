@@ -3,6 +3,13 @@
 # SPDX-License-Identifier: EUPL-1.2
 
 defmodule Ultravisor.Debouncer do
+  @moduledoc """
+  Process-local debouncing for side effects such as telemetry emission.
+
+  Keeps the last result for a key and recomputes the value at most once per
+  `time` milliseconds.
+  """
+
   def debounce(key, time \\ 100, func) do
     current = System.monotonic_time(:millisecond)
     key = {:debounce, key}
