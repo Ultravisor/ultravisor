@@ -41,26 +41,23 @@ defmodule Ultravisor.Support.Cluster do
   defp apply_config(pid) do
     for {app_name, _, _} <- Application.loaded_applications() do
       for {key, val} <- Application.get_all_env(app_name) do
-        val =
-          case {app_name, key} do
-            {:ultravisor, :proxy_port_transaction} ->
-              Application.get_env(:ultravisor, :secondary_proxy_port)
-
-            {:ultravisor, UltravisorWeb.Endpoint} ->
-              put_in(val[:http],
-                ip: {127, 0, 0, 1},
-                port: 0
-              )
-
-            {:ultravisor, :availability_zone} ->
-              "ap-southeast-1c"
-
-            _ ->
-              val
-          end
-
-        :peer.call(pid, Application, :put_env, [app_name, key, val])
+        :peer.call(pid, Application, :put_env, [app_name, key, override_env(app_name, key, val)])
       end
     end
   end
+
+  defp override_env(:ultravisor, :proxy_port_transaction, _val) do
+    Application.get_env(:ultravisor, :secondary_proxy_port)
+  end
+
+  defp override_env(:ultravisor, UltravisorWeb.Endpoint, val) do
+    put_in(val[:http],
+      ip: {127, 0, 0, 1},
+      port: 0
+    )
+  end
+
+  defp override_env(:ultravisor, :availability_zone, _val), do: "ap-southeast-1c"
+
+  defp override_env(_app_name, _key, val), do: val
 end
