@@ -338,7 +338,6 @@ defmodule Ultravisor.DbHandler do
     ) = data
 
     Logger.debug("DbHandler: Got database message #{inspect(bin)}")
-    backend_stream = backend_stream || BackendStream.new()
 
     {:ok, received_ready_for_query, last_status, backend_buffer} =
       Server.backend_ready_for_query_statuses(bin, backend_buffer || <<>>)
@@ -349,20 +348,11 @@ defmodule Ultravisor.DbHandler do
     complete_response? = last_status == :idle
 
     transaction_done? =
-      mode == :transaction and expected_ready_for_query > 0 and
-        outstanding_ready_for_query <= 0 and complete_response?
+      transaction_done?(mode, expected_ready_for_query, outstanding_ready_for_query, last_status)
 
-    expected_ready_for_query = max(outstanding_ready_for_query, 0)
+    stats = maybe_track_network(transaction_done? and not proxy, sock, id, stats)
 
-    {_, stats} =
-      if transaction_done? and not proxy,
-        do: Telem.network_usage(:db, sock, id, stats),
-        else: {nil, stats}
-
-    {backend_stream, client_bin} =
-      if mode == :transaction,
-        do: BackendStream.process(backend_stream, bin),
-        else: {backend_stream, bin}
+    {backend_stream, client_bin} = process_backend_stream(mode, backend_stream, bin)
 
     # Queue this cast before the final ReadyForQuery reaches the client. The
     # client can then check the backend in only after it sends that reply.
@@ -372,24 +362,12 @@ defmodule Ultravisor.DbHandler do
       data(data,
         stats: stats,
         backend_buffer: backend_buffer,
-        expected_ready_for_query: expected_ready_for_query,
+        expected_ready_for_query: max(outstanding_ready_for_query, 0),
         pending_parse_completes: 0,
         backend_stream: backend_stream
       )
 
-    cond do
-      transaction_done? ->
-        {:next_state, :idle, data(data, caller: nil, client_sock: nil)}
-
-      complete_response? ->
-        client_send(client_sock, client_bin)
-        ClientHandler.save_stats(caller)
-        {:next_state, :idle, data}
-
-      true ->
-        client_send(client_sock, client_bin)
-        {:keep_state, data}
-    end
+    respond(transaction_done?, last_status == :idle, client_sock, caller, client_bin, data)
   end
 
   def handle_event(:cast, {:expect_ready_for_query, count}, _, data(mode: :transaction) = data) do
@@ -506,6 +484,42 @@ defmodule Ultravisor.DbHandler do
         Logger.error("DbHandler: Send startup error #{inspect(reason)}")
         on_error.(reason)
     end
+  end
+
+  defp transaction_done?(:transaction, expected, outstanding, :idle) do
+    expected > 0 and outstanding <= 0
+  end
+
+  defp transaction_done?(_mode, _expected, _outstanding, _last_status), do: false
+
+  defp maybe_track_network(true, sock, id, stats) do
+    {_, stats} = Telem.network_usage(:db, sock, id, stats)
+    stats
+  end
+
+  defp maybe_track_network(_track?, _sock, _id, stats), do: stats
+
+  defp process_backend_stream(:transaction, backend_stream, bin) do
+    BackendStream.process(backend_stream || BackendStream.new(), bin)
+  end
+
+  defp process_backend_stream(_mode, backend_stream, bin) do
+    {backend_stream || BackendStream.new(), bin}
+  end
+
+  defp respond(true, _complete?, _client_sock, _caller, _client_bin, data) do
+    {:next_state, :idle, data(data, caller: nil, client_sock: nil)}
+  end
+
+  defp respond(false, true, client_sock, caller, client_bin, data) do
+    client_send(client_sock, client_bin)
+    ClientHandler.save_stats(caller)
+    {:next_state, :idle, data}
+  end
+
+  defp respond(false, false, client_sock, _caller, client_bin, data) do
+    client_send(client_sock, client_bin)
+    {:keep_state, data}
   end
 
   # libpq's async API hangs when a TLS record leaves bytes in OpenSSL's
