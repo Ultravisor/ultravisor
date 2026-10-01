@@ -76,6 +76,12 @@ defmodule Ultravisor.PromEx.Plugins.Tenant do
             peep_bucket_calculator: Buckets
           ]
         ),
+        counter(
+          [:ultravisor, :pool, :checkout, :error, :count],
+          event_name: [:ultravisor, :pool, :checkout, :error],
+          description: "The total number of failed checkouts from the tenant db pool.",
+          tags: @tags
+        ),
         distribution(
           [:ultravisor, :client, :query, :duration],
           event_name: [:ultravisor, :client, :query, :stop],

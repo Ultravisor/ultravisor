@@ -59,6 +59,7 @@ Ultravisor also tags many metrics with the `tenant` `external_id` so you can
 drill down to metrics per tenant:
 
 - Pool checkout queue time
+- Failed pool checkout count
 - Number of connected clients
 - Query duration and query counts
 - Network usage for client sockets and database sockets
