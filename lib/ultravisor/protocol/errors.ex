@@ -3,6 +3,10 @@
 # SPDX-License-Identifier: EUPL-1.2
 
 defmodule Ultravisor.Protocol.Errors do
+  @moduledoc """
+  Error structs returned by the Ultravisor protocol handlers.
+  """
+
   use Ultravisor.Protocol.Error
 
   deferror AuthenticationError, [:reason] do
