@@ -107,43 +107,52 @@ defmodule UltravisorWeb.TenantController do
         error: "Invalid 'upstream_verify' value, 'peer' is not allowed without certificate"
       )
     else
-      case Tenants.get_tenant_by_external_id(id) do
-        {:error, _} ->
-          case Helpers.check_creds_get_ver(params) do
-            {:error, reason} ->
-              conn
-              |> put_status(400)
-              |> render(:error, error: reason)
+      update_or_create_tenant(conn, id, params)
+    end
+  end
 
-            {:ok, pg_version} ->
-              params =
-                if pg_version do
-                  Map.put(params, "default_parameter_status", %{
-                    "server_version" => pg_version
-                  })
-                else
-                  params
-                end
-                |> put_in([Access.key("tenant", %{}), "external_id"], id)
+  defp update_or_create_tenant(conn, id, params) do
+    case Tenants.get_tenant_by_external_id(id) do
+      {:error, _} -> create_tenant(conn, id, params)
+      {:ok, tenant} -> update_existing_tenant(conn, tenant, params)
+    end
+  end
 
-              with {:ok, %TenantModel{} = tenant} <- Tenants.create_tenant(params) do
-                conn
-                |> put_status(:created)
-                |> put_resp_header("location", ~p"/api/tenants/#{tenant}")
-                |> render(:show, tenant: tenant)
-              end
+  defp create_tenant(conn, id, params) do
+    case Helpers.check_creds_get_ver(params) do
+      {:error, reason} ->
+        conn
+        |> put_status(400)
+        |> render(:error, error: reason)
+
+      {:ok, pg_version} ->
+        params =
+          if pg_version do
+            Map.put(params, "default_parameter_status", %{
+              "server_version" => pg_version
+            })
+          else
+            params
           end
+          |> put_in([Access.key("tenant", %{}), "external_id"], id)
 
-        {:ok, tenant} ->
-          tenant = Repo.preload(tenant, :users)
+        with {:ok, %TenantModel{} = tenant} <- Tenants.create_tenant(params) do
+          conn
+          |> put_status(:created)
+          |> put_resp_header("location", ~p"/api/tenants/#{tenant}")
+          |> render(:show, tenant: tenant)
+        end
+    end
+  end
 
-          with {:ok, %TenantModel{} = tenant} <-
-                 Tenants.update_tenant(tenant, params) do
-            result = Ultravisor.terminate_global(tenant.external_id)
-            Logger.warning("Stop #{tenant.external_id}: #{inspect(result)}")
-            render(conn, :show, tenant: tenant)
-          end
-      end
+  defp update_existing_tenant(conn, tenant, params) do
+    tenant = Repo.preload(tenant, :users)
+
+    with {:ok, %TenantModel{} = tenant} <-
+           Tenants.update_tenant(tenant, params) do
+      result = Ultravisor.terminate_global(tenant.external_id)
+      Logger.warning("Stop #{tenant.external_id}: #{inspect(result)}")
+      render(conn, :show, tenant: tenant)
     end
   end
 
