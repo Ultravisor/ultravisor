@@ -832,6 +832,8 @@ defmodule Ultravisor.ClientHandler do
           {db_pid, db_sock}
 
         {:error, :timeout} ->
+          Telem.pool_checkout_error(System.monotonic_time() - start, id, :timeout)
+
           case mode do
             :transaction -> raise Errors.CheckoutTimeoutError
             :session -> raise Errors.MaxClientConnectionsError

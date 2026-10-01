@@ -48,6 +48,15 @@ defmodule Ultravisor.Monitoring.Telem do
     )
   end
 
+  @spec pool_checkout_error(integer(), Ultravisor.id(), atom()) :: :ok | nil
+  def pool_checkout_error(time, conn_id() = id, reason) do
+    :telemetry.execute(
+      [:ultravisor, :pool, :checkout, :error],
+      %{duration: time},
+      Map.put(Ultravisor.conn_id_to_map(id), :reason, reason)
+    )
+  end
+
   @spec client_query_time(integer(), Ultravisor.id()) :: :ok | nil
   def client_query_time(start, conn_id() = id) do
     :telemetry.execute(
