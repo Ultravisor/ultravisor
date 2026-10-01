@@ -21,7 +21,7 @@ defmodule Ultravisor.DbHandlerTest do
   defp patch_sock_send(result \\ :ok) do
     test_process = self()
 
-    Repatch.patch(Ultravisor.HandlerHelpers, :sock_send, fn socket, payload ->
+    Repatch.patch(Ultravisor.Sock, :send, fn socket, payload ->
       send(test_process, {:sock_send, socket, IO.iodata_to_binary(payload)})
       result
     end)

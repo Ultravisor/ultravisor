@@ -24,11 +24,25 @@ defmodule Ultravisor.Protocol.PreparedStatements do
   def new, do: %__MODULE__{}
 
   @spec process(t(), binary()) ::
-          {:ok, t(), [binary()], [packet()]}
+          {:ok, t(), [binary()], [packet()], non_neg_integer()}
           | {:error, {:unknown_statement, binary()}}
-  def process(%__MODULE__{buffer: buffer} = state, data) do
-    process_packets(buffer <> data, state, [], [])
+  def process(%__MODULE__{buffer: <<>>} = state, data), do: decode(data, state)
+
+  def process(%__MODULE__{buffer: buffer} = state, data), do: decode(buffer <> data, state)
+
+  defp decode(data, state) do
+    case process_packets(data, state, [], []) do
+      {:ok, state, packets, operations} ->
+        {:ok, state, packets, operations, Enum.count(packets, &ready_for_query?/1)}
+
+      {:error, _} = error ->
+        error
+    end
   end
+
+  defp ready_for_query?(<<?Q, _::binary>>), do: true
+  defp ready_for_query?(<<?S, _::binary>>), do: true
+  defp ready_for_query?(_), do: false
 
   defp process_packets(<<>>, state, packets, operations),
     do: {:ok, %{state | buffer: <<>>}, Enum.reverse(packets), Enum.reverse(operations)}
@@ -66,11 +80,8 @@ defmodule Ultravisor.Protocol.PreparedStatements do
       backend_name = backend_name(parse_data)
 
       packet =
-        packet(
-          ?P,
-          length + byte_size(backend_name) - byte_size(client_name),
-          backend_name <> <<0>> <> parse_data
-        )
+        <<?P, length + byte_size(backend_name) - byte_size(client_name)::32, backend_name::binary,
+          0, parse_data::binary>>
 
       statement = %{backend_name: backend_name, parse_packet: packet}
 
@@ -88,8 +99,10 @@ defmodule Ultravisor.Protocol.PreparedStatements do
     else
       case Map.fetch(state.statements, client_name) do
         {:ok, %{backend_name: backend_name, parse_packet: parse_packet}} ->
-          payload = portal <> <<0>> <> backend_name <> <<0>> <> bind_data
-          packet = packet(?B, length + byte_size(backend_name) - byte_size(client_name), payload)
+          packet =
+            <<?B, length + byte_size(backend_name) - byte_size(client_name)::32, portal::binary,
+              0, backend_name::binary, 0, bind_data::binary>>
+
           {:ok, state, packet, {:bind, backend_name, packet, parse_packet}}
 
         :error ->
@@ -107,11 +120,8 @@ defmodule Ultravisor.Protocol.PreparedStatements do
 
       {%{backend_name: backend_name}, statements} ->
         packet =
-          packet(
-            ?C,
-            length + byte_size(backend_name) - byte_size(client_name),
-            <<?S, backend_name::binary, 0>>
-          )
+          <<?C, length + byte_size(backend_name) - byte_size(client_name)::32, ?S,
+            backend_name::binary, 0>>
 
         {:ok, %{state | statements: statements}, packet, {:close, backend_name, packet}}
     end

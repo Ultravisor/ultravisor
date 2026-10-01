@@ -18,11 +18,11 @@ defmodule Ultravisor.DbHandler do
   @behaviour :gen_statem
 
   alias Ultravisor.ClientHandler
-  alias Ultravisor.HandlerHelpers
   alias Ultravisor.Helpers
   alias Ultravisor.Monitoring.Telem
   alias Ultravisor.Protocol.BackendStream
   alias Ultravisor.Protocol.PreparedStatements.BackendStorage.LRU
+  alias Ultravisor.Sock
 
   @type state :: :connect | :authentication | :idle | :busy
 
@@ -142,7 +142,7 @@ defmodule Ultravisor.DbHandler do
         data(sock: sock)
       )
       when passive in [:ssl_passive, :tcp_passive] do
-    HandlerHelpers.setopts(sock, active: @switch_active_count)
+    Sock.setopts(sock, active: @switch_active_count)
 
     :keep_state_and_data
   end
@@ -448,7 +448,7 @@ defmodule Ultravisor.DbHandler do
     end
 
     if state == :busy or mode == :session do
-      HandlerHelpers.sock_send(sock, Server.terminate_message())
+      Sock.send(sock, Server.terminate_message())
       :gen_tcp.close(elem(sock, 1))
     end
 
@@ -518,7 +518,7 @@ defmodule Ultravisor.DbHandler do
 
     case send_startup(sock, auth, tenant, search_path) do
       :ok ->
-        HandlerHelpers.setopts(sock, active: @switch_active_count)
+        Sock.setopts(sock, active: @switch_active_count)
         {:next_state, :authentication, data(data, sock: sock)}
 
       {:error, reason} ->
@@ -537,7 +537,7 @@ defmodule Ultravisor.DbHandler do
   end
 
   defp client_send(sock, payload) do
-    HandlerHelpers.sock_send(sock, payload)
+    Sock.send(sock, payload)
   end
 
   defp chunk_send([], _sock), do: :ok
@@ -545,7 +545,7 @@ defmodule Ultravisor.DbHandler do
   defp chunk_send(iovec, sock) do
     {chunk, rest} = take_chunk(iovec, @tls_send_chunk_size, [])
 
-    case HandlerHelpers.sock_send(sock, chunk) do
+    case Sock.send(sock, chunk) do
       :ok -> chunk_send(rest, sock)
       error -> error
     end
@@ -578,7 +578,7 @@ defmodule Ultravisor.DbHandler do
   @spec try_ssl_handshake(Ultravisor.tcp_sock(), map) ::
           {:ok, Ultravisor.sock()} | {:error, term()}
   defp try_ssl_handshake(sock, %{upstream_ssl: true} = auth) do
-    case HandlerHelpers.sock_send(sock, Server.ssl_request()) do
+    case Sock.send(sock, Server.ssl_request()) do
       :ok -> ssl_recv(sock, auth)
       error -> error
     end
@@ -637,7 +637,7 @@ defmodule Ultravisor.DbHandler do
         ] ++ if(search_path, do: [{"options", "--search_path=#{search_path}"}], else: [])
       )
 
-    HandlerHelpers.sock_send(sock, msg)
+    Sock.send(sock, msg)
   end
 
   defp get_user(auth) do
@@ -685,7 +685,7 @@ defmodule Ultravisor.DbHandler do
           ]
 
           bin = :pgo_protocol.encode_scram_response_message(sasl_initial_response)
-          :ok = HandlerHelpers.sock_send(sock, bin)
+          :ok = Sock.send(sock, bin)
           nonce
 
         other ->
@@ -715,7 +715,7 @@ defmodule Ultravisor.DbHandler do
       )
 
     bin = :pgo_protocol.encode_scram_response_message(client_final_message)
-    :ok = HandlerHelpers.sock_send(sock, bin)
+    :ok = Sock.send(sock, bin)
 
     {:halt, {:authentication_server_first_message, server_proof}}
   end
@@ -736,7 +736,7 @@ defmodule Ultravisor.DbHandler do
       )
 
     bin = :pgo_protocol.encode_scram_response_message(client_final_message)
-    :ok = HandlerHelpers.sock_send(sock, bin)
+    :ok = Sock.send(sock, bin)
 
     {:halt, {:authentication_server_first_message, server_proof}}
   end
@@ -771,7 +771,7 @@ defmodule Ultravisor.DbHandler do
 
     payload = ["md5", Helpers.md5([digest, salt]), 0]
     bin = [?p, <<IO.iodata_length(payload) + 4::signed-32>>, payload]
-    :ok = HandlerHelpers.sock_send(sock, bin)
+    :ok = Sock.send(sock, bin)
     {:halt, :authentication_md5}
   end
 

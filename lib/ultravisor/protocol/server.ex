@@ -82,21 +82,6 @@ defmodule Ultravisor.Protocol.Server do
   end
 
   @doc """
-  Counts complete frontend messages that require a backend ReadyForQuery reply.
-
-  The returned remainder starts at the first incomplete message. Pass that
-  remainder to the next call with the next TCP payload.
-  """
-  @spec frontend_ready_for_query_count(binary(), binary()) ::
-          {:ok, non_neg_integer(), binary()} | {:error, :invalid_packet_length}
-  def frontend_ready_for_query_count(data, buffer \\ <<>>) do
-    with {:ok, packets, rest} <- split_complete_packets(data, buffer) do
-      count = Enum.count(packets, fn {tag, _payload} -> tag in [?Q, ?S] end)
-      {:ok, count, rest}
-    end
-  end
-
-  @doc """
   Gets statuses from complete backend ReadyForQuery messages.
 
   The returned remainder starts at the first incomplete message. Pass that
@@ -473,20 +458,32 @@ defmodule Ultravisor.Protocol.Server do
     end
   end
 
-  def decode_startup_packet(<<len::integer-32, _protocol::binary-4, rest::binary>>) do
-    with {:ok, payload} <- decode_startup_packet_payload(rest) do
-      pkt = %{
-        len: len,
-        payload: payload,
-        tag: :startup
-      }
+  @spec decode_startup_packet(binary(), binary()) ::
+          {:ok, map(), binary()} | {:more, binary()} | {:error, :bad_startup_payload}
+  def decode_startup_packet(data, buffer \\ <<>>) do
+    data = buffer <> data
 
-      {:ok, pkt}
+    case data do
+      <<len::integer-32, _rest::binary>> when len < 8 ->
+        {:error, :bad_startup_payload}
+
+      <<len::integer-32, _rest::binary>> when byte_size(data) < len ->
+        {:more, data}
+
+      <<len::integer-32, _protocol::binary-4, payload::binary-size(len - 8), rest::binary>> ->
+        with {:ok, payload} <- decode_startup_packet_payload(payload) do
+          pkt = %{
+            len: len,
+            payload: payload,
+            tag: :startup
+          }
+
+          {:ok, pkt, rest}
+        end
+
+      _ ->
+        {:more, data}
     end
-  end
-
-  def decode_startup_packet(_) do
-    {:error, :bad_startup_payload}
   end
 
   @spec has_read_only_error?(list) :: boolean
