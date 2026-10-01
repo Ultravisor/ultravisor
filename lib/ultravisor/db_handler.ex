@@ -606,19 +606,25 @@ defmodule Ultravisor.DbHandler do
     tenant = Ultravisor.tenant(id)
 
     :erpc.multicast([node() | Node.list()], fn ->
-      Cachex.del(Ultravisor.Cache, {:secrets, tenant, user})
-      Cachex.del(Ultravisor.Cache, {:secrets_check, tenant, user})
-
-      Registry.dispatch(Ultravisor.Registry.TenantClients, id, fn entries ->
-        for {client_handler, _meta} <- entries,
-            do: send(client_handler, {:disconnect, reason})
-      end)
+      clear_cached_secrets(tenant, user)
+      disconnect_tenant_clients(id, reason)
     end)
 
     Ultravisor.stop(id)
   end
 
   defp handle_authentication_error(data(proxy: true), _reason), do: :ok
+
+  defp clear_cached_secrets(tenant, user) do
+    Cachex.del(Ultravisor.Cache, {:secrets, tenant, user})
+    Cachex.del(Ultravisor.Cache, {:secrets_check, tenant, user})
+  end
+
+  defp disconnect_tenant_clients(id, reason) do
+    Registry.dispatch(Ultravisor.Registry.TenantClients, id, fn entries ->
+      for {client_handler, _meta} <- entries, do: send(client_handler, {:disconnect, reason})
+    end)
+  end
 
   @spec reconnect_timeout(t()) :: pos_integer()
   defp reconnect_timeout(data(proxy: true)),
