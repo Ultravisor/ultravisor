@@ -11,70 +11,6 @@ defmodule Ultravisor.HandlerHelpers do
 
   require Ultravisor.Protocol.Server, as: Server
 
-  @spec sock_send(Ultravisor.sock(), iodata()) :: :ok | {:error, term()}
-  def sock_send({mod, sock}, data) do
-    mod.send(sock, data)
-  end
-
-  @spec sock_close(Ultravisor.sock() | nil | {any(), nil}) :: :ok | {:error, term()}
-  def sock_close(nil), do: :ok
-  def sock_close({_, nil}), do: :ok
-
-  def sock_close({mod, sock}), do: mod.close(sock)
-
-  @spec setopts(Ultravisor.sock(), term()) :: :ok | {:error, term()}
-  def setopts({mod, sock}, opts) do
-    mod = if mod == :gen_tcp, do: :inet, else: mod
-    mod.setopts(sock, opts)
-  end
-
-  @spec try_ssl_handshake(Ultravisor.tcp_sock(), boolean) ::
-          {:ok, Ultravisor.sock()} | {:error, term()}
-  def try_ssl_handshake(sock, true) do
-    case sock_send(sock, Server.ssl_request()) do
-      :ok -> ssl_recv(sock)
-      error -> error
-    end
-  end
-
-  def try_ssl_handshake(sock, false), do: {:ok, sock}
-
-  @spec ssl_recv(Ultravisor.tcp_sock()) :: {:ok, Ultravisor.ssl_sock()} | {:error, term}
-  def ssl_recv({:gen_tcp, sock} = s) do
-    case :gen_tcp.recv(sock, 1, 15_000) do
-      {:ok, <<?S>>} -> ssl_connect(s)
-      {:ok, <<?N>>} -> {:ok, s}
-      {:error, _} = error -> error
-    end
-  end
-
-  @spec ssl_connect(Ultravisor.tcp_sock(), pos_integer) ::
-          {:ok, Ultravisor.ssl_sock()} | {:error, term}
-  def ssl_connect({:gen_tcp, sock}, timeout \\ 5000) do
-    opts = [verify: :verify_none]
-
-    case :ssl.connect(sock, opts, timeout) do
-      {:ok, ssl_sock} -> {:ok, {:ssl, ssl_sock}}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  @spec send_error(Ultravisor.sock(), String.t(), String.t()) :: :ok | {:error, term()}
-  def send_error(sock, code, message) do
-    data = Server.error_message(code, message)
-    sock_send(sock, data)
-  end
-
-  @spec try_get_sni(Ultravisor.sock()) :: String.t() | nil
-  def try_get_sni({:ssl, sock}) do
-    case :ssl.connection_information(sock, [:sni_hostname]) do
-      {:ok, [sni_hostname: sni]} -> List.to_string(sni)
-      _ -> nil
-    end
-  end
-
-  def try_get_sni(_), do: nil
-
   @spec parse_user_info(map) ::
           {String.t() | nil, String.t(), String.t() | nil}
   def parse_user_info(%{"user" => user, "options" => %{"reference" => ref}} = payload) do
@@ -116,8 +52,8 @@ defmodule Ultravisor.HandlerHelpers do
     opts = [:binary, {:packet, :raw}, {:active, true}, ip_version]
     {:ok, sock} = :gen_tcp.connect(host, port, opts)
     sock = {:gen_tcp, sock}
-    :ok = sock_send(sock, msg)
-    :ok = sock_close(sock)
+    :ok = Ultravisor.Sock.send(sock, msg)
+    :ok = Ultravisor.Sock.close(sock)
   end
 
   @doc """
@@ -152,35 +88,5 @@ defmodule Ultravisor.HandlerHelpers do
 
   def filter_cidrs(allow_list, _addr) when is_list(allow_list) do
     []
-  end
-
-  @spec addr_from_sock(Ultravisor.sock()) :: {:ok, :inet.ip_address()} | :error
-  def addr_from_sock({:gen_tcp, port}) do
-    case :inet.peername(port) do
-      {:ok, {:local, _}} ->
-        :error
-
-      {:ok, {:undefined, _}} ->
-        :error
-
-      {:ok, {:unspec, _}} ->
-        :error
-
-      {:ok, {addr, _port}} ->
-        {:ok, addr}
-
-      {:error, _} ->
-        :error
-    end
-  end
-
-  def addr_from_sock({:ssl, port}) do
-    case :ssl.peername(port) do
-      {:ok, {addr, _port}} ->
-        {:ok, addr}
-
-      {:error, _} ->
-        :error
-    end
   end
 end

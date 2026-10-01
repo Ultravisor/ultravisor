@@ -35,6 +35,7 @@ defmodule Ultravisor.ClientHandler do
   alias Ultravisor.HandlerHelpers
   alias Ultravisor.Helpers
   alias Ultravisor.Monitoring.Telem
+  alias Ultravisor.Sock
 
   alias Ultravisor.Protocol.Error
   alias Ultravisor.Protocol.Errors
@@ -64,7 +65,8 @@ defmodule Ultravisor.ClientHandler do
     :tenant_availability_zone,
     :local,
     :app_name,
-    :frontend_buffer,
+    :startup_buffer,
+    :startup_remainder,
     :ready_for_query_count,
     :prepared_statements,
     :prepared_packets,
@@ -143,7 +145,8 @@ defmodule Ultravisor.ClientHandler do
         tenant_availability_zone: nil,
         local: local,
         app_name: nil,
-        frontend_buffer: <<>>,
+        startup_buffer: <<>>,
+        startup_remainder: <<>>,
         ready_for_query_count: 0,
         prepared_statements: PreparedStatements.new(),
         prepared_packets: [],
@@ -168,7 +171,7 @@ defmodule Ultravisor.ClientHandler do
 
   def handle_event(:info, {passive, _socket}, _, data(sock: sock))
       when passive in [:ssl_passive, :tcp_passive] do
-    HandlerHelpers.setopts(sock, active: @switch_active_count)
+    Sock.setopts(sock, active: @switch_active_count)
 
     :keep_state_and_data
   end
@@ -202,24 +205,28 @@ defmodule Ultravisor.ClientHandler do
 
   def handle_event(:info, {_proto, _, _data} = msg, :exchange, data) do
     case Ultravisor.ClientHandler.Exchange.handle(msg, data) do
+      {:incomplete, data} ->
+        :ok = Sock.setopts(data(data, :sock), active: :once)
+        {:keep_state, data}
+
       {:ok, conn_type, data(id: id, sock: sock) = data} ->
-        :ok = HandlerHelpers.sock_send(sock, Server.authentication_ok())
+        :ok = Sock.send(sock, Server.authentication_ok())
         Telem.client_join(:ok, id)
-        HandlerHelpers.setopts(sock, active: @switch_active_count)
+        Sock.setopts(sock, active: @switch_active_count)
         {:keep_state, data, {:next_event, :internal, conn_type}}
 
       {:upgrade, ssl_sock} ->
-        HandlerHelpers.setopts(ssl_sock, active: :once)
+        Sock.setopts(ssl_sock, active: :once)
         {:keep_state, data(data, sock: ssl_sock, ssl: true)}
 
       {:no_upgrade, sock} ->
-        HandlerHelpers.setopts(sock, active: :once)
+        Sock.setopts(sock, active: :once)
         {:keep_state, data(data, sock: sock, ssl: false)}
 
       {:error, :http_request} ->
         Logger.debug("ClientHandler: Client is trying to request HTTP")
 
-        HandlerHelpers.sock_send(
+        Sock.send(
           data(data, :sock),
           ["HTTP/1.1 204 OK\r\nx-app-version: ", Application.spec(:ultravisor, :vsn), "\r\n\r\n"]
         )
@@ -229,7 +236,7 @@ defmodule Ultravisor.ClientHandler do
       {:error, %_{} = error, _data} ->
         msg = Ultravisor.Protocol.Error.encode(error)
 
-        HandlerHelpers.sock_send(data(data, :sock), msg)
+        Sock.send(data(data, :sock), msg)
 
         {:stop, {:shutdown, error}}
 
@@ -279,14 +286,14 @@ defmodule Ultravisor.ClientHandler do
       {:error, :max_clients_reached} ->
         msg = "Max client connections reached"
         Logger.error("ClientHandler: #{msg}")
-        :ok = HandlerHelpers.send_error(sock, "XX000", msg)
+        :ok = Sock.send_error(sock, "XX000", msg)
         Telem.client_join(:fail, id)
         {:stop, {:shutdown, :max_clients_reached}}
 
       {:error, :max_pools_reached} ->
         msg = "Max pools count reached"
         Logger.error("ClientHandler: #{msg}")
-        :ok = HandlerHelpers.send_error(sock, "XX000", msg)
+        :ok = Sock.send_error(sock, "XX000", msg)
         Telem.client_join(:fail, id)
         {:stop, {:shutdown, :max_pools_reached}}
 
@@ -321,7 +328,7 @@ defmodule Ultravisor.ClientHandler do
     exception ->
       msg = Error.encode(exception, __STACKTRACE__)
       data(sock: sock) = data
-      HandlerHelpers.sock_send(sock, msg)
+      Sock.send(sock, msg)
 
       reraise exception, __STACKTRACE__
   end
@@ -353,13 +360,39 @@ defmodule Ultravisor.ClientHandler do
     {:keep_state, data(data, db_pid: {nil, db_pid, db_sock}, mode: :proxy)}
   end
 
-  def handle_event(:internal, {:greetings, ps}, _state, data(id: id, sock: sock) = data) do
+  def handle_event(
+        :internal,
+        {:greetings, ps},
+        _state,
+        data(id: id, sock: sock, startup_remainder: remainder) = data
+      ) do
     {header, <<pid::32, key::32>> = payload} = Server.backend_key_data()
     msg = [ps, [header, payload], Server.ready_for_query()]
     :ok = HandlerHelpers.listen_cancel_query(pid, key)
-    :ok = HandlerHelpers.sock_send(sock, msg)
+    :ok = Sock.send(sock, msg)
     Telem.client_connection_time(data(data, :connection_start), id)
-    {:next_state, :idle, data, handle_actions(data)}
+
+    data = data(data, startup_remainder: <<>>)
+    actions = handle_actions(data)
+
+    case remainder do
+      <<>> ->
+        {:next_state, :idle, data, actions}
+
+      _ ->
+        next_event = {:next_event, :internal, {:startup_remainder, remainder}}
+        {:next_state, :idle, data, [next_event | actions]}
+    end
+  end
+
+  def handle_event(
+        :internal,
+        {:startup_remainder, bin},
+        :idle,
+        data(sock: {transport, sock}) = data
+      ) do
+    proto = if transport == :gen_tcp, do: :tcp, else: transport
+    handle_event(:info, {proto, sock, bin}, :idle, data)
   end
 
   def handle_event(:timeout, {:subscribe, retries}, _state, _) do
@@ -383,37 +416,31 @@ defmodule Ultravisor.ClientHandler do
 
   def handle_event(:timeout, :heartbeat_check, _state, data(sock: sock, heartbeat_interval: hb)) do
     Logger.debug("ClientHandler: Send heartbeat to client")
-    HandlerHelpers.sock_send(sock, Server.application_name())
+    Sock.send(sock, Server.application_name())
     {:keep_state_and_data, {:timeout, hb, :heartbeat_check}}
   end
 
   def handle_event(:info, {proto, _socket, msg}, state, data(mode: :transaction) = data)
       when proto in @proto and is_binary(msg) do
-    {:ok, prepared_statements, prepared_packets, prepared_operations} =
+    {:ok, prepared_statements, prepared_packets, prepared_operations, ready_for_query_count} =
       PreparedStatements.process(data(data, :prepared_statements), msg)
-
-    packets = IO.iodata_to_binary(prepared_packets)
-
-    {:ok, ready_for_query_count, frontend_buffer} =
-      Server.frontend_ready_for_query_count(packets, data(data, :frontend_buffer))
 
     data =
       data(data,
-        frontend_buffer: frontend_buffer,
         ready_for_query_count: ready_for_query_count,
         prepared_statements: prepared_statements,
         prepared_packets: prepared_packets,
         prepared_operations: prepared_operations
       )
 
-    if packets == <<>>,
+    if prepared_packets == [],
       do: {:keep_state, data},
-      else: handle_downstream_data(packets, state, data)
+      else: handle_downstream_data(prepared_packets, state, data)
   rescue
     exception ->
       msg = Error.encode(exception, __STACKTRACE__)
       data(sock: sock) = data
-      HandlerHelpers.sock_send(sock, msg)
+      Sock.send(sock, msg)
 
       reraise exception, __STACKTRACE__
   end
@@ -425,7 +452,7 @@ defmodule Ultravisor.ClientHandler do
     exception ->
       msg = Error.encode(exception, __STACKTRACE__)
       data(sock: sock) = data
-      HandlerHelpers.sock_send(sock, msg)
+      Sock.send(sock, msg)
 
       reraise exception, __STACKTRACE__
   end
@@ -455,7 +482,7 @@ defmodule Ultravisor.ClientHandler do
   # linked DbHandler went down
   def handle_event(:info, {:EXIT, db_pid, reason}, _state, data(sock: sock)) do
     Logger.error("ClientHandler: DbHandler #{inspect(db_pid)} exited #{inspect(reason)}")
-    HandlerHelpers.sock_send(sock, Server.error_message("XX000", "DbHandler exited"))
+    Sock.send(sock, Server.error_message("XX000", "DbHandler exited"))
     {:stop, {:shutdown, :db_handler_exit}}
   end
 
@@ -492,7 +519,7 @@ defmodule Ultravisor.ClientHandler do
       :ready_for_query ->
         Logger.debug("ClientHandler: Client is ready")
 
-        :ok = HandlerHelpers.sock_send(sock, bin)
+        :ok = Sock.send(sock, bin)
 
         db_pid = db_checkin(mode, pool, db_pid)
 
@@ -605,7 +632,7 @@ defmodule Ultravisor.ClientHandler do
     end
   end
 
-  @spec handle_downstream_data(data :: binary(), state, data) ::
+  @spec handle_downstream_data(data :: binary() | [binary()], state, data) ::
           :gen_statem.event_handler_result(data)
         when state: atom() | term(),
              data: term()
@@ -628,7 +655,7 @@ defmodule Ultravisor.ClientHandler do
     # without checking out a direct connection. If there is a linked db_pid,
     # we will forward the message to it
     if is_nil(db_pid),
-      do: :ok = HandlerHelpers.sock_send(sock, Server.ready_for_query()),
+      do: :ok = Sock.send(sock, Server.ready_for_query()),
       else: :ok = forward_to_db(Server.sync(), data)
 
     {:keep_state, data, handle_actions(data)}
@@ -645,6 +672,13 @@ defmodule Ultravisor.ClientHandler do
     Logger.debug("ClientHandler: Receive flush while not idle")
     :ok = forward_to_db(Server.flush(), data)
     {:keep_state, data, handle_actions(data)}
+  end
+
+  # The transaction path delivers a whole frontend batch as a list. A batch of
+  # one packet keeps the exact-message clauses above by delegating the packet.
+  # A larger batch falls through to the clauses below.
+  defp handle_downstream_data([packet], state, data) do
+    handle_downstream_data(packet, state, data)
   end
 
   # incoming query with a single pool
@@ -695,7 +729,7 @@ defmodule Ultravisor.ClientHandler do
 
   @compile {:inline, forward_to_db: 2}
 
-  @spec forward_to_db(binary(), t()) :: :ok | {:error, term()}
+  @spec forward_to_db(iodata(), t()) :: :ok | {:error, term()}
   defp forward_to_db(
          _bin,
          data(
@@ -709,13 +743,13 @@ defmodule Ultravisor.ClientHandler do
     {prefix, cached_parses} = DbHandler.prepare_statements(db_pid, prepared_operations)
     cached_parses = MapSet.new(cached_parses)
     packets = Enum.reject(packets, &MapSet.member?(cached_parses, &1))
-    bin = IO.iodata_to_binary([prefix, packets])
+    bin = [prefix, packets]
 
     # This cast must enter DbHandler before the database can send its reply.
     # DbHandler delays checkin until all counted replies are sent.
     :ok = DbHandler.expect_ready_for_query(db_pid, ready_for_query_count)
 
-    case HandlerHelpers.sock_send(db_sock, bin) do
+    case Sock.send(db_sock, bin) do
       :ok ->
         :ok
 
@@ -727,7 +761,7 @@ defmodule Ultravisor.ClientHandler do
   end
 
   defp forward_to_db(bin, data(db_pid: {_, _db_pid, db_sock})) do
-    case HandlerHelpers.sock_send(db_sock, bin) do
+    case Sock.send(db_sock, bin) do
       :ok ->
         :ok
 

@@ -17,6 +17,7 @@ defmodule Ultravisor.ClientHandler.Exchange do
   alias Ultravisor.HandlerHelpers
   alias Ultravisor.Helpers
   alias Ultravisor.Protocol.Errors
+  alias Ultravisor.Sock
   alias Ultravisor.Tenants
 
   import Ultravisor, only: [conn_id: 1]
@@ -36,8 +37,8 @@ defmodule Ultravisor.ClientHandler.Exchange do
 
     # SSL negotiation, S/N/Error
     if !!downstream_cert and !!downstream_key do
-      :ok = HandlerHelpers.setopts(sock, active: false)
-      :ok = HandlerHelpers.sock_send(sock, "S")
+      :ok = Sock.setopts(sock, active: false)
+      :ok = Sock.send(sock, "S")
 
       opts = [
         verify: :verify_none,
@@ -53,14 +54,18 @@ defmodule Ultravisor.ClientHandler.Exchange do
           {:error, {:ssl_handshake_error, reason}}
       end
     else
-      :ok = HandlerHelpers.sock_send(sock, "N")
+      :ok = Sock.send(sock, "N")
       {:no_upgrade, sock}
     end
   end
 
   def handle({_proto, _sock, bin}, data) do
-    case Server.decode_startup_packet(bin) do
-      {:ok, hello} ->
+    case Server.decode_startup_packet(bin, data(data, :startup_buffer) || <<>>) do
+      {:more, startup_buffer} ->
+        {:incomplete, data(data, startup_buffer: startup_buffer)}
+
+      {:ok, hello, remainder} ->
+        data = data(data, startup_buffer: <<>>, startup_remainder: remainder)
         Logger.debug("ClientHandler: Client startup message: #{inspect(hello)}")
         {user, tenant_or_alias, db_name} = HandlerHelpers.parse_user_info(hello.payload)
 
@@ -92,7 +97,7 @@ defmodule Ultravisor.ClientHandler.Exchange do
          search_path,
          data(sock: sock) = data
        ) do
-    sni_hostname = HandlerHelpers.try_get_sni(sock)
+    sni_hostname = Sock.try_get_sni(sock)
 
     case Tenants.get_user_cache(user, tenant_or_alias, sni_hostname) do
       {:ok, info} ->
@@ -125,7 +130,7 @@ defmodule Ultravisor.ClientHandler.Exchange do
       app_name: data(data, :app_name)
     )
 
-    {:ok, addr} = HandlerHelpers.addr_from_sock(sock)
+    {:ok, addr} = Sock.addr(sock)
 
     with :ok <- check_access(info, addr, data) do
       new_data = update_user_data(data, info, user, id, db_name, mode)
@@ -179,7 +184,7 @@ defmodule Ultravisor.ClientHandler.Exchange do
 
     maybe_refresh_secrets(method, secrets, info, reason, id)
 
-    HandlerHelpers.sock_send(sock, msg)
+    Sock.send(sock, msg)
     {:error, :exchange_error, data}
   end
 
@@ -341,7 +346,7 @@ defmodule Ultravisor.ClientHandler.Exchange do
           {:ok, binary() | nil} | {:error, String.t()}
   defp handle_exchange(sock, {:auth_query_md5 = method, secrets}) do
     salt = :crypto.strong_rand_bytes(4)
-    :ok = HandlerHelpers.sock_send(sock, Server.md5_request(salt))
+    :ok = Sock.send(sock, Server.md5_request(salt))
 
     with {:ok,
           %{
@@ -357,7 +362,7 @@ defmodule Ultravisor.ClientHandler.Exchange do
   end
 
   defp handle_exchange(sock, {method, secrets}) do
-    :ok = HandlerHelpers.sock_send(sock, Server.scram_request())
+    :ok = Sock.send(sock, Server.scram_request())
 
     with {:ok,
           %{
@@ -380,7 +385,7 @@ defmodule Ultravisor.ClientHandler.Exchange do
            ),
          {:ok, key} <- authenticate_exchange(method, secrets, signatures, p) do
       message = "v=#{Base.encode64(signatures.server)}"
-      :ok = HandlerHelpers.sock_send(sock, Server.exchange_message(:final, message))
+      :ok = Sock.send(sock, Server.exchange_message(:final, message))
       {:ok, key}
     else
       {:error, message} -> {:error, message}
@@ -449,7 +454,7 @@ defmodule Ultravisor.ClientHandler.Exchange do
 
   defp reply_first_exchange(sock, method, secrets, channel, nonce, user) do
     {message, signatures} = exchange_first(method, secrets, nonce, user, channel)
-    :ok = HandlerHelpers.sock_send(sock, Server.exchange_message(:first, message))
+    :ok = Sock.send(sock, Server.exchange_message(:first, message))
     {:ok, signatures}
   end
 

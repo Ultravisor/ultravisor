@@ -63,18 +63,6 @@ defmodule Ultravisor.Protocol.ServerTest do
   end
 
   describe "ReadyForQuery boundaries" do
-    test "counts frontend Query and Sync messages across TCP payloads" do
-      query = <<?Q, 4::32>>
-      sync = <<?S, 4::32>>
-      <<sync_prefix::binary-size(3), sync_suffix::binary>> = sync
-
-      assert {:ok, 1, ^sync_prefix} =
-               @subject.frontend_ready_for_query_count(query <> sync_prefix)
-
-      assert {:ok, 1, <<>>} =
-               @subject.frontend_ready_for_query_count(sync_suffix, sync_prefix)
-    end
-
     test "waits for a complete backend ReadyForQuery message" do
       ready_for_query = <<?Z, 5::32, ?I>>
       <<prefix::binary-size(5), suffix::binary>> = ready_for_query
@@ -87,20 +75,44 @@ defmodule Ultravisor.Protocol.ServerTest do
 
     test "rejects a packet length shorter than its length field" do
       assert {:error, :invalid_packet_length} =
-               @subject.frontend_ready_for_query_count(<<?Q, 3::32>>)
+               @subject.backend_ready_for_query_statuses(<<?Z, 3::32>>)
     end
   end
 
-  describe "decode_startup_packet/1" do
-    test "decodes valid startup packet" do
+  describe "decode_startup_packet/2" do
+    test "decodes only the packet declared by its length" do
       payload =
         "user" <> <<0>> <> "postgres" <> <<0>> <> "database" <> <<0>> <> "test_db" <> <<0>>
 
       len = byte_size(payload) + 8
       data = <<len::32, 196_608::32, payload::binary>>
+      extra = <<?Q, 4::32>>
 
-      assert {:ok, %{tag: :startup, payload: %{"user" => "postgres", "database" => "test_db"}}} =
-               @subject.decode_startup_packet(data)
+      assert {:ok, %{tag: :startup, payload: %{"user" => "postgres", "database" => "test_db"}},
+              ^extra} =
+               @subject.decode_startup_packet(data <> extra)
+    end
+
+    test "retains every incomplete packet split" do
+      payload = "user" <> <<0>> <> "postgres" <> <<0>>
+      len = byte_size(payload) + 8
+      packet = <<len::32, 196_608::32, payload::binary>>
+
+      for split <- 1..(byte_size(packet) - 1) do
+        <<prefix::binary-size(^split), suffix::binary>> = packet
+
+        assert {:more, ^prefix} = @subject.decode_startup_packet(prefix)
+
+        assert {:ok, %{tag: :startup, payload: %{"user" => "postgres"}}, <<>>} =
+                 @subject.decode_startup_packet(suffix, prefix)
+      end
+    end
+
+    test "rejects lengths shorter than the startup header" do
+      for len <- 0..7 do
+        assert {:error, :bad_startup_payload} =
+                 @subject.decode_startup_packet(<<len::32>>)
+      end
     end
 
     test "returns error for missing user" do

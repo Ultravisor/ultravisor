@@ -15,7 +15,7 @@ defmodule Ultravisor.Protocol.PreparedStatementsTest do
             [
               {:parse, backend_name, rewritten_parse},
               {:bind, backend_name, rewritten_bind, rewritten_parse}
-            ]} =
+            ], 0} =
              @subject.new() |> @subject.process(parse <> bind)
 
     assert <<?P, _::32, ^backend_name::binary, 0, _::binary>> = rewritten_parse
@@ -27,9 +27,9 @@ defmodule Ultravisor.Protocol.PreparedStatementsTest do
     parse = packet(?P, "client" <> <<0>> <> "select 1" <> <<0, 0::16>>)
     <<prefix::binary-size(6), suffix::binary>> = parse
 
-    assert {:ok, state, [], []} = @subject.new() |> @subject.process(prefix)
+    assert {:ok, state, [], [], 0} = @subject.new() |> @subject.process(prefix)
 
-    assert {:ok, _state, [packet], [{:parse, _name, packet}]} =
+    assert {:ok, _state, [packet], [{:parse, _name, packet}], 0} =
              @subject.process(state, suffix)
   end
 
@@ -44,8 +44,20 @@ defmodule Ultravisor.Protocol.PreparedStatementsTest do
     parse = packet(?P, <<0, "select $1", 0, 0::16>>)
     bind = packet(?B, <<0, 0, 0::16, 0::16, 0::16>>)
 
-    assert {:ok, _state, [^parse, ^bind], []} =
+    assert {:ok, _state, [^parse, ^bind], [], 0} =
              @subject.new() |> @subject.process(parse <> bind)
+  end
+
+  test "counts Query and Sync messages that require a ReadyForQuery reply" do
+    query = packet(?Q, "select 1" <> <<0>>)
+    sync = <<?S, 4::32>>
+    parse = packet(?P, "named" <> <<0>> <> "select 1" <> <<0, 0::16>>)
+
+    assert {:ok, _state, _packets, _operations, 2} =
+             @subject.new() |> @subject.process(query <> sync <> parse)
+
+    assert {:ok, _state, _packets, _operations, 0} =
+             @subject.new() |> @subject.process(parse)
   end
 
   defp packet(tag, payload), do: <<tag, byte_size(payload) + 4::32, payload::binary>>
