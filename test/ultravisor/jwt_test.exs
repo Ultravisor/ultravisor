@@ -28,28 +28,6 @@ defmodule Ultravisor.JwtTest do
     end
   end
 
-  describe "authorize_conn/2" do
-    test "returns ok when role and exp are present" do
-      token = @subject.Token.gen!(%{"role" => "authenticated"}, @secret)
-      assert {:ok, _} = @subject.authorize_conn(token, @secret)
-    end
-
-    test "returns error when role is missing" do
-      # gen! adds exp by default
-      claims = %{"user_id" => 123}
-
-      token =
-        Joken.generate_and_sign!(
-          Joken.Config.default_claims(),
-          claims,
-          Joken.Signer.create("HS256", @secret)
-        )
-
-      assert {:error, "Fields `role` and `exp` are required in JWT"} ==
-               @subject.authorize_conn(token, @secret)
-    end
-  end
-
   describe "verify/2" do
     test "returns error for non-string token" do
       assert {:error, :token_not_a_string} == @subject.verify(123, @secret)

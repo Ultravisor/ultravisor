@@ -58,23 +58,6 @@ defmodule Ultravisor.Jwt do
     Regex.replace(~r/\s|\n/, URI.decode(token), "")
   end
 
-  def authorize_conn(token, secret) do
-    case authorize(token, secret) do
-      {:ok, claims} ->
-        required = MapSet.new(["role", "exp"])
-        claims_keys = Map.keys(claims) |> MapSet.new()
-
-        if MapSet.subset?(required, claims_keys) do
-          {:ok, claims}
-        else
-          {:error, "Fields `role` and `exp` are required in JWT"}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
   @spec verify(String.t(), String.t()) :: {:ok, map()} | {:error, any()}
   def verify(token, secret) when is_binary(token) do
     with {:ok, _claims} <- check_claims_format(token),
