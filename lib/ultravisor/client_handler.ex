@@ -57,7 +57,6 @@ defmodule Ultravisor.ClientHandler do
     :mode,
     :stats,
     :idle_timeout,
-    :last_query,
     :heartbeat_interval,
     :connection_start,
     :log_level,
@@ -137,7 +136,6 @@ defmodule Ultravisor.ClientHandler do
         mode: opts.mode,
         stats: {0, 0},
         idle_timeout: 0,
-        last_query: nil,
         heartbeat_interval: 0,
         connection_start: System.monotonic_time(),
         log_level: nil,
@@ -709,7 +707,7 @@ defmodule Ultravisor.ClientHandler do
   defp handle_downstream_data(bin, :idle, data) do
     ts = System.monotonic_time()
     db_pid = db_checkout(:on_query, data)
-    data = data(data, db_pid: db_pid, query_start: ts, last_query: "")
+    data = data(data, db_pid: db_pid, query_start: ts)
 
     :ok = forward_to_db(bin, data)
 

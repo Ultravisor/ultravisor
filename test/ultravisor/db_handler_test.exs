@@ -37,7 +37,6 @@ defmodule Ultravisor.DbHandlerTest do
   defp forwarding_data(client_sock, mode \\ :session) do
     data(
       caller: self(),
-      reply: nil,
       mode: mode,
       proxy: true,
       client_sock: client_sock,
