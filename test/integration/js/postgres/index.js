@@ -35,7 +35,7 @@ const options = {
   port: process.env.PGPORT,
   db: process.env.PGDATABASE,
   ssl: (process.env.PGSSL ? { rejectUnauthorized: false } : false),
-  prepare: (process.env.PGMODE != 'transaction'),
+  prepare: true,
   user: login.user,
   pass: login.pass,
   idle_timeout,
@@ -761,7 +761,7 @@ t('simple query using simple() with multiple statements', async() => {
   ]
 })
 
-if (options.prepare) {
+if (options.prepare && process.env.PGMODE != 'transaction') {
   t('listen and notify', async() => {
     const sql = postgres(options)
     const channel = 'hello'

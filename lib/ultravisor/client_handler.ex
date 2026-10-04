@@ -472,6 +472,13 @@ defmodule Ultravisor.ClientHandler do
   end
 
   # client closed connection
+  def handle_event(_, {closed, _}, _state, data(id: nil))
+      when closed in [:tcp_closed, :ssl_closed] do
+    Logger.debug("ClientHandler: #{closed} socket closed")
+
+    {:stop, {:shutdown, :socket_closed}}
+  end
+
   def handle_event(_, {closed, _}, _state, data(id: id))
       when closed in [:tcp_closed, :ssl_closed] do
     Logger.debug("ClientHandler: #{closed} socket closed for #{inspect(conn_id(id, :tenant))}")

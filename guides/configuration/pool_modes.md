@@ -22,6 +22,10 @@ The `mode_type` can be one of:
 `transaction` mode assigns a connection to a client for the duration of a single
 transaction.
 
+`transaction` mode supports named prepared statements. When the backend
+connection changes, Ultravisor replays the Parse and Describe messages before
+Bind.
+
 ## Session Mode
 
 `session` mode assigns a connection to a client for the duration of the client

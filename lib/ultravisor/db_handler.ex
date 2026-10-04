@@ -294,9 +294,10 @@ defmodule Ultravisor.DbHandler do
             {packets, cached_parses, LRU.touch(storage, name)}
           else
             {close_packets, storage} = evict_close_packets(storage)
+            describe_packet = describe_statement_packet(parse_packet)
 
-            {Enum.reverse(close_packets, [parse_packet | packets]), cached_parses,
-             LRU.put(storage, name)}
+            {Enum.reverse(close_packets, [describe_packet, parse_packet | packets]),
+             cached_parses, LRU.put(storage, name)}
           end
 
         {:close, name, _packet}, {packets, cached_parses, storage} ->
@@ -304,9 +305,10 @@ defmodule Ultravisor.DbHandler do
       end)
 
     actions =
-      Enum.map(packets, fn
-        <<?P, _::binary>> -> :intercept_parse
-        <<?C, _::binary>> -> :intercept_close
+      Enum.flat_map(packets, fn
+        <<?P, _::binary>> -> [:intercept_parse]
+        <<?C, _::binary>> -> [:intercept_close]
+        <<?D, _::binary>> -> []
       end) ++ List.duplicate(:inject_parse, length(cached_parses))
 
     backend_stream = BackendStream.enqueue(backend_stream, actions)
@@ -333,7 +335,7 @@ defmodule Ultravisor.DbHandler do
       stats: stats,
       backend_buffer: backend_buffer,
       expected_ready_for_query: expected_ready_for_query,
-      pending_parse_completes: _pending_parse_completes,
+      pending_parse_completes: pending_parse_completes,
       backend_stream: backend_stream
     ) = data
 
@@ -345,14 +347,17 @@ defmodule Ultravisor.DbHandler do
     expected_ready_for_query = expected_ready_for_query || 0
     outstanding_ready_for_query = expected_ready_for_query - received_ready_for_query
 
-    complete_response? = last_status == :idle
+    {backend_stream, client_bin, settled_parse_completes} =
+      process_backend_stream(mode, backend_stream, bin)
+
+    pending_parse_completes =
+      max((pending_parse_completes || 0) - settled_parse_completes, 0)
 
     transaction_done? =
-      transaction_done?(mode, expected_ready_for_query, outstanding_ready_for_query, last_status)
+      transaction_done?(mode, expected_ready_for_query, outstanding_ready_for_query, last_status) and
+        pending_parse_completes == 0
 
     stats = maybe_track_network(transaction_done? and not proxy, sock, id, stats)
-
-    {backend_stream, client_bin} = process_backend_stream(mode, backend_stream, bin)
 
     # Queue this cast before the final ReadyForQuery reaches the client. The
     # client can then check the backend in only after it sends that reply.
@@ -363,7 +368,7 @@ defmodule Ultravisor.DbHandler do
         stats: stats,
         backend_buffer: backend_buffer,
         expected_ready_for_query: max(outstanding_ready_for_query, 0),
-        pending_parse_completes: 0,
+        pending_parse_completes: pending_parse_completes,
         backend_stream: backend_stream
       )
 
@@ -504,7 +509,7 @@ defmodule Ultravisor.DbHandler do
   end
 
   defp process_backend_stream(_mode, backend_stream, bin) do
-    {backend_stream || BackendStream.new(), bin}
+    {backend_stream || BackendStream.new(), bin, 0}
   end
 
   defp respond(true, _complete?, _client_sock, _caller, _client_bin, data) do
@@ -555,6 +560,11 @@ defmodule Ultravisor.DbHandler do
     else
       {[], storage}
     end
+  end
+
+  defp describe_statement_packet(<<?P, _length::32, rest::binary>>) do
+    [name | _parse_data] = :binary.split(rest, <<0>>)
+    <<?D, byte_size(name) + 6::32, ?S, name::binary, 0>>
   end
 
   defp close_statement_packet(name), do: <<?C, byte_size(name) + 6::32, ?S, name::binary, 0>>

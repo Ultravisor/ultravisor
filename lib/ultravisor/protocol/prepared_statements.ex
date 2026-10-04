@@ -6,22 +6,28 @@ defmodule Ultravisor.Protocol.PreparedStatements do
   @moduledoc """
   Client-owned named prepared statement state.
 
-  A state belongs to one client connection. Backend names are derived from the
-  Parse contents so a checked-out backend can reuse an equivalent statement.
+  Each Parse gets a client-scoped backend name. This prevents prepared plans
+  from different clients from colliding when a backend connection is reused.
   """
 
   @type statement() :: %{backend_name: binary(), parse_packet: binary()}
-  @type t() :: %__MODULE__{buffer: binary(), statements: %{binary() => statement()}}
+  @type t() ::
+          %__MODULE__{
+            buffer: binary(),
+            client_id: binary(),
+            parse_count: non_neg_integer(),
+            statements: %{binary() => statement()}
+          }
 
   @type packet() ::
           {:parse, binary(), binary()}
           | {:close, binary(), binary()}
           | {:bind, binary(), binary(), binary()}
 
-  defstruct buffer: <<>>, statements: %{}
+  defstruct buffer: <<>>, client_id: <<>>, parse_count: 0, statements: %{}
 
   @spec new() :: t()
-  def new, do: %__MODULE__{}
+  def new, do: %__MODULE__{client_id: :crypto.strong_rand_bytes(16)}
 
   @spec process(t(), binary()) ::
           {:ok, t(), [binary()], [packet()], non_neg_integer()}
@@ -71,13 +77,14 @@ defmodule Ultravisor.Protocol.PreparedStatements do
   defp prepend_operation(nil, operations), do: operations
   defp prepend_operation(operation, operations), do: [operation | operations]
 
-  defp process_packet(?P, length, payload, state) do
+  defp process_packet(?P, length, payload, %__MODULE__{parse_count: count} = state) do
     {client_name, parse_data} = take_name(payload)
 
     if client_name == <<>> do
       {:ok, state, packet(?P, length, payload), nil}
     else
-      backend_name = backend_name(parse_data)
+      count = count + 1
+      backend_name = backend_name(state.client_id, count, parse_data)
 
       packet =
         <<?P, length + byte_size(backend_name) - byte_size(client_name)::32, backend_name::binary,
@@ -85,8 +92,13 @@ defmodule Ultravisor.Protocol.PreparedStatements do
 
       statement = %{backend_name: backend_name, parse_packet: packet}
 
-      {:ok, %{state | statements: Map.put(state.statements, client_name, statement)}, packet,
-       {:parse, backend_name, packet}}
+      state = %{
+        state
+        | parse_count: count,
+          statements: Map.put(state.statements, client_name, statement)
+      }
+
+      {:ok, state, packet, {:parse, backend_name, packet}}
     end
   end
 
@@ -108,6 +120,22 @@ defmodule Ultravisor.Protocol.PreparedStatements do
         :error ->
           {:error, {:unknown_statement, client_name}}
       end
+    end
+  end
+
+  defp process_packet(?D, length, <<?S, rest::binary>>, state) do
+    {client_name, describe_data} = take_name(rest)
+
+    case Map.fetch(state.statements, client_name) do
+      {:ok, %{backend_name: backend_name}} ->
+        packet =
+          <<?D, length + byte_size(backend_name) - byte_size(client_name)::32, ?S,
+            backend_name::binary, 0, describe_data::binary>>
+
+        {:ok, state, packet, nil}
+
+      :error ->
+        {:ok, state, packet(?D, length, <<?S, rest::binary>>), nil}
     end
   end
 
@@ -137,8 +165,11 @@ defmodule Ultravisor.Protocol.PreparedStatements do
     end
   end
 
-  defp backend_name(parse_data) do
-    digest = :crypto.hash(:sha256, parse_data) |> Base.url_encode64(padding: false)
+  defp backend_name(client_id, count, parse_data) do
+    digest =
+      :crypto.hash(:sha256, [client_id, <<count::64>>, parse_data])
+      |> Base.url_encode64(padding: false)
+
     "uv_" <> digest
   end
 

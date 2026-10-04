@@ -7,7 +7,7 @@ defmodule Ultravisor.Protocol.PreparedStatementsTest do
 
   @subject Ultravisor.Protocol.PreparedStatements
 
-  test "rewrites named Parse and Bind packets to a stable backend name" do
+  test "rewrites named Parse and Bind packets to the same backend name" do
     parse = packet(?P, "client" <> <<0>> <> "select $1" <> <<0, 0::16>>)
     bind = packet(?B, <<0, "client", 0, 0::16, 0::16, 0::16>>)
 
@@ -21,6 +21,43 @@ defmodule Ultravisor.Protocol.PreparedStatementsTest do
     assert <<?P, _::32, ^backend_name::binary, 0, _::binary>> = rewritten_parse
     assert <<?B, _::32, 0, ^backend_name::binary, 0, _::binary>> = rewritten_bind
     assert state.statements["client"].backend_name == backend_name
+  end
+
+  test "uses a distinct backend name for each client Parse" do
+    parse = packet(?P, "client" <> <<0>> <> "select 1" <> <<0, 0::16>>)
+
+    assert {:ok, state, [_first_parse], [{:parse, first_name, _}], 0} =
+             @subject.new() |> @subject.process(parse)
+
+    assert {:ok, _state, [_second_parse], [{:parse, second_name, _}], 0} =
+             @subject.process(state, parse)
+
+    assert {:ok, _state, [_other_client_parse], [{:parse, other_client_name, _}], 0} =
+             @subject.new() |> @subject.process(parse)
+
+    assert first_name != second_name
+    assert first_name != other_client_name
+  end
+
+  test "rewrites Describe for a named statement to its backend name" do
+    parse = packet(?P, "client" <> <<0>> <> "select 1" <> <<0, 0::16>>)
+    describe = packet(?D, <<?S, "client", 0>>)
+
+    assert {:ok, _state, [rewritten_parse, rewritten_describe],
+            [{:parse, backend_name, parse_packet}], 0} =
+             @subject.new() |> @subject.process(parse <> describe)
+
+    assert rewritten_parse == parse_packet
+    assert <<?D, _::32, ?S, ^backend_name::binary, 0>> = rewritten_describe
+  end
+
+  test "passes unnamed statement and portal Describe messages through unchanged" do
+    unnamed_describe = packet(?D, <<?S, 0>>)
+    portal_describe = packet(?D, <<?P, "portal", 0>>)
+
+    assert {:ok, _state, [^unnamed_describe, ^portal_describe], [], 0} =
+             @subject.new()
+             |> @subject.process(unnamed_describe <> portal_describe)
   end
 
   test "retains an incomplete packet until its next TCP payload" do
