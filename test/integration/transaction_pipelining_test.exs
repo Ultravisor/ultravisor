@@ -28,19 +28,20 @@ defmodule Ultravisor.Integration.TransactionPipeliningTest do
     on_exit(fn -> :gen_tcp.close(sock) end)
 
     parse = packet(?P, "statement" <> <<0>> <> "SELECT $1::int" <> <<0, 0::16>>)
+    describe = packet(?D, <<?S, "statement", 0>>)
     bind = packet(?B, <<0, "statement", 0, 0::16, 1::16, 1::32, ?1, 0::16>>)
     execute = packet(?E, <<0, 0::32>>)
     sync = <<?S, 4::32>>
 
-    :ok = :gen_tcp.send(sock, [parse, bind, execute, sync])
-    assert [?1, ?2, ?D, ?C, ?Z] = receive_response(sock)
+    :ok = :gen_tcp.send(sock, [parse, describe, bind, execute, sync])
+    assert ~c[1tT2DCZ] = receive_response(sock)
     holder = connect(@tenant)
     on_exit(fn -> :gen_tcp.close(holder) end)
     :ok = :gen_tcp.send(holder, :pgo_protocol.encode_query_message("BEGIN"))
     assert receive_ready_for_queries(holder, 1) == 1
 
     :ok = :gen_tcp.send(sock, [bind, execute, sync])
-    assert [?2, ?D, ?C, ?Z] = receive_response(sock)
+    assert ~c[tT2DCZ] = receive_response(sock)
 
     :ok = :gen_tcp.send(holder, :pgo_protocol.encode_query_message("COMMIT"))
     assert receive_ready_for_queries(holder, 1) == 1
