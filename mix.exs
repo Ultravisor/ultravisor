@@ -15,7 +15,7 @@ defmodule Ultravisor.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers:
         [
-          # :unused
+          :unused
         ] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -70,7 +70,39 @@ defmodule Ultravisor.MixProject do
         Ultravisor.Config,
         {:_, :child_spec, 1},
         {:_, :start_link, 1},
-        {:_, :__using__, 1},
+        {:_, ~r/^__.*__\??$/, :_},
+        # Runtime callbacks and dispatch targets used outside static call paths.
+        {Queproc.Native, :rustler_init, 0},
+        {Ultravisor, :dirty_terminate, 2},
+        {Ultravisor, :try_start_local_pool, 3},
+        {Ultravisor.ClientHandler, :init, 3},
+        {Ultravisor.Encrypted.Binary, :after_decrypt, 1},
+        {Ultravisor.Encrypted.Binary, :before_encrypt, 1},
+        {Ultravisor.Logger.Filters, :filter_client_handler, 2},
+        {Ultravisor.PromEx.Plugins.OsMon, :execute_metrics, 0},
+        {Ultravisor.PromEx.Plugins.OsMon, :execute_metrics, 2},
+        {Ultravisor.PromEx.Plugins.Tenant, :count_registry_keys, 1},
+        {Ultravisor.PromEx.Plugins.Tenant, :emit_proxy_telemetry_for_tenant, 1},
+        {Ultravisor.PromEx.Plugins.Tenant, :emit_telemetry_for_tenant, 1},
+        {Ultravisor.PromEx.Plugins.Tenant, :execute_conn_tenants_metrics, 0},
+        {Ultravisor.PromEx.Plugins.Tenant, :execute_tenant_metrics, 0},
+        {Ultravisor.PromEx.Plugins.Tenant, :execute_tenant_proxy_metrics, 0},
+        {Ultravisor.Protocol.PreparedStatements, :new, 0},
+        {Ultravisor.Release, :migrate, 0},
+        {Ultravisor.SecretChecker, :check, 1},
+        {UltravisorWeb.ChangesetJSON, :error, 1},
+        {UltravisorWeb.Endpoint, :socket_dispatch, 2},
+        {UltravisorWeb.ErrorJSON, :render, 2},
+        {UltravisorWeb.Router, :api, 2},
+        {UltravisorWeb.Router, :browser, 2},
+        {UltravisorWeb.Router, :metrics, 2},
+        {UltravisorWeb.Router, :openapi, 2},
+        {UltravisorWeb.Telemetry, :metrics, 0},
+        {UltravisorWeb.TenantJSON, :show, 1},
+        {UltravisorWeb.TenantJSON, :show_terminate, 1},
+        {UltravisorWeb.WsProxy, :filter_pass_pkt, 1},
+        {UltravisorWeb.WsProxy, :websocket_handle, 2},
+        {UltravisorWeb.WsProxy, :websocket_info, 2},
         fn _, meta -> meta.doc_meta[:comptime] end
       ]
     ]
