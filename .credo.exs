@@ -207,7 +207,13 @@
           {ExSlop.Check.Readability.ObviousComment, [additional_keywords: []]},
           {ExSlop.Check.Readability.StepComment, []},
           {ExSlop.Check.Readability.NarratorComment, []},
-          {ExSlop.Check.Readability.UnaliasedModuleUse, []}
+          {ExSlop.Check.Readability.UnaliasedModuleUse, []},
+
+          #
+          ## Logging
+          #
+          {CredoLogging.NonStructuredLog, []},
+          {CredoLogging.ReportCb, []}
         ],
         disabled: [
           #
