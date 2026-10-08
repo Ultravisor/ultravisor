@@ -21,6 +21,8 @@ defmodule Ultravisor.DbHandler do
   alias Ultravisor.HandlerHelpers
   alias Ultravisor.Helpers
   alias Ultravisor.Monitoring.Telem
+  alias Ultravisor.Protocol.PreparedStatements.BackendStorage.LRU
+  alias Ultravisor.Protocol.BackendStream
 
   @type state :: :connect | :authentication | :idle | :busy
 
@@ -50,7 +52,10 @@ defmodule Ultravisor.DbHandler do
     :proxy,
     :reconnect_retries,
     :backend_buffer,
-    :expected_ready_for_query
+    :prepared_statements,
+    :expected_ready_for_query,
+    :pending_parse_completes,
+    :backend_stream
   ])
 
   @typep t() :: record(:data)
@@ -65,6 +70,11 @@ defmodule Ultravisor.DbHandler do
   @spec expect_ready_for_query(pid(), non_neg_integer()) :: :ok
   def expect_ready_for_query(pid, count),
     do: :gen_statem.cast(pid, {:expect_ready_for_query, count})
+
+  @spec prepare_statements(pid(), [Ultravisor.Protocol.PreparedStatements.packet()]) ::
+          {[binary()], [binary()]}
+  def prepare_statements(pid, operations),
+    do: :gen_statem.call(pid, {:prepare_statements, operations}, 5_000)
 
   @spec get_state_and_mode(pid()) :: {:ok, {state, Ultravisor.mode()}} | {:error, term()}
   def get_state_and_mode(pid) do
@@ -106,7 +116,10 @@ defmodule Ultravisor.DbHandler do
         proxy: args[:proxy] || false,
         reconnect_retries: 0,
         backend_buffer: <<>>,
-        expected_ready_for_query: 0
+        prepared_statements: LRU.new(),
+        expected_ready_for_query: 0,
+        pending_parse_completes: 0,
+        backend_stream: BackendStream.new()
       )
 
     :proc_lib.set_label({__MODULE__, args.id})
@@ -253,6 +266,62 @@ defmodule Ultravisor.DbHandler do
   end
 
   # forward the message to the client
+  def handle_event(
+        {:call, from},
+        {:prepare_statements, operations},
+        _state,
+        data(
+          prepared_statements: prepared_statements,
+          pending_parse_completes: pending,
+          backend_stream: backend_stream
+        ) = data
+      ) do
+    backend_stream = backend_stream || BackendStream.new()
+    pending = pending || 0
+
+    {packets, cached_parses, prepared_statements} =
+      Enum.reduce(operations, {[], [], prepared_statements}, fn
+        {:parse, name, packet}, {packets, cached_parses, storage} ->
+          if LRU.member?(storage, name) do
+            {packets, [packet | cached_parses], LRU.touch(storage, name)}
+          else
+            {close_packets, storage} = evict_close_packets(storage)
+            {Enum.reverse(close_packets, packets), cached_parses, LRU.put(storage, name)}
+          end
+
+        {:bind, name, _packet, parse_packet}, {packets, cached_parses, storage} ->
+          if LRU.member?(storage, name) do
+            {packets, cached_parses, LRU.touch(storage, name)}
+          else
+            {close_packets, storage} = evict_close_packets(storage)
+
+            {Enum.reverse(close_packets, [parse_packet | packets]), cached_parses,
+             LRU.put(storage, name)}
+          end
+
+        {:close, name, _packet}, {packets, cached_parses, storage} ->
+          {packets, cached_parses, LRU.delete(storage, name)}
+      end)
+
+    actions =
+      Enum.map(packets, fn
+        <<?P, _::binary>> -> :intercept_parse
+        <<?C, _::binary>> -> :intercept_close
+      end) ++ List.duplicate(:inject_parse, length(cached_parses))
+
+    backend_stream = BackendStream.enqueue(backend_stream, actions)
+
+    data =
+      data(data,
+        prepared_statements: prepared_statements,
+        pending_parse_completes: pending + length(cached_parses),
+        backend_stream: backend_stream
+      )
+
+    {:keep_state, data, {:reply, from, {Enum.reverse(packets), cached_parses}}}
+  end
+
+  # forward the message to the client
   def handle_event(:info, {proto, _, bin}, _, data(caller: caller, reply: nil) = data)
       when is_pid(caller) and proto in @proto do
     data(
@@ -263,10 +332,13 @@ defmodule Ultravisor.DbHandler do
       sock: sock,
       stats: stats,
       backend_buffer: backend_buffer,
-      expected_ready_for_query: expected_ready_for_query
+      expected_ready_for_query: expected_ready_for_query,
+      pending_parse_completes: _pending_parse_completes,
+      backend_stream: backend_stream
     ) = data
 
     Logger.debug("DbHandler: Got database message #{inspect(bin)}")
+    backend_stream = backend_stream || BackendStream.new()
 
     {received_ready_for_query, status, backend_buffer} =
       if mode == :transaction do
@@ -298,19 +370,26 @@ defmodule Ultravisor.DbHandler do
         do: Telem.network_usage(:db, sock, id, stats),
         else: {nil, stats}
 
+    {backend_stream, client_bin} =
+      if mode == :transaction,
+        do: BackendStream.process(backend_stream, bin),
+        else: {backend_stream, bin}
+
     # Queue this cast before the final ReadyForQuery reaches the client. The
     # client can then check the backend in only after it sends that reply.
-    if transaction_done?, do: ClientHandler.db_status(caller, :ready_for_query, bin)
+    if transaction_done?, do: ClientHandler.db_status(caller, :ready_for_query, client_bin)
 
     data =
       if mode == :transaction do
         data(data,
           stats: stats,
           backend_buffer: backend_buffer,
-          expected_ready_for_query: expected_ready_for_query
+          expected_ready_for_query: expected_ready_for_query,
+          pending_parse_completes: 0,
+          backend_stream: backend_stream
         )
       else
-        data(data, stats: stats)
+        data(data, stats: stats, pending_parse_completes: 0, backend_stream: backend_stream)
       end
 
     cond do
@@ -318,16 +397,16 @@ defmodule Ultravisor.DbHandler do
         {:next_state, :idle, data(data, caller: nil, client_sock: nil)}
 
       complete_response? ->
-        client_send(client_sock, bin)
+        client_send(client_sock, client_bin)
         ClientHandler.save_stats(caller)
         {:next_state, :idle, data}
 
       mode == :transaction ->
-        client_send(client_sock, bin)
+        client_send(client_sock, client_bin)
         {:keep_state, data}
 
       true ->
-        client_send(client_sock, bin)
+        client_send(client_sock, client_bin)
         :keep_state_and_data
     end
   end
@@ -337,7 +416,7 @@ defmodule Ultravisor.DbHandler do
     {:keep_state, data(data, expected_ready_for_query: expected_ready_for_query + count)}
   end
 
-  def handle_event(:cast, {:expect_ready_for_query, _bin}, _, _data), do: :keep_state_and_data
+  def handle_event(:cast, {:expect_ready_for_query, _count}, _, _data), do: :keep_state_and_data
 
   def handle_event(:cast, {:checkout, client_sock, caller}, state, data() = data) do
     Logger.debug("DbHandler: checkout call when state was #{state}")
@@ -471,6 +550,19 @@ defmodule Ultravisor.DbHandler do
       error -> error
     end
   end
+
+  # Prepared statement cache is capped at 200 entries. Evict the least
+  # recently used statement and return the Close packets to send upstream.
+  defp evict_close_packets(storage) do
+    if LRU.size(storage) >= 200 do
+      {evicted, storage} = LRU.evict(storage, 1)
+      {Enum.map(evicted, &close_statement_packet/1), storage}
+    else
+      {[], storage}
+    end
+  end
+
+  defp close_statement_packet(name), do: <<?C, byte_size(name) + 6::32, ?S, name::binary, 0>>
 
   defp take_chunk([bin | rest], remaining, acc) when byte_size(bin) <= remaining do
     take_chunk(rest, remaining - byte_size(bin), [bin | acc])
