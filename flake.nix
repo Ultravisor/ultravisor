@@ -9,23 +9,9 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   inputs.flake-parts.url = "github:hercules-ci/flake-parts";
 
-  inputs.devenv = {
-    url = "github:cachix/devenv";
-    inputs.nixpkgs.follows = "nixpkgs";
-  };
-
   outputs =
-    {
-      self,
-      flake-parts,
-      devenv,
-      ...
-    }@inputs:
+    { flake-parts, ... }@inputs:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [
-        devenv.flakeModule
-      ];
-
       flake = { };
 
       systems = [
@@ -36,13 +22,7 @@
       ];
 
       perSystem =
-        {
-          self',
-          inputs',
-          pkgs,
-          lib,
-          ...
-        }:
+        { self', pkgs, ... }:
         {
           formatter = pkgs.nixfmt-tree;
 
@@ -54,63 +34,6 @@
               erl.callPackage ./nix/package.nix { };
 
             default = self'.packages.ultravisor;
-          };
-
-          devenv.shells.default = {
-            languages.elixir = {
-              enable = true;
-              package = pkgs.beam.packages.erlang_29.elixir_1_20;
-            };
-
-            languages.erlang = {
-              enable = true;
-              package = pkgs.beam.packages.erlang_29.erlang;
-            };
-
-            packages = [
-              pkgs.pgbouncer
-              pkgs.pgdog
-              pkgs.xan
-
-              pkgs.cargo-outdated
-              pkgs.cargo-nextest
-            ];
-
-            services.postgres = {
-              enable = true;
-              package = pkgs.postgresql_18_jit;
-              initialScript = ''
-                ${builtins.readFile ./dev/postgres/00-setup.sql}
-
-                CREATE USER postgres SUPERUSER PASSWORD 'postgres';
-              '';
-              listen_addresses = "127.0.0.1";
-              port = 6432;
-              settings = {
-                max_prepared_transactions = 262143;
-                random_page_cost = 1.1;
-              };
-            };
-
-            process.manager.implementation = "honcho";
-
-            # Force connection through TCP instead of Unix socket
-            env.PGHOST = lib.mkForce "";
-
-            # env.DATABASE_URL = "postgres://postgres:postgres@localhost:6432/";
-            env.MIMALLOC = "${pkgs.mimalloc}";
-            env.JEMALLOC = "${pkgs.jemalloc}";
-            env.SNMALLOC = "${pkgs.snmalloc}";
-
-            languages.deno.enable = true;
-
-            languages.javascript = {
-              enable = true;
-              bun.enable = true;
-              yarn.enable = true;
-            };
-
-            languages.rust.enable = true;
           };
         };
     };
