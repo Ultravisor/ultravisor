@@ -29,7 +29,7 @@
           packages = {
             ultravisor =
               let
-                erl = pkgs.beam_nox.packages.erlang_29;
+                erl = pkgs.beam.packages.erlang_29;
               in
               erl.callPackage ./nix/package.nix { };
 

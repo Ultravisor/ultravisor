@@ -76,12 +76,11 @@ in
   env.JEMALLOC = "${pkgs.jemalloc}";
   env.SNMALLOC = "${pkgs.snmalloc}";
 
-  languages.deno.enable = true;
-
   languages.javascript = {
     enable = true;
     bun.enable = true;
-    yarn.enable = true;
+    npm.enable = true;
+    pnpm.enable = true;
   };
 
   languages.rust.enable = true;
