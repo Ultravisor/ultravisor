@@ -21,7 +21,9 @@ defmodule Ultravisor.Integration.ExternalTest do
       get_tool("pnpm") || get_tool("npm") || get_tool("bun") ||
         raise "Cannot find neither Yarn nor NPM"
 
-    assert {_, 0} = System.cmd(npm, ~w[install], cd: suite("js"))
+    Enum.each(~w[js], fn name ->
+      assert {_, 0} = System.cmd(npm, ~w[install], cd: suite(name))
+    end)
 
     {:ok, npm: npm}
   end
@@ -40,18 +42,24 @@ defmodule Ultravisor.Integration.ExternalTest do
 
   @tag library: "postgres.js", suite: "js"
   test "Postgres.js", ctx do
-    assert_run(ctx, suite_args(ctx.runtime))
+    assert_run(ctx, suite_args(ctx.runtime, "postgres/index.test.js"))
   end
 
-  # The suite uses the built-in Node test runner. Bun runs `node:test` files
-  # through its test command, and that command only picks up files with a
-  # `.test.js` name. The per-test timeout matches the default that the suite
-  # reads from the TIMEOUT environment variable.
-  defp suite_args("node"),
-    do: ~w[--test --test-timeout=5000 --trace-deprecation postgres/index.test.js]
+  @tag library: "pg", suite: "js"
+  test "pg", ctx do
+    assert_run(ctx, suite_args(ctx.runtime, "pg/index.test.js"))
+  end
 
-  defp suite_args("bun"),
-    do: ~w[test --trace-deprecation postgres/index.test.js]
+  # Both suites use the built-in Node test runner. Bun runs `node:test` files
+  # through its test command, and that command only picks up files with a
+  # `.test.js` name. `--test-timeout` matches the 5 second per-test default of
+  # the postgres.js suite, which reads it from the TIMEOUT environment
+  # variable.
+  defp suite_args("node", entry),
+    do: ~w[--test --test-timeout=5000 --trace-deprecation] ++ [entry]
+
+  defp suite_args("bun", entry),
+    do: ~w[test --timeout=5000 --trace-deprecation] ++ [entry]
 
   defp assert_run(ctx, args, opts \\ []) do
     suite = suite(ctx.suite)

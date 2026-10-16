@@ -4,10 +4,9 @@
   "main": "index.js",
   "type": "module",
   "license": "MIT",
-  "scripts": {
-    "test:postgres": "node --test --test-timeout=5000 ./postgres/index.test.js"
-  },
   "dependencies": {
-    "postgres": "^3.4.9"
+    "postgres": "^3.4.9",
+    "pg": "^8.23.1",
+    "pg-copy-streams": "^7.0.0"
   }
 }
