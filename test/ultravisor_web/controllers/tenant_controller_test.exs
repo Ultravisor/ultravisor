@@ -6,7 +6,6 @@
 
 defmodule UltravisorWeb.TenantControllerTest do
   use UltravisorWeb.ConnCase, async: true
-  use Repatch.ExUnit
 
   import Ultravisor.TenantsFixtures
   import ExUnit.CaptureLog
@@ -46,8 +45,6 @@ defmodule UltravisorWeb.TenantControllerTest do
   }
 
   setup %{conn: conn} do
-    Repatch.patch(Ultravisor.Helpers, :check_creds_get_ver, fn _ -> {:ok, "0.0"} end)
-
     jwt = gen_token()
 
     new_conn =
@@ -73,7 +70,7 @@ defmodule UltravisorWeb.TenantControllerTest do
 
   describe "create tenant" do
     test "renders tenant when data is valid", %{conn: conn} do
-      conn = put(conn, ~p"/api/tenants/dev_tenant", tenant: @create_attrs)
+      conn = put(conn, ~p"/api/tenants/dev_tenant", tenant: create_attrs())
       assert %{"external_id" => _id} = json_response(conn, 201)["data"]
     end
 
@@ -150,6 +147,22 @@ defmodule UltravisorWeb.TenantControllerTest do
       conn = get(conn, ~p"/api/tenants/#{non_existing_tenant_id}")
       assert json_response(conn, 404)["error"] == "Not Found"
     end
+  end
+
+  # The controller runs the real credential check, which opens a connection to
+  # the tenant database. These coordinates point at the test database.
+  defp create_attrs do
+    db = Ultravisor.Repo.config()
+
+    %{
+      @create_attrs
+      | db_database: db[:database],
+        db_host: db[:hostname],
+        db_port: db[:port],
+        users: [
+          %{@user_valid_attrs | db_user: db[:username], db_password: db[:password]}
+        ]
+    }
   end
 
   defp create_tenant(_) do
