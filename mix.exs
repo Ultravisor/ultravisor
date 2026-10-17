@@ -161,7 +161,7 @@ defmodule Ultravisor.MixProject do
       {:cachex, "~> 4.0"},
       {:inet_cidr, "~> 1.0.0"},
       {:observer_cli, "~> 2.0"},
-      {:sauron, github: "hauleth/sauron"},
+      {:sauron, "~> 1.0"},
       {:mix_unused, github: "hauleth/mix_unused", runtime: false},
 
       # Documentation
