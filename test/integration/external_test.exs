@@ -5,13 +5,20 @@
 # SPDX-License-Identifier: EUPL-1.2
 
 defmodule Ultravisor.Integration.ExternalTest do
-  use Ultravisor.E2ECase, async: false
+  use Ultravisor.E2ECase,
+    async: false,
+    parameterize:
+      for(
+        runtime <- ~w[node bun],
+        mode <- ~w[transaction session],
+        do: %{runtime: runtime, mode: mode}
+      )
 
   @moduletag integration: true
 
   setup_all do
     npm =
-      get_tool("yarn") || get_tool("npm") || get_tool("bun") ||
+      get_tool("pnpm") || get_tool("npm") || get_tool("bun") ||
         raise "Cannot find neither Yarn nor NPM"
 
     assert {_, 0} = System.cmd(npm, ~w[install], cd: suite("js"))
@@ -31,39 +38,20 @@ defmodule Ultravisor.Integration.ExternalTest do
     end
   end
 
-  describe "Postgres.js" do
-    @describetag library: "postgres.js", suite: "js"
-
-    @tag runtime: "node", mode: "session"
-    test "Node session", ctx do
-      assert_run(ctx, ~w[postgres/index.js])
-    end
-
-    @tag runtime: "node", mode: "transaction"
-    test "Node transaction", ctx do
-      assert_run(ctx, ~w[postgres/index.js])
-    end
-
-    @tag runtime: "bun", mode: "session"
-    test "Bun session", ctx do
-      assert_run(ctx, ~w[postgres/index.js])
-    end
-
-    @tag runtime: "bun", mode: "transaction"
-    test "Bun transaction", ctx do
-      assert_run(ctx, ~w[postgres/index.js], suite: "js")
-    end
-
-    @tag runtime: "deno", mode: "session"
-    test "Deno session", ctx do
-      assert_run(ctx, ~w[run --allow-all postgres/index.js], suite: "js")
-    end
-
-    @tag runtime: "deno", mode: "transaction"
-    test "Deno transaction", ctx do
-      assert_run(ctx, ~w[run --allow-all postgres/index.js], suite: "js")
-    end
+  @tag library: "postgres.js", suite: "js"
+  test "Postgres.js", ctx do
+    assert_run(ctx, suite_args(ctx.runtime))
   end
+
+  # The suite uses the built-in Node test runner. Bun runs `node:test` files
+  # through its test command, and that command only picks up files with a
+  # `.test.js` name. The per-test timeout matches the default that the suite
+  # reads from the TIMEOUT environment variable.
+  defp suite_args("node"),
+    do: ~w[--test --test-timeout=5000 --trace-deprecation postgres/index.test.js]
+
+  defp suite_args("bun"),
+    do: ~w[test --trace-deprecation postgres/index.test.js]
 
   defp assert_run(ctx, args, opts \\ []) do
     suite = suite(ctx.suite)
@@ -75,8 +63,7 @@ defmodule Ultravisor.Integration.ExternalTest do
         {"PGHOST", "localhost"},
         {"PGPORT", to_string(port(ctx.mode))},
         {"PGUSER", ctx.user},
-        {"PGPASS", "postgres"},
-        {"FAIL_FAST", to_string(ExUnit.configuration()[:max_failures] != :infinity)}
+        {"PGPASS", "postgres"}
       ] ++ (opts[:env] || [])
 
     assert {output, code} =
