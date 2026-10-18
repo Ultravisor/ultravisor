@@ -40,13 +40,9 @@ defmodule Ultravisor.DbHandler do
     :sock,
     :auth,
     :user,
-    :tenant,
-    :parameter_status,
     :nonce,
-    :server_proof,
     :stats,
     :mode,
-    :reply,
     :caller,
     :client_sock,
     :proxy,
@@ -105,13 +101,9 @@ defmodule Ultravisor.DbHandler do
         sock: nil,
         auth: args.auth,
         user: args.user,
-        tenant: args.tenant,
-        parameter_status: %{},
         nonce: nil,
-        server_proof: nil,
         stats: {0, 0},
         mode: args.mode,
-        reply: nil,
         caller: args[:caller] || nil,
         client_sock: args[:client_sock] || nil,
         proxy: args[:proxy] || false,
@@ -285,7 +277,7 @@ defmodule Ultravisor.DbHandler do
   end
 
   # forward the message to the client
-  def handle_event(:info, {proto, _, bin}, _, data(caller: caller, reply: nil) = data)
+  def handle_event(:info, {proto, _, bin}, _, data(caller: caller) = data)
       when is_pid(caller) and proto in @proto do
     data(
       id: id,
@@ -346,7 +338,7 @@ defmodule Ultravisor.DbHandler do
   def handle_event(:cast, {:checkout, client_sock, caller}, state, data() = data) do
     Logger.debug("DbHandler: checkout call when state was #{state}")
 
-    # store the reply ref and send it when the state is idle
+    # record the lease target; the caller is notified when the backend is idle
     true = state in [:idle, :busy]
 
     {:keep_state, data(data, client_sock: client_sock, caller: caller)}
@@ -622,8 +614,8 @@ defmodule Ultravisor.DbHandler do
       {:authentication_sasl, nonce} ->
         {:keep_state, data(data, nonce: nonce)}
 
-      {:authentication_server_first_message, server_proof} ->
-        {:keep_state, data(data, server_proof: server_proof)}
+      {:authentication_server_first_message, _server_proof} ->
+        {:keep_state, data}
 
       {:error_response, error} ->
         handle_auth_error_response(error, data)
@@ -674,7 +666,7 @@ defmodule Ultravisor.DbHandler do
     end
 
     :proc_lib.init_ack({:ok, self(), sock})
-    check_caller(data(data, parameter_status: ps, reconnect_retries: 0))
+    check_caller(data(data, reconnect_retries: 0))
   end
 
   defp handle_auth_undefined(other, data) do
@@ -812,10 +804,6 @@ defmodule Ultravisor.DbHandler do
 
   defp handle_auth_pkts(%{tag: :error_response, payload: error}, _acc, _data),
     do: {:halt, {:error_response, error}}
-
-  defp check_caller(data(sock: sock, reply: from) = data) when not is_nil(from) do
-    {:next_state, :busy, data(data, reply: nil), {:reply, from, sock}}
-  end
 
   defp check_caller(data(caller: caller) = data) when is_pid(caller) do
     {:next_state, :busy, data}
