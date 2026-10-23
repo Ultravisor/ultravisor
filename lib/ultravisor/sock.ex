@@ -15,74 +15,44 @@ defmodule Ultravisor.Sock do
   TLS server name when available, or `nil`. `addr/1` returns the peer IP
   address, or `:error` when the peer address is unavailable or is not an IP
   address.
+
+  This module declares the socket contract and forwards each call to the
+  implementation module that `impl/0` returns. `Ultravisor.Sock.Default` is the
+  default implementation. The value of `:ultravisor_sock_impl` in the process
+  dictionary selects the implementation module for the current process. A test
+  sets that key to use a mock in place of the real socket operations.
   """
-
-  import Kernel, except: [send: 2]
-
-  alias Ultravisor.Protocol.Server
 
   @type t() :: tcp() | ssl()
 
   @type ssl() :: {:ssl, :ssl.sslsocket()}
   @type tcp() :: {:gen_tcp, :gen_tcp.socket()}
 
+  @callback send(t(), iodata()) :: :ok | {:error, term()}
+  @callback close(t() | nil | {any(), nil}) :: :ok | {:error, term()}
+  @callback setopts(t(), term()) :: :ok | {:error, term()}
+  @callback send_error(Ultravisor.sock(), String.t(), String.t()) :: :ok | {:error, term()}
+  @callback try_get_sni(Ultravisor.sock()) :: String.t() | nil
+  @callback addr(t()) :: {:ok, :inet.ip_address()} | :error
+
   @spec send(t(), iodata()) :: :ok | {:error, term()}
-  def send({:gen_tcp, sock}, data), do: :gen_tcp.send(sock, data)
-  def send({:ssl, sock}, data), do: :ssl.send(sock, data)
+  def send(sock, data), do: impl().send(sock, data)
 
   @spec close(t() | nil | {any(), nil}) :: :ok | {:error, term()}
-  def close(nil), do: :ok
-  def close({_, nil}), do: :ok
-
-  def close({mod, sock}), do: mod.close(sock)
+  def close(sock), do: impl().close(sock)
 
   @spec setopts(t(), term()) :: :ok | {:error, term()}
-  def setopts({:gen_tcp, sock}, opts), do: :inet.setopts(sock, opts)
-  def setopts({:ssl, sock}, opts), do: :ssl.setopts(sock, opts)
+  def setopts(sock, opts), do: impl().setopts(sock, opts)
 
   @spec send_error(Ultravisor.sock(), String.t(), String.t()) :: :ok | {:error, term()}
-  def send_error(sock, code, message) do
-    data = Server.error_message(code, message)
-    send(sock, data)
-  end
+  def send_error(sock, code, message), do: impl().send_error(sock, code, message)
 
   @spec try_get_sni(Ultravisor.sock()) :: String.t() | nil
-  def try_get_sni({:ssl, sock}) do
-    case :ssl.connection_information(sock, [:sni_hostname]) do
-      {:ok, [sni_hostname: sni]} -> List.to_string(sni)
-      _ -> nil
-    end
-  end
-
-  def try_get_sni(_), do: nil
+  def try_get_sni(sock), do: impl().try_get_sni(sock)
 
   @spec addr(t()) :: {:ok, :inet.ip_address()} | :error
-  def addr({:gen_tcp, port}) do
-    case :inet.peername(port) do
-      {:ok, {:local, _}} ->
-        :error
+  def addr(sock), do: impl().addr(sock)
 
-      {:ok, {:undefined, _}} ->
-        :error
-
-      {:ok, {:unspec, _}} ->
-        :error
-
-      {:ok, {addr, _port}} ->
-        {:ok, addr}
-
-      {:error, _} ->
-        :error
-    end
-  end
-
-  def addr({:ssl, port}) do
-    case :ssl.peername(port) do
-      {:ok, {addr, _port}} ->
-        {:ok, addr}
-
-      {:error, _} ->
-        :error
-    end
-  end
+  @spec impl() :: module()
+  defp impl, do: Process.get(:ultravisor_sock_impl, Ultravisor.Sock.Default)
 end

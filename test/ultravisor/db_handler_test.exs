@@ -6,7 +6,6 @@
 
 defmodule Ultravisor.DbHandlerTest do
   use ExUnit.Case, async: true
-  use Repatch.ExUnit
 
   import Ultravisor, only: [conn_id: 1]
   import Ultravisor.DbHandler, only: [data: 1]
@@ -21,7 +20,9 @@ defmodule Ultravisor.DbHandlerTest do
   defp patch_sock_send(result \\ :ok) do
     test_process = self()
 
-    Repatch.patch(Ultravisor.Sock, :send, fn socket, payload ->
+    Process.put(:ultravisor_sock_impl, Ultravisor.Sock.Mock)
+
+    Hammox.stub(Ultravisor.Sock.Mock, :send, fn socket, payload ->
       send(test_process, {:sock_send, socket, IO.iodata_to_binary(payload)})
       result
     end)
@@ -64,6 +65,14 @@ defmodule Ultravisor.DbHandlerTest do
     assert_receive {^ref, recv}
 
     {send, recv}
+  end
+
+  # `Hammox` checks the socket argument against the `Ultravisor.Sock`
+  # typespec, and a real port matches `{:gen_tcp, :gen_tcp.socket()}`. The
+  # mocked `send/2` intercepts the call before any byte reaches the socket.
+  defp gen_tcp_socket do
+    {:ok, socket} = :gen_tcp.listen(0, mode: :binary, active: false)
+    {:gen_tcp, socket}
   end
 
   describe "handle_event/4" do
@@ -184,7 +193,7 @@ defmodule Ultravisor.DbHandlerTest do
   describe "backend response framing" do
     test "retains each partial ReadyForQuery split in session mode" do
       patch_sock_send()
-      socket = {:gen_tcp, :downstream}
+      socket = gen_tcp_socket()
       ready = Server.ready_for_query()
 
       for split <- 1..(byte_size(ready) - 1) do
@@ -208,7 +217,7 @@ defmodule Ultravisor.DbHandlerTest do
 
     test "does not treat a DataRow payload ending in ReadyForQuery bytes as complete" do
       patch_sock_send()
-      socket = {:gen_tcp, :downstream}
+      socket = gen_tcp_socket()
       collision = <<?D, 10::32, Server.ready_for_query()::binary>>
 
       assert {:keep_state, data(backend_buffer: <<>>)} =
@@ -224,7 +233,7 @@ defmodule Ultravisor.DbHandlerTest do
 
     test "detects the last ReadyForQuery in pipelined session responses" do
       patch_sock_send()
-      socket = {:gen_tcp, :downstream}
+      socket = gen_tcp_socket()
       row = <<?D, 5::32, 0>>
       payload = row <> Server.ready_for_query() <> Server.ready_for_query()
 
@@ -244,7 +253,7 @@ defmodule Ultravisor.DbHandlerTest do
       row_payload = :binary.copy("x", 20_000)
       frame = <<?D, 20_004::32, row_payload::binary>>
 
-      for socket <- [{:gen_tcp, :tcp_downstream}, {:ssl, :tls_downstream}] do
+      for socket <- [gen_tcp_socket(), {:ssl, :tls_downstream}] do
         payload = frame <> Server.ready_for_query()
 
         assert {:next_state, :idle, _} =
@@ -306,7 +315,7 @@ defmodule Ultravisor.DbHandlerTest do
 
     test "sends TCP database responses without chunking" do
       patch_sock_send()
-      socket = {:gen_tcp, :downstream}
+      socket = gen_tcp_socket()
       row_payload = :binary.copy("x", 20_000)
       payload = <<?D, 20_004::32, row_payload::binary>>
 

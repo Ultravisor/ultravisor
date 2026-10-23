@@ -25,7 +25,6 @@ defmodule Ultravisor.MixProject do
       unused: unused(),
       dialyzer: [plt_add_apps: [:mix], flags: [:no_opaque]],
       test_coverage: [
-        # tool: Repatch.CoverTool,
         tool: ExCoveralls
       ],
       hex: [
@@ -192,7 +191,7 @@ defmodule Ultravisor.MixProject do
       {:stream_data, "~> 1.0", only: [:dev, :test]},
       {:req, "~> 0.5", only: [:test]},
       {:junit_formatter, "~> 3.4", only: [:test]},
-      {:repatch, "~> 1.5", only: [:test]}
+      {:hammox, "~> 1.0", only: [:test]}
     ]
   end
 
